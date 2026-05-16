@@ -21,6 +21,8 @@ def test_init_db_creates_tables() -> None:
     names = {r["name"] for r in tables}
     assert "repos" in names
     assert "remotes" in names
+    assert "tags" in names
+    assert "repo_tags" in names
     store.close()
 
 
@@ -137,4 +139,103 @@ def test_schema_version_set() -> None:
     conn = store._connect()
     row = conn.execute("SELECT version FROM schema_version").fetchone()
     assert row["version"] == 1
+    store.close()
+
+
+def test_set_alias() -> None:
+    store = _make_store()
+    rid = store.upsert_repo(Repo(name="x", path="/x"))
+    store.set_alias(rid, "my-alias")
+    repo = store.get_repo_by_path("/x")
+    assert repo is not None
+    assert repo.alias == "my-alias"
+    store.close()
+
+
+def test_upsert_preserves_alias_on_rescan() -> None:
+    store = _make_store()
+    store.upsert_repo(Repo(name="x", path="/x"))
+    store.set_alias(store.get_repo_by_path("/x").id, "my-alias")
+    # Simulate rescan: scanner creates a new Repo with empty alias
+    store.upsert_repo(Repo(name="x", path="/x", last_synced="2025-06-01T00:00:00"))
+    repo = store.get_repo_by_path("/x")
+    assert repo is not None
+    assert repo.alias == "my-alias"
+    store.close()
+
+
+def test_add_and_get_tags() -> None:
+    store = _make_store()
+    rid = store.upsert_repo(Repo(name="x", path="/x"))
+    store.add_tag(rid, "python")
+    store.add_tag(rid, "api")
+    tags = store.get_tags_for_repo(rid)
+    assert set(tags) == {"python", "api"}
+    store.close()
+
+
+def test_add_duplicate_tag_idempotent() -> None:
+    store = _make_store()
+    rid = store.upsert_repo(Repo(name="x", path="/x"))
+    store.add_tag(rid, "python")
+    store.add_tag(rid, "python")
+    tags = store.get_tags_for_repo(rid)
+    assert tags == ["python"]
+    store.close()
+
+
+def test_remove_tag() -> None:
+    store = _make_store()
+    rid = store.upsert_repo(Repo(name="x", path="/x"))
+    store.add_tag(rid, "python")
+    store.add_tag(rid, "api")
+    store.remove_tag(rid, "python")
+    tags = store.get_tags_for_repo(rid)
+    assert tags == ["api"]
+    store.close()
+
+
+def test_get_all_tags() -> None:
+    store = _make_store()
+    r1 = store.upsert_repo(Repo(name="a", path="/a"))
+    r2 = store.upsert_repo(Repo(name="b", path="/b"))
+    store.add_tag(r1, "zebra")
+    store.add_tag(r1, "alpha")
+    store.add_tag(r2, "beta")
+    tags = store.get_all_tags()
+    assert tags == ["alpha", "beta", "zebra"]
+    store.close()
+
+
+def test_search_repos_by_tag() -> None:
+    store = _make_store()
+    r1 = store.upsert_repo(Repo(name="repo-a", path="/a"))
+    r2 = store.upsert_repo(Repo(name="repo-b", path="/b"))
+    store.add_tag(r1, "python")
+    store.add_tag(r2, "python")
+    store.add_tag(r2, "api")
+    results = store.search_repos("python")
+    assert len(results) == 2
+    names = {r.name for r in results}
+    assert names == {"repo-a", "repo-b"}
+    store.close()
+
+
+def test_search_repos_by_tag_partial() -> None:
+    store = _make_store()
+    r1 = store.upsert_repo(Repo(name="repo-a", path="/a"))
+    store.add_tag(r1, "python-api")
+    results = store.search_repos("api")
+    assert len(results) == 1
+    assert results[0].name == "repo-a"
+    store.close()
+
+
+def test_load_repos_populates_tags() -> None:
+    store = _make_store()
+    rid = store.upsert_repo(Repo(name="x", path="/x"))
+    store.add_tag(rid, "python")
+    store.add_tag(rid, "api")
+    repos = store.get_all_repos()
+    assert repos[0].tags == ["api", "python"]
     store.close()

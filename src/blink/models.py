@@ -23,6 +23,11 @@ class Repo:
     last_synced: str = ""
     created_at: str = ""
     remotes: List[Remote] = field(default_factory=list)
+    tags: List[str] = field(default_factory=list)
+
+    @property
+    def display_name(self) -> str:
+        return self.alias if self.alias else self.name
 
     def primary_remote_url(self) -> str:
         if self.remotes:

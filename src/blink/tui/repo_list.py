@@ -36,21 +36,36 @@ class RepoListControl(UIControl):
         return max_available_width
 
     def preferred_height(self, width: int, max_available_height: int, wrap_lines: bool, get_line_prefix) -> int | None:
-        return len(self.repos) or 1
+        return max(len(self.repos) * 2, 1)
+
+    def _tag_text(self, tags: List[str]) -> str:
+        if tags:
+            return "  [" + ", ".join(tags) + "]"
+        return ""
+
+    def _render_repo(self, repo: Repo, selected: bool) -> List[AnyFormattedText]:
+        tag_text = self._tag_text(repo.tags)
+        line1 = f"  {repo.display_name}{tag_text}"
+        line2 = f"  {repo.path}"
+        if selected:
+            return [
+                [("class:selected", line1)],
+                [("class:selected-dim", line2)],
+            ]
+        return [
+            [("class:normal", line1)],
+            [("class:dim", line2)],
+        ]
 
     def create_content(self, width: int, height: int) -> UIContent:
         lines: list[list[tuple[str, str]]] = []
         for i, repo in enumerate(self.repos):
-            remote_url = repo.primary_remote_url()
-            remote_part = f"  ({remote_url})" if remote_url else ""
-            line = f"  {repo.name}  —  {repo.path}{remote_part}"
-            if i == self.selected_index:
-                lines.append([("class:selected", line)])
-            else:
-                lines.append([("class:normal", line)])
+            rendered = self._render_repo(repo, i == self.selected_index)
+            lines.extend(rendered)
 
         if not lines:
             lines.append([("class:normal", "  No repositories found.")])
+            lines.append([("class:dim", "")])
 
         def get_line(i: int):
             if 0 <= i < len(lines):
