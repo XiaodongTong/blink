@@ -6,6 +6,7 @@ import webbrowser
 from typing import Callable, List, Optional
 
 from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.data_structures import Point
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.layout.controls import UIContent, UIControl
 
@@ -293,6 +294,20 @@ class DetailPanel(UIControl):
         # Row 9: Finder
         lines.append(self._build_one_line("", "Open with Finder", cur == self.LINE_FINDER, width))
 
+        # Edit input line at bottom
+        if self._edit_mode:
+            lines.append([("class:detail-sep", "─" * width)])
+            if self._edit_mode == "alias":
+                label, value = " Alias: ", self._alias_buffer.text if self._alias_buffer else ""
+            elif self._edit_mode == "description":
+                label, value = " Desc: ", self._desc_buffer.text if self._desc_buffer else ""
+            else:
+                label, value = " Tag: ", self._tag_buffer.text if self._tag_buffer else ""
+            lines.append([
+                ("class:status-label", label),
+                ("class:status-value", value),
+            ])
+
         return lines
 
     def create_content(self, width: int, height: int) -> UIContent:
@@ -303,11 +318,25 @@ class DetailPanel(UIControl):
                 return FormattedText(rendered[i])
             return FormattedText([("class:normal", "")])
 
+        show_cursor = False
+        cursor_position = None
+        if self._edit_mode:
+            if self._edit_mode == "alias":
+                label, buf = " Alias: ", self._alias_buffer
+            elif self._edit_mode == "description":
+                label, buf = " Desc: ", self._desc_buffer
+            else:
+                label, buf = " Tag: ", self._tag_buffer
+            if buf is not None:
+                col = _display_width(label) + _display_width(buf.text)
+                cursor_position = Point(x=col, y=len(rendered) - 1)
+                show_cursor = True
+
         return UIContent(
             get_line=get_line,
             line_count=len(rendered),
-            show_cursor=False,
-            cursor_position=None,
+            show_cursor=show_cursor,
+            cursor_position=cursor_position,
         )
 
     def _formatted_text(self, width: int = 80) -> FormattedText:

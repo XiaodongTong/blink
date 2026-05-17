@@ -132,7 +132,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
   - 行 6-9（Open with Antigravity/Cursor/VSCode/Finder）— Enter 执行打开
 - `↑`/`↓` 切换选中行（无需 Shift）
 - `Esc` / `Ctrl+C` 返回列表视图
-- 编辑态（Alias/Description/Tags）下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入，编辑时显示光标并支持输入法候选窗口正确定位
+- 编辑态（Alias/Description/Tags）下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入，编辑时面板底部渲染编辑输入行并显示光标
 - 无 footer 快捷键栏
 
 ### 编辑模式（Edit Modes）
@@ -149,7 +149,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 - Scanner's `run_scan(blocking=True/False)` toggles between synchronous and threaded execution
 - TUI uses `app.invalidate()` to trigger re-renders after state changes
 - Config falls back to defaults if the file is missing or corrupted, and rewrites it
-- Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view. Git row displays SSH→HTTPS converted URL; Enter opens in browser via `webbrowser.open()`. Edit mode sets `UIContent.show_cursor=True` with proper `cursor_position` (using `Point`) so terminal cursor and IME candidate window are positioned correctly; `DetailPanel.is_focusable()` returns `True` so the window receives focus for cursor display.
+- Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view. Git row displays SSH→HTTPS converted URL; Enter opens in browser via `webbrowser.open()`. Edit mode appends a separator + input line (e.g. " Alias: <text>") at the bottom of `_build_lines`; `create_content` sets `UIContent.show_cursor=True` with `cursor_position=Point(x=col, y=last_row)` to place the terminal cursor at the end of the input line; `DetailPanel.is_focusable()` returns `True` so the window receives focus for cursor display.
 - Layout switching replaces `app.layout` entirely (list layout vs detail layout), stored in `_list_layout` for reuse. Detail view stores `_detail_window` reference and calls `layout.focus()` on it.
 - Search area completely hidden by default via `ConditionalContainer` with `_search_filtering and not _search_active` for the prefix and `_search_active` for the bordered input. Search input has no background color; bright border (`fg:#58a6ff`) surrounds it via `Window(char="─")` lines above and below.
 - Key bindings use `Condition` filters for view-dependent behavior (e.g. shift-gated `V`/`U`/`A`/`O`/`P`/`R` for list view)
