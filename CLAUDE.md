@@ -55,7 +55,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 ┌─────────────────────────────────────────────────────────────────────┐
 │ /                                                    ← 搜索前缀    │
 │─────────────────────────────────────────────────────────────────────│
-│   ▸ alias (name) [tag]  ┐        ┐                                 │
+│   ▸ name (alias) [tag]  ┐        ┐                                 │
 │     /path/to/repo       ┘ 列表项 ┘ ← 项目列表                      │
 │─────────────────────────────────────────────────────────────────────│
 │ 42 repos                                              ← 状态栏      │
@@ -109,8 +109,8 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 
 ```
 ┌─────────────────────────────────────────────────┐
-│   ▸ Alias     (none)              ← 选中行     │
-│     Name      repo-name                            │
+│   ▸ Name      repo-name           ← 选中行     │
+│     Alias     (none)                              │
 │     Path      /path/to/repo                       │
 │     Desc      description                         │
 │─────────────────────────────────────────────────│
@@ -119,25 +119,25 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 │─────────────────────────────────────────────────│
 │     Scanned   2025-01-01                         │
 │─────────────────────────────────────────────────│
-│     Antigravity                                 │
-│     Cursor                                      │
-│     Visual Studio Code                          │
-│     Finder                                      │
+│     Open with Antigravity                        │
+│     Open with Cursor                             │
+│     Open with Visual Studio Code                 │
+│     Open with Finder                             │
 └─────────────────────────────────────────────────┘
 ```
 
 - **详情面板**（detail panel）— 11 行可选中，每行按 Enter 执行对应操作
-  - 行 0（Alias）— Enter 进入别名编辑态
-  - 行 1（Name）— Enter 复制项目名称
-  - 行 2（Path）— Enter 复制路径
+  - 行 0（Name）— Enter 复制项目名称，状态栏提示
+  - 行 1（Alias）— Enter 进入别名编辑态
+  - 行 2（Path）— Enter 复制路径，状态栏提示
   - 行 3（Description）— Enter 进入描述编辑态
-  - 行 4（Remotes）— Enter 复制远程地址
+  - 行 4（Remotes）— Enter 复制远程地址，状态栏提示
   - 行 5（Tags）— Enter 进入标签编辑态
-  - 行 6（Scanned）— Enter 复制扫描时间
-  - 行 7-10（Antigravity/Cursor/VSCode/Finder）— Enter 执行打开
+  - 行 6（Scanned）— Enter 复制扫描时间，状态栏提示
+  - 行 7-10（Open with Antigravity/Cursor/VSCode/Finder）— Enter 执行打开
 - `↑`/`↓` 切换选中行（无需 Shift）
 - `Esc` / `Ctrl+C` 返回列表视图
-- 编辑态（Alias/Description/Tags）下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消
+- 编辑态（Alias/Description/Tags）下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入
 - 无 footer 快捷键栏
 
 ### 编辑模式（Edit Modes）

@@ -4,16 +4,17 @@ from typing import Callable, List, Optional
 
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.formatted_text import FormattedText
+from prompt_toolkit.layout.controls import UIContent, UIControl
 
 from blink.models import Repo
 from blink.store import Store
 from blink.tui.actions import EditorInfo, copy_path, open_in_editor
 
 
-class DetailPanel:
+class DetailPanel(UIControl):
     # Line indices for the form rows
-    LINE_ALIAS = 0
-    LINE_NAME = 1
+    LINE_NAME = 0
+    LINE_ALIAS = 1
     LINE_PATH = 2
     LINE_DESC = 3
     LINE_REMOTES = 4
@@ -27,13 +28,15 @@ class DetailPanel:
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
                  on_back: Callable[[], None], on_alias_change: Callable[[str], None],
-                 on_tags_change: Callable[[], None]) -> None:
+                 on_tags_change: Callable[[], None],
+                 on_status_message: Callable[[str], None] = lambda msg: None) -> None:
         self._repo = repo
         self._store = store
         self._editors = editors
         self._on_back = on_back
         self._on_alias_change = on_alias_change
         self._on_tags_change = on_tags_change
+        self._on_status_message = on_status_message
 
         self._cursor_index = 0
         self._edit_mode: str | None = None  # None | "alias" | "description" | "tags"
@@ -103,16 +106,20 @@ class DetailPanel:
 
     def _copy_name(self) -> None:
         copy_path(self._repo.name)
+        self._on_status_message(f"项目名称已复制: {self._repo.name}")
 
     def _copy_path(self) -> None:
         copy_path(self._repo.path)
+        self._on_status_message(f"项目路径已复制: {self._repo.path}")
 
     def _copy_remotes(self) -> None:
         if self._repo.remotes:
             copy_path(self._repo.remotes[0].url)
+            self._on_status_message(f"远程地址已复制: {self._repo.remotes[0].url}")
 
     def _copy_scanned(self) -> None:
         copy_path(self._repo.last_synced)
+        self._on_status_message(f"扫描时间已复制: {self._repo.last_synced}")
 
     def _start_alias_edit(self) -> None:
         self._edit_mode = "alias"
@@ -198,64 +205,93 @@ class DetailPanel:
 
     # ── rendering ────────────────────────────────────────────────────────────
 
-    def _build_one_line(self, label: str, value: str, selected: bool) -> List[tuple[str, str]]:
-        """Render a single label+value line, optionally selected."""
-        cls = "selected" if selected else "normal"
-        return [
-            ("class:indicator" if selected else "class:dim", "  ▸ " if selected else "    "),
-            ("class:label", label),
-            ("class:" + cls, value + "\n"),
+    def _build_one_line(self, label: str, value: str, selected: bool, width: int = 0) -> List[tuple[str, str]]:
+        """Render a single label+value line, optionally selected with full-width background."""
+        cls = "detail-selected" if selected else "normal"
+        lbl = "detail-label-sel" if selected else "label"
+        pad_cls = "detail-selected"
+        fragments: List[tuple[str, str]] = [
+            ("class:detail-indicator" if selected else "class:dim", "  ▸ " if selected else "    "),
+            ("class:" + lbl, label),
+            ("class:" + cls, value),
         ]
+        if selected and width > 0:
+            line_len = sum(len(t) for _, t in fragments)
+            if line_len < width:
+                fragments.append(("class:" + pad_cls, " " * (width - line_len)))
+        return fragments
 
-    def _formatted_text(self) -> FormattedText:
+    def _build_lines(self, width: int) -> List[List[tuple[str, str]]]:
         cur = self._cursor_index
         edit = self._edit_mode
 
-        parts: List[tuple[str, str]] = []
+        lines: List[List[tuple[str, str]]] = []
 
-        # Row 0: Alias
+        # Row 0: Name
+        lines.append(self._build_one_line("Name      ", self._repo.name, cur == self.LINE_NAME, width))
+
+        # Row 1: Alias
         val = self._alias_buffer.text if edit == "alias" and self._alias_buffer else (self._repo.alias or "(none)")
-        parts += self._build_one_line("Alias     ", val, cur == self.LINE_ALIAS)
-
-        # Row 1: Name
-        parts += self._build_one_line("Name      ", self._repo.name, cur == self.LINE_NAME)
+        lines.append(self._build_one_line("Alias     ", val, cur == self.LINE_ALIAS, width))
 
         # Row 2: Path
-        parts += self._build_one_line("Path      ", self._repo.path, cur == self.LINE_PATH)
+        lines.append(self._build_one_line("Path      ", self._repo.path, cur == self.LINE_PATH, width))
 
         # Row 3: Description
         val = self._desc_buffer.text if edit == "description" and self._desc_buffer else (self._repo.description or "(none)")
-        parts += self._build_one_line("Desc      ", val, cur == self.LINE_DESC)
+        lines.append(self._build_one_line("Desc      ", val, cur == self.LINE_DESC, width))
 
         # Separator
-        parts.append(("class:detail-sep", "\n"))
+        lines.append([("class:detail-sep", "─" * width)])
 
         # Row 4: Remotes
-        parts += self._build_one_line("Remotes   ", self._repo.remotes[0].url if self._repo.remotes else "(none)", cur == self.LINE_REMOTES)
+        lines.append(self._build_one_line("Remotes   ", self._repo.remotes[0].url if self._repo.remotes else "(none)", cur == self.LINE_REMOTES, width))
 
         # Row 5: Tags
         tag_str = " ".join(f"[{t}]" for t in self._repo.tags) if self._repo.tags else "(none)"
-        parts += self._build_one_line("Tags      ", tag_str, cur == self.LINE_TAGS)
+        lines.append(self._build_one_line("Tags      ", tag_str, cur == self.LINE_TAGS, width))
 
         # Separator
-        parts.append(("class:detail-sep", "\n"))
+        lines.append([("class:detail-sep", "─" * width)])
 
         # Row 6: Scanned
-        parts += self._build_one_line("Scanned   ", self._repo.last_synced, cur == self.LINE_SCANNED)
+        lines.append(self._build_one_line("Scanned   ", self._repo.last_synced, cur == self.LINE_SCANNED, width))
 
         # Separator before action rows
-        parts.append(("class:detail-sep", "\n"))
+        lines.append([("class:detail-sep", "─" * width)])
 
         # Row 7: Antigravity
-        parts += self._build_one_line("", "Antigravity", cur == self.LINE_ANTIGRAVITY)
+        lines.append(self._build_one_line("", "Open with Antigravity", cur == self.LINE_ANTIGRAVITY, width))
 
         # Row 8: Cursor
-        parts += self._build_one_line("", "Cursor", cur == self.LINE_CURSOR)
+        lines.append(self._build_one_line("", "Open with Cursor", cur == self.LINE_CURSOR, width))
 
         # Row 9: VSCode
-        parts += self._build_one_line("", "Visual Studio Code", cur == self.LINE_VSCODE)
+        lines.append(self._build_one_line("", "Open with Visual Studio Code", cur == self.LINE_VSCODE, width))
 
         # Row 10: Finder
-        parts += self._build_one_line("", "Finder", cur == self.LINE_FINDER)
+        lines.append(self._build_one_line("", "Open with Finder", cur == self.LINE_FINDER, width))
 
+        return lines
+
+    def create_content(self, width: int, height: int) -> UIContent:
+        rendered = self._build_lines(width)
+
+        def get_line(i: int):
+            if 0 <= i < len(rendered):
+                return FormattedText(rendered[i])
+            return FormattedText([("class:normal", "")])
+
+        return UIContent(
+            get_line=get_line,
+            line_count=len(rendered),
+            show_cursor=False,
+        )
+
+    def _formatted_text(self, width: int = 80) -> FormattedText:
+        """Flatten all lines into a single FormattedText (for testing)."""
+        parts: List[tuple[str, str]] = []
+        for line in self._build_lines(width):
+            parts.extend(line)
+            parts.append(("", "\n"))
         return FormattedText(parts)

@@ -56,8 +56,8 @@ class RepoListControl(UIControl):
 
         line1: list[tuple[str, str]] = [(ind_s, " ▸ " if selected else "   ")]
         if repo.alias:
-            line1.append((name_s, repo.alias))
-            line1.append((alias_s, f" ({repo.name})"))
+            line1.append((name_s, repo.name))
+            line1.append((alias_s, f" ({repo.alias})"))
         else:
             line1.append((name_s, repo.name))
 

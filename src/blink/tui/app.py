@@ -9,6 +9,7 @@ from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import HSplit, Layout, Window, ConditionalContainer
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.dimension import D
@@ -98,7 +99,7 @@ class BlinkApp:
         return Layout(
             HSplit([
                 Window(
-                    content=FormattedTextControl(text=self._detail_panel._formatted_text),
+                    content=self._detail_panel,
                     style="class:detail-panel",
                 ),
                 Window(height=D.exact(1), char="─", style="class:border"),
@@ -133,25 +134,27 @@ class BlinkApp:
             # Borders
             "border": "fg:#30363d",
             # Status bar
-            "status": "bg:#161b22",
-            "status-label": "fg:#8b949e bg:#161b22",
-            "status-value": "fg:#c9d1d9 bg:#161b22",
-            "status-accent": "fg:#58a6ff bg:#161b22",
-            "status-dim": "fg:#484f58 bg:#161b22",
+            "status": "",
+            "status-label": "fg:#8b949e",
+            "status-value": "fg:#c9d1d9",
+            "status-accent": "fg:#58a6ff",
+            "status-dim": "fg:#6e7681",
             # Footer
-            "footer": "bg:#0d1117",
-            "footer-key": "bold fg:#58a6ff bg:#0d1117",
-            "footer-dim": "fg:#30363d bg:#0d1117",
-            "footer-dim-key": "bold fg:#30363d bg:#0d1117",
-            "footer-highlight": "fg:#c9d1d9 bg:#0d1117",
+            "footer": "",
+            "footer-key": "bold fg:#79c0ff",
+            "footer-dim": "fg:#8b949e",
+            "footer-dim-key": "bold fg:#58a6ff",
+            "footer-highlight": "fg:#f0f6fc",
             # Search
             "search-keyword": "fg:#8b949e bg:#0d1117",
             # Detail panel
             "detail-panel": "fg:#c9d1d9",
             "label": "bold fg:#58a6ff",
+            "detail-label-sel": "bold fg:#58a6ff bg:#264f78",
             "detail-sep": "fg:#30363d",
             # Selected row in detail panel
-            "selected": "fg:#f0f6fc bg:#264f78",
+            "detail-selected": "fg:#f0f6fc bg:#264f78",
+            "detail-indicator": "fg:#58a6ff bold bg:#264f78",
             # Tags in detail
             "detail-tag": "fg:#3fb950",
             "detail-tag-bracket": "fg:#238636",
@@ -245,15 +248,16 @@ class BlinkApp:
 
         # ── Arrow keys — detail view line navigation ──────────────────────────
         @kb.add("down", filter=Condition(lambda: self._detail_panel is not None and not self._search_active))
+        def _(event):
+            if self._detail_panel:
+                self._detail_panel.cursor_down()
+                self._app.invalidate()
+
         @kb.add("up", filter=Condition(lambda: self._detail_panel is not None and not self._search_active))
         def _(event):
-            if self._detail_panel is None:
-                return
-            if event.key == "down":
-                self._detail_panel.cursor_down()
-            else:
+            if self._detail_panel:
                 self._detail_panel.cursor_up()
-            self._app.invalidate()
+                self._app.invalidate()
 
         # ── Search ───────────────────────────────────────────────────────────
         @kb.add("/", filter=Condition(lambda: not self._search_active and self._detail_panel is None))
@@ -341,6 +345,15 @@ class BlinkApp:
         @kb.add("space", eager=True, filter=Condition(lambda: self._in_edit_mode()))
         def _(event):
             self._route_printable(" ")
+
+        # ── Non-ASCII printable (CJK etc.) — Keys.Any catches everything ──────
+        @kb.add(Keys.Any, filter=Condition(lambda: self._in_edit_mode()))
+        def _(event):
+            key_seq = event.key_sequence
+            if key_seq and len(key_seq) == 1:
+                k = key_seq[0].key
+                if isinstance(k, str) and k.isprintable() and len(k) == 1 and ord(k) > 127:
+                    self._route_printable(k)
 
         # ── Digits 0-9 — route to buffer only when NOT in tag mode ─────────────
         for d in "0123456789":
@@ -483,6 +496,7 @@ class BlinkApp:
             on_back=self._show_list_view,
             on_alias_change=lambda alias: self._refresh_repo_alias(repo, alias),
             on_tags_change=lambda: self._refresh_repo_tags(repo),
+            on_status_message=self._set_scan_status,
         )
         self._mode = "detail"
         self._app.layout = self._build_detail_layout()
@@ -534,6 +548,15 @@ class BlinkApp:
 
         t = threading.Thread(target=run, daemon=True)
         t.start()
+
+    def _set_scan_status(self, msg: str) -> None:
+        self._scan_status = msg
+        self._app.invalidate()
+        threading.Timer(3.0, self._clear_scan_status).start()
+
+    def _clear_scan_status(self) -> None:
+        self._scan_status = ""
+        self._app.invalidate()
 
     def run(self) -> None:
         self._app.run()
