@@ -58,8 +58,8 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 │   ▸ name (alias) [tag]  ┐        ┐                                 │
 │     /path/to/repo       ┘ 列表项 ┘ ← 项目列表                      │
 │─────────────────────────────────────────────────────────────────────│
-│ 42 repos                                              ← 状态栏      │
-│ Shift+↑/↓:nav  Enter:detail  /:search  Shift+V:code … ← 快捷键栏  │
+│ description  /path/to/repo                            ← 状态栏      │
+│ Enter:detail  /:search  Shift+V:code …               ← 快捷键栏  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -70,7 +70,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
     - 第二行 = 路径
   - 选中项以高亮背景区分（`#264f78`）
   - 无项目时显示空状态提示
-- **状态栏**（status bar）— 显示项目计数或扫描状态；过滤态下显示搜索词和结果数
+- **状态栏**（status bar）— 显示选中项目的描述和路径（无描述时仅显示路径）；过滤态下显示搜索词和结果数
 - **快捷键栏**（footer）— 使用暗淡样式（`fg:#30363d`），按 Shift+操作键时短暂高亮 2 秒
 
 ### 列表视图快捷键
@@ -84,11 +84,11 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 | `Shift+U` | 用 Cursor 打开 | ✓ |
 | `Shift+A` | 用 Antigravity 打开 | ✓ |
 | `Shift+O` | 用系统默认方式打开 | ✓ |
-| `Shift+Y` | 复制仓库路径到剪贴板 | ✓ |
+| `Shift+P` | 复制仓库路径到剪贴板 | ✓ |
 | `Shift+R` | 重新扫描文件系统 | ✓ |
 | `Ctrl+C` ×2 | 退出程序（2秒内按两次） | ✗ |
 
-- 列表视图下裸按键（`v`/`u`/`a`/`o`/`y`/`r`/`j`/`k`/`q`）不触发任何操作
+- 列表视图下裸按键（`v`/`u`/`a`/`o`/`p`/`r`/`j`/`k`/`q`）不触发任何操作
 - `Esc` 不退出程序，仅用于清空搜索
 
 ### 搜索状态
@@ -114,10 +114,8 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 │     Path      /path/to/repo                       │
 │     Desc      description                         │
 │─────────────────────────────────────────────────│
-│     Remotes   git@github.com/org/repo.git         │
+│     Git       https://github.com/org/repo         │
 │     Tags      [python] [api]                      │
-│─────────────────────────────────────────────────│
-│     Scanned   2025-01-01                         │
 │─────────────────────────────────────────────────│
 │     Open with Antigravity                        │
 │     Open with Cursor                             │
@@ -126,15 +124,14 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 └─────────────────────────────────────────────────┘
 ```
 
-- **详情面板**（detail panel）— 11 行可选中，每行按 Enter 执行对应操作
+- **详情面板**（detail panel）— 10 行可选中，每行按 Enter 执行对应操作
   - 行 0（Name）— Enter 复制项目名称，状态栏提示
   - 行 1（Alias）— Enter 进入别名编辑态
   - 行 2（Path）— Enter 复制路径，状态栏提示
   - 行 3（Description）— Enter 进入描述编辑态
-  - 行 4（Remotes）— Enter 复制远程地址，状态栏提示
+  - 行 4（Git）— Enter 将 SSH 地址转为 HTTPS 并在浏览器打开
   - 行 5（Tags）— Enter 进入标签编辑态
-  - 行 6（Scanned）— Enter 复制扫描时间，状态栏提示
-  - 行 7-10（Open with Antigravity/Cursor/VSCode/Finder）— Enter 执行打开
+  - 行 6-9（Open with Antigravity/Cursor/VSCode/Finder）— Enter 执行打开
 - `↑`/`↓` 切换选中行（无需 Shift）
 - `Esc` / `Ctrl+C` 返回列表视图
 - 编辑态（Alias/Description/Tags）下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入
@@ -154,10 +151,10 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 - Scanner's `run_scan(blocking=True/False)` toggles between synchronous and threaded execution
 - TUI uses `app.invalidate()` to trigger re-renders after state changes
 - Config falls back to defaults if the file is missing or corrupted, and rewrites it
-- Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view
+- Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view. Git row displays SSH→HTTPS converted URL; Enter opens in browser via `webbrowser.open()`
 - Layout switching replaces `app.layout` entirely (list layout vs detail layout), stored in `_list_layout` for reuse
 - Search input visibility controlled by `ConditionalContainer` with `_search_active` condition
-- Key bindings use `Condition` filters for view-dependent behavior (e.g. shift-gated `V`/`U`/`A`/`O`/`Y`/`R` for list view)
+- Key bindings use `Condition` filters for view-dependent behavior (e.g. shift-gated `V`/`U`/`A`/`O`/`P`/`R` for list view)
 - Footer highlight timer uses `threading.Timer` for 2-second decay
 - Style class names avoid prompt_toolkit built-in names (e.g. `repo-selected` instead of `selected`) to prevent style conflicts
 - Tests create real git repos via subprocess in `tmp_path` fixtures

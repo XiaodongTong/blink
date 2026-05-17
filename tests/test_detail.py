@@ -42,8 +42,7 @@ def test_detail_panel_renders_fields():
     assert "test-repo" in t
     assert "/tmp/test-repo" in t
     assert "A test repo" in t
-    assert "git@github.com:user/test.git" in t
-    assert "2025-01-01" in t
+    assert "https://github.com/user/test" in t
 
 
 def test_detail_panel_renders_alias():
@@ -298,33 +297,24 @@ def test_handle_enter_path_copies(monkeypatch):
     assert copied == ["/tmp/test-repo"]
 
 
-def test_handle_enter_remotes_copies(monkeypatch):
-    copied = []
-    monkeypatch.setattr("blink.tui.detail.copy_path", lambda t: copied.append(t) or None)
+def test_handle_enter_git_opens_browser(monkeypatch):
+    opened = []
+    monkeypatch.setattr("blink.tui.detail.webbrowser.open", lambda u: opened.append(u) or None)
     panel = _make_detail_panel()
-    panel._cursor_index = DetailPanel.LINE_REMOTES
+    panel._cursor_index = DetailPanel.LINE_GIT
     panel.handle_enter()
-    assert copied == ["git@github.com:user/test.git"]
+    assert opened == ["https://github.com/user/test"]
 
 
-def test_handle_enter_remotes_none(monkeypatch):
-    copied = []
-    monkeypatch.setattr("blink.tui.detail.copy_path", lambda t: copied.append(t) or None)
+def test_handle_enter_git_none(monkeypatch):
+    opened = []
+    monkeypatch.setattr("blink.tui.detail.webbrowser.open", lambda u: opened.append(u) or None)
     repo = _make_repo()
     repo.remotes = []
     panel = _make_detail_panel(repo)
-    panel._cursor_index = DetailPanel.LINE_REMOTES
+    panel._cursor_index = DetailPanel.LINE_GIT
     panel.handle_enter()
-    assert copied == []
-
-
-def test_handle_enter_scanned_copies(monkeypatch):
-    copied = []
-    monkeypatch.setattr("blink.tui.detail.copy_path", lambda t: copied.append(t) or None)
-    panel = _make_detail_panel()
-    panel._cursor_index = DetailPanel.LINE_SCANNED
-    panel.handle_enter()
-    assert copied == ["2025-01-01T00:00:00"]
+    assert opened == []
 
 
 # ── is_editing ─────────────────────────────────────────────────────────────

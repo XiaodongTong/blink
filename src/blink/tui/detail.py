@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+import webbrowser
 from typing import Callable, List, Optional
 
 from prompt_toolkit.buffer import Buffer
@@ -11,20 +13,29 @@ from blink.store import Store
 from blink.tui.actions import EditorInfo, copy_path, open_in_editor
 
 
+def _remote_to_https(url: str) -> str | None:
+    """Convert git remote URL to browser-openable HTTPS URL."""
+    if url.startswith("https://"):
+        return url.removesuffix(".git")
+    m = re.match(r'(?:ssh://)?git@([^:/]+)[:/](.+?)(?:\.git)?$', url)
+    if m:
+        host, path = m.groups()
+        return f"https://{host}/{path}"
+    return None
+
+
 class DetailPanel(UIControl):
-    # Line indices for the form rows
     LINE_NAME = 0
     LINE_ALIAS = 1
     LINE_PATH = 2
     LINE_DESC = 3
-    LINE_REMOTES = 4
+    LINE_GIT = 4
     LINE_TAGS = 5
-    LINE_SCANNED = 6
-    LINE_ANTIGRAVITY = 7
-    LINE_CURSOR = 8
-    LINE_VSCODE = 9
-    LINE_FINDER = 10
-    MAX_LINE = 10
+    LINE_ANTIGRAVITY = 6
+    LINE_CURSOR = 7
+    LINE_VSCODE = 8
+    LINE_FINDER = 9
+    MAX_LINE = 9
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
                  on_back: Callable[[], None], on_alias_change: Callable[[str], None],
@@ -86,12 +97,10 @@ class DetailPanel(UIControl):
             self._copy_path()
         elif line == self.LINE_DESC:
             self._start_desc_edit()
-        elif line == self.LINE_REMOTES:
-            self._copy_remotes()
+        elif line == self.LINE_GIT:
+            self._open_git_url()
         elif line == self.LINE_TAGS:
             self._start_tags_edit()
-        elif line == self.LINE_SCANNED:
-            self._copy_scanned()
         elif line == self.LINE_ANTIGRAVITY:
             open_in_editor(self._repo.path, "a", self._editors)
         elif line == self.LINE_CURSOR:
@@ -112,14 +121,20 @@ class DetailPanel(UIControl):
         copy_path(self._repo.path)
         self._on_status_message(f"项目路径已复制: {self._repo.path}")
 
-    def _copy_remotes(self) -> None:
-        if self._repo.remotes:
-            copy_path(self._repo.remotes[0].url)
-            self._on_status_message(f"远程地址已复制: {self._repo.remotes[0].url}")
+    def _git_display_url(self) -> str:
+        if not self._repo.remotes:
+            return "(none)"
+        https = _remote_to_https(self._repo.remotes[0].url)
+        return https or self._repo.remotes[0].url
 
-    def _copy_scanned(self) -> None:
-        copy_path(self._repo.last_synced)
-        self._on_status_message(f"扫描时间已复制: {self._repo.last_synced}")
+    def _open_git_url(self) -> None:
+        if not self._repo.remotes:
+            return
+        url = self._repo.remotes[0].url
+        https = _remote_to_https(url)
+        target = https or url
+        webbrowser.open(target)
+        self._on_status_message(f"已在浏览器打开: {target}")
 
     def _start_alias_edit(self) -> None:
         self._edit_mode = "alias"
@@ -244,8 +259,8 @@ class DetailPanel(UIControl):
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
-        # Row 4: Remotes
-        lines.append(self._build_one_line("Remotes   ", self._repo.remotes[0].url if self._repo.remotes else "(none)", cur == self.LINE_REMOTES, width))
+        # Row 4: Git
+        lines.append(self._build_one_line("Git       ", self._git_display_url(), cur == self.LINE_GIT, width))
 
         # Row 5: Tags
         tag_str = " ".join(f"[{t}]" for t in self._repo.tags) if self._repo.tags else "(none)"
@@ -254,22 +269,16 @@ class DetailPanel(UIControl):
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
-        # Row 6: Scanned
-        lines.append(self._build_one_line("Scanned   ", self._repo.last_synced, cur == self.LINE_SCANNED, width))
-
-        # Separator before action rows
-        lines.append([("class:detail-sep", "─" * width)])
-
-        # Row 7: Antigravity
+        # Row 6: Antigravity
         lines.append(self._build_one_line("", "Open with Antigravity", cur == self.LINE_ANTIGRAVITY, width))
 
-        # Row 8: Cursor
+        # Row 7: Cursor
         lines.append(self._build_one_line("", "Open with Cursor", cur == self.LINE_CURSOR, width))
 
-        # Row 9: VSCode
+        # Row 8: VSCode
         lines.append(self._build_one_line("", "Open with Visual Studio Code", cur == self.LINE_VSCODE, width))
 
-        # Row 10: Finder
+        # Row 9: Finder
         lines.append(self._build_one_line("", "Open with Finder", cur == self.LINE_FINDER, width))
 
         return lines

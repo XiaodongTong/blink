@@ -118,9 +118,10 @@ class BlinkApp:
             "search-prefix": "fg:#58a6ff bg:#0d1117",
             # Repo list — normal row
             "repo-list": "",
-            "normal": "fg:#c9d1d9",
+            "normal": "fg:#e6edf3",
             "dim": "fg:#484f58",
-            "path": "fg:#484f58",
+            "alias": "fg:#8b949e",
+            "path": "fg:#6e7681",
             "tag": "fg:#3fb950",
             "tag-bracket": "fg:#238636",
             # Repo list — selected row
@@ -280,7 +281,7 @@ class BlinkApp:
                 return _
             kb.add(skey, filter=Condition(lambda: not self._search_active and self._detail_panel is None))(make_shift_handler(raw))
 
-        @kb.add("Y", filter=Condition(lambda: not self._search_active and self._detail_panel is None))
+        @kb.add("P", filter=Condition(lambda: not self._search_active and self._detail_panel is None))
         def _(event):
             self._trigger_footer_highlight()
             repo = self._repo_control.selected_repo()
@@ -288,6 +289,7 @@ class BlinkApp:
                 copy_path(repo.path)
                 self._scan_status = f"Copied: {repo.path}"
                 self._app.invalidate()
+                threading.Timer(5.0, self._clear_scan_status).start()
 
         @kb.add("R", filter=Condition(lambda: not self._search_active and self._detail_panel is None))
         def _(event):
@@ -432,10 +434,17 @@ class BlinkApp:
             return FormattedText([
                 ("class:status-accent", f" {self._scan_status}"),
             ])
-        return FormattedText([
-            ("class:status-accent", f" {count}"),
-            ("class:status-label", f" repo{'s' if count != 1 else ''}"),
-        ])
+        repo = self._repo_control.selected_repo()
+        if repo:
+            if repo.description:
+                return FormattedText([
+                    ("class:status-value", f" {repo.description}"),
+                    ("class:status-dim", f"  {repo.path}"),
+                ])
+            return FormattedText([
+                ("class:status-value", f" {repo.path}"),
+            ])
+        return FormattedText([])
 
     # ── footer text ─────────────────────────────────────────────────────────
 
@@ -452,9 +461,9 @@ class BlinkApp:
         style_key = "class:footer-key" if highlighted else "class:footer-dim-key"
         style_dim = "class:footer-highlight" if highlighted else "class:footer-dim"
         hints = [
-            ("Shift+↑/↓", "nav"), ("Enter", "detail"), ("/", "search"),
+            ("Enter", "detail"), ("/", "search"),
             ("Shift+V", "code"), ("Shift+U", "cursor"), ("Shift+A", "antigrav"),
-            ("Shift+O", "open"), ("Shift+Y", "yank"), ("Shift+R", "rescan"),
+            ("Shift+O", "open"), ("Shift+P", "path"), ("Shift+R", "rescan"),
         ]
         parts: list[tuple[str, str]] = [("class:footer-dim", " ")]
         for i, (key, desc) in enumerate(hints):

@@ -38,21 +38,20 @@ blink --rescan # 强制重新扫描后启动
 
 | 按键 | 功能 | 需要Shift |
 |------|------|:----------:|
-| `↑` / `↓` | 向上/向下移动（备选，若 Shift+方向键终端不兼容时使用） | ✗ |
-| `Shift+↑` / `Shift+↓` | 向上/向下移动 | ✓ |
+| `↑` / `↓` | 向上/向下移动 | ✗ |
 | `Enter` | 查看仓库详情 | ✗ |
 | `/` | 进入搜索 | ✗ |
 | `Shift+V` | 用 VSCode 打开 | ✓ |
 | `Shift+U` | 用 Cursor 打开 | ✓ |
 | `Shift+A` | 用 Antigravity 打开 | ✓ |
 | `Shift+O` | 用系统默认方式打开（Finder） | ✓ |
-| `Shift+Y` | 复制仓库路径到剪贴板 | ✓ |
+| `Shift+P` | 复制仓库路径到剪贴板 | ✓ |
 | `Shift+R` | 重新扫描文件系统 | ✓ |
 | `Ctrl+C` ×2 | 退出程序（2 秒内按两次，超时需重新双击） | ✗ |
 
 ### 详情面板
 
-按 `Enter` 进入详情面板，显示名称、别名、路径、描述、远程地址、标签和最后扫描时间等 11 行。`↑`/`↓` 切换选中行（高亮背景 `#264f78`），按 Enter 执行当前行操作：Name/Path/Remotes/Scanned 行复制内容并在状态栏提示，Alias/Description/Tags 行进入编辑态，Open with Antigravity/Cursor/VSCode/Finder 行执行打开。编辑态下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入。详情面板无 footer 快捷键栏。按 `Ctrl+C` 或 `Esc` 返回列表。
+按 `Enter` 进入详情面板，显示名称、别名、路径、描述、Git 地址、标签等 10 行。`↑`/`↓` 切换选中行（高亮背景 `#264f78`），按 Enter 执行当前行操作：Name/Path 行复制内容并在状态栏提示，Git 行将 SSH 协议地址转换为 HTTPS 地址并在浏览器打开，Alias/Description/Tags 行进入编辑态，Open with Antigravity/Cursor/VSCode/Finder 行执行打开。编辑态下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入。详情面板无 footer 快捷键栏。按 `Ctrl+C` 或 `Esc` 返回列表。
 
 ### 搜索
 

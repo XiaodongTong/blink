@@ -49,7 +49,7 @@ class RepoListControl(UIControl):
         else:
             ind_s = "class:dim"
             name_s = "class:normal"
-            alias_s = "class:dim"
+            alias_s = "class:alias"
             path_s = "class:path"
             tag_s = "class:tag"
             tag_b = "class:tag-bracket"
