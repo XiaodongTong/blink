@@ -6,12 +6,13 @@ from typing import Callable, Dict, List, Optional
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.data_structures import Point
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import HSplit, Layout, Window, ConditionalContainer
-from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.layout.controls import FormattedTextControl, UIContent, UIControl
 from prompt_toolkit.layout.dimension import D
 from prompt_toolkit.styles import Style
 
@@ -21,7 +22,39 @@ from blink.scanner import Scanner, ScanResult
 from blink.tui.repo_list import RepoListControl, RepoListWindow
 from blink.tui.search import SearchBar
 from blink.tui.actions import EditorInfo, copy_path, detect_editors, open_in_editor
-from blink.tui.detail import DetailPanel
+from blink.tui.detail import DetailPanel, _display_width
+
+
+class _EditStatusControl(UIControl):
+    """Status bar control that shows a cursor during edit mode."""
+
+    def __init__(self, get_text, get_cursor_col):
+        self._get_text = get_text
+        self._get_cursor_col = get_cursor_col
+
+    def is_focusable(self) -> bool:
+        return True
+
+    def create_content(self, width: int, height: int) -> UIContent:
+        ft = self._get_text()
+        show_cursor = False
+        cursor_position = None
+        col = self._get_cursor_col()
+        if col is not None:
+            show_cursor = True
+            cursor_position = Point(x=col, y=0)
+
+        def get_line(i: int):
+            if i == 0:
+                return ft
+            return FormattedText([("", "")])
+
+        return UIContent(
+            get_line=get_line,
+            line_count=1,
+            show_cursor=show_cursor,
+            cursor_position=cursor_position,
+        )
 
 
 class BlinkApp:
@@ -39,6 +72,8 @@ class BlinkApp:
         self._footer_control = FormattedTextControl(text=self._footer_text)
 
         self._detail_panel: Optional[DetailPanel] = None
+        self._detail_window: Optional[Window] = None
+        self._detail_status_window: Optional[Window] = None
         self._list_layout: Optional[Layout] = None
 
         self._mode: str = "list"
@@ -73,18 +108,40 @@ class BlinkApp:
             return self._detail_panel.edit_mode == "tags"
         return False
 
+    def _edit_cursor_col(self) -> int | None:
+        panel = self._detail_panel
+        if panel is None or not panel.is_editing:
+            return None
+        mode = panel.edit_mode
+        if mode == "alias" and panel.alias_buffer:
+            return _display_width(" Alias: ") + _display_width(panel.alias_buffer.text)
+        if mode == "description" and panel.desc_buffer:
+            return _display_width(" Desc: ") + _display_width(panel.desc_buffer.text)
+        if mode == "tags" and panel.tag_buffer:
+            return _display_width(" Tag: ") + _display_width(panel.tag_buffer.text)
+        return None
+
     # ── layouts ─────────────────────────────────────────────────────────────
 
     def _build_list_layout(self) -> Layout:
         return Layout(
             HSplit([
-                Window(
-                    content=FormattedTextControl(text=self._search_prefix_text),
-                    height=D.exact(1),
-                    style="class:search-bar",
-                ),
+                # Filtering state: prefix + keyword (single line)
                 ConditionalContainer(
-                    self._search_bar.window,
+                    Window(
+                        content=FormattedTextControl(text=self._search_prefix_text),
+                        height=D.exact(1),
+                        style="class:search-bar",
+                    ),
+                    filter=Condition(lambda: self._search_filtering and not self._search_active),
+                ),
+                # Active state: bordered search input
+                ConditionalContainer(
+                    HSplit([
+                        Window(height=D.exact(1), char="─", style="class:search-border"),
+                        self._search_bar.window,
+                        Window(height=D.exact(1), char="─", style="class:search-border"),
+                    ]),
                     filter=Condition(lambda: self._search_active),
                 ),
                 Window(height=D.exact(1), char="─", style="class:border"),
@@ -96,15 +153,20 @@ class BlinkApp:
         )
 
     def _build_detail_layout(self) -> Layout:
+        self._detail_window = Window(
+            content=self._detail_panel,
+            style="class:detail-panel",
+        )
+        self._detail_status_window = Window(
+            content=_EditStatusControl(self._status_text, self._edit_cursor_col),
+            height=D.exact(1),
+            style="class:status",
+        )
         return Layout(
             HSplit([
-                Window(
-                    content=self._detail_panel,
-                    style="class:detail-panel",
-                ),
+                self._detail_window,
                 Window(height=D.exact(1), char="─", style="class:border"),
-                Window(content=self._status_control, height=D.exact(1), style="class:status"),
-                # No footer in detail view per spec
+                self._detail_status_window,
             ])
         )
 
@@ -113,9 +175,10 @@ class BlinkApp:
     def _build_style(self) -> Style:
         return Style.from_dict({
             # Search
-            "search-bar": "fg:#c9d1d9 bg:#0d1117",
-            "search-input": "fg:#c9d1d9 bg:#0d1117",
-            "search-prefix": "fg:#58a6ff bg:#0d1117",
+            "search-bar": "fg:#c9d1d9",
+            "search-input": "fg:#c9d1d9",
+            "search-border": "fg:#58a6ff",
+            "search-prefix": "fg:#58a6ff",
             # Repo list — normal row
             "repo-list": "",
             "normal": "fg:#e6edf3",
@@ -147,7 +210,7 @@ class BlinkApp:
             "footer-dim-key": "bold fg:#58a6ff",
             "footer-highlight": "fg:#f0f6fc",
             # Search
-            "search-keyword": "fg:#8b949e bg:#0d1117",
+            "search-keyword": "fg:#8b949e",
             # Detail panel
             "detail-panel": "fg:#c9d1d9",
             "label": "bold fg:#58a6ff",
@@ -180,6 +243,7 @@ class BlinkApp:
                 elif self._detail_panel.edit_mode == "tags":
                     self._detail_panel._edit_mode = None
                     self._detail_panel._tag_buffer = None
+                self._app.layout.focus(self._detail_window)
                 self._app.invalidate()
                 return
             if self._search_active:
@@ -215,6 +279,7 @@ class BlinkApp:
                 elif self._detail_panel.edit_mode == "tags":
                     self._detail_panel._edit_mode = None
                     self._detail_panel._tag_buffer = None
+                self._app.layout.focus(self._detail_window)
                 self._app.invalidate()
                 return
             if self._search_active:
@@ -308,6 +373,10 @@ class BlinkApp:
                 return
             if self._detail_panel is not None:
                 self._detail_panel.handle_enter()
+                if self._detail_panel.is_editing:
+                    self._app.layout.focus(self._detail_status_window)
+                else:
+                    self._app.layout.focus(self._detail_window)
                 self._app.invalidate()
                 return
             if self._mode == "list":
@@ -389,8 +458,6 @@ class BlinkApp:
     # ── search ───────────────────────────────────────────────────────────────
 
     def _search_prefix_text(self) -> FormattedText:
-        if self._search_active:
-            return FormattedText([("class:search-prefix", " / ")])
         if self._search_filtering and self._search_bar.text:
             return FormattedText([
                 ("class:search-prefix", " / "),
@@ -508,7 +575,9 @@ class BlinkApp:
             on_status_message=self._set_scan_status,
         )
         self._mode = "detail"
-        self._app.layout = self._build_detail_layout()
+        layout = self._build_detail_layout()
+        self._app.layout = layout
+        layout.focus(self._detail_window)
         self._app.invalidate()
 
     def _show_list_view(self) -> None:

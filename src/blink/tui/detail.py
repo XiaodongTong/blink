@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 import webbrowser
 from typing import Callable, List, Optional
 
@@ -11,6 +12,14 @@ from prompt_toolkit.layout.controls import UIContent, UIControl
 from blink.models import Repo
 from blink.store import Store
 from blink.tui.actions import EditorInfo, copy_path, open_in_editor
+
+
+def _display_width(text: str) -> int:
+    w = 0
+    for ch in text:
+        eaw = unicodedata.east_asian_width(ch)
+        w += 2 if eaw in ('F', 'W') else 1
+    return w
 
 
 def _remote_to_https(url: str) -> str | None:
@@ -57,6 +66,9 @@ class DetailPanel(UIControl):
 
         self._editing_alias_before = False
         self._editing_desc_before = False
+
+    def is_focusable(self) -> bool:
+        return True
 
     # ── cursor navigation ──────────────────────────────────────────────────────
 
@@ -295,6 +307,7 @@ class DetailPanel(UIControl):
             get_line=get_line,
             line_count=len(rendered),
             show_cursor=False,
+            cursor_position=None,
         )
 
     def _formatted_text(self, width: int = 80) -> FormattedText:

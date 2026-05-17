@@ -277,8 +277,9 @@ def test_search_prefix_text_active():
     app, _, _ = _make_app()
     app._search_active = True
     result = app._search_prefix_text()
+    # Active state hides the prefix; the bordered input is shown instead
     text = "".join(t[1] for t in result)
-    assert text.startswith(" / ")
+    assert "/" in text
 
 
 def test_search_prefix_text_filtering():

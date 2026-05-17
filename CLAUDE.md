@@ -53,8 +53,6 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│ /                                                    ← 搜索前缀    │
-│─────────────────────────────────────────────────────────────────────│
 │   ▸ name (alias) [tag]  ┐        ┐                                 │
 │     /path/to/repo       ┘ 列表项 ┘ ← 项目列表                      │
 │─────────────────────────────────────────────────────────────────────│
@@ -63,7 +61,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-- **搜索栏**（search bar）— 搜索输入框默认隐藏，仅显示搜索前缀 `/`。按 `/` 展开输入框进入搜索输入态。Enter 确认后输入框隐藏，前缀旁显示当前搜索词（只读）。Esc/Ctrl+C 清空搜索恢复全部。
+- **搜索栏**（search bar）— 默认完全隐藏。按 `/` 展开带亮色边框的搜索输入框进入搜索输入态。Enter 确认后输入框隐藏，顶部显示当前搜索词（只读）。Esc/Ctrl+C 清空搜索恢复全部。
 - **项目列表**（repo list）— 两行式列表，`↑/↓` 方向键或 `Shift+↑/↓` 导航
   - **列表项**（list item）— 每项占两行：
     - 第一行 = 指示符（`▸` 选中态 / 空格 普通态）+ 名称/别名 + 标签
@@ -94,9 +92,9 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 ### 搜索状态
 
 搜索有三个状态：
-1. **inactive** — 默认状态，仅显示 `/` 前缀
-2. **active** — 按 `/` 进入，搜索输入框展开，实时过滤。仅可打印字符、Backspace、Enter、Esc/Ctrl+C 生效
-3. **filtering** — Enter 确认后进入，输入框隐藏，前缀旁显示搜索词（只读）。再按 `/` 恢复输入框继续编辑
+1. **inactive** — 默认状态，搜索区域完全隐藏
+2. **active** — 按 `/` 进入，搜索输入框展开（带亮色边框），实时过滤。仅可打印字符、Backspace、Enter、Esc/Ctrl+C 生效
+3. **filtering** — Enter 确认后进入，输入框隐藏，顶部显示搜索词（只读）。再按 `/` 恢复输入框继续编辑
 
 ### 退出机制
 
@@ -134,7 +132,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
   - 行 6-9（Open with Antigravity/Cursor/VSCode/Finder）— Enter 执行打开
 - `↑`/`↓` 切换选中行（无需 Shift）
 - `Esc` / `Ctrl+C` 返回列表视图
-- 编辑态（Alias/Description/Tags）下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入
+- 编辑态（Alias/Description/Tags）下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入，编辑时显示光标并支持输入法候选窗口正确定位
 - 无 footer 快捷键栏
 
 ### 编辑模式（Edit Modes）
@@ -151,9 +149,9 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 - Scanner's `run_scan(blocking=True/False)` toggles between synchronous and threaded execution
 - TUI uses `app.invalidate()` to trigger re-renders after state changes
 - Config falls back to defaults if the file is missing or corrupted, and rewrites it
-- Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view. Git row displays SSH→HTTPS converted URL; Enter opens in browser via `webbrowser.open()`
-- Layout switching replaces `app.layout` entirely (list layout vs detail layout), stored in `_list_layout` for reuse
-- Search input visibility controlled by `ConditionalContainer` with `_search_active` condition
+- Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view. Git row displays SSH→HTTPS converted URL; Enter opens in browser via `webbrowser.open()`. Edit mode sets `UIContent.show_cursor=True` with proper `cursor_position` (using `Point`) so terminal cursor and IME candidate window are positioned correctly; `DetailPanel.is_focusable()` returns `True` so the window receives focus for cursor display.
+- Layout switching replaces `app.layout` entirely (list layout vs detail layout), stored in `_list_layout` for reuse. Detail view stores `_detail_window` reference and calls `layout.focus()` on it.
+- Search area completely hidden by default via `ConditionalContainer` with `_search_filtering and not _search_active` for the prefix and `_search_active` for the bordered input. Search input has no background color; bright border (`fg:#58a6ff`) surrounds it via `Window(char="─")` lines above and below.
 - Key bindings use `Condition` filters for view-dependent behavior (e.g. shift-gated `V`/`U`/`A`/`O`/`P`/`R` for list view)
 - Footer highlight timer uses `threading.Timer` for 2-second decay
 - Style class names avoid prompt_toolkit built-in names (e.g. `repo-selected` instead of `selected`) to prevent style conflicts
