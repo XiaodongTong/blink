@@ -33,10 +33,15 @@ def app_with_store():
     app._detail_panel = None
     app._list_layout = MagicMock()
     app._mode = "list"
+    app._search_active = False
+    app._search_filtering = False
+    app._footer_highlight_until = 0.0
     app._editing_alias = False
     app._alias_buffer = Buffer()
     app._editing_tag = False
     app._tag_buffer = Buffer()
     app._editing_repo = None
+    app._last_ctrl_c = 0.0
+    app._ctrl_c_quit_hint = False
     app._app = MagicMock()
     yield app, store, rid
