@@ -76,12 +76,6 @@ class BlinkApp:
         return Layout(
             HSplit([
                 Window(
-                    content=FormattedTextControl(text=self._title_text),
-                    height=D.exact(1),
-                    style="class:title",
-                ),
-                Window(height=D.exact(1), char="─", style="class:border"),
-                Window(
                     content=FormattedTextControl(text=lambda: FormattedText([("class:search-prefix", " / ")])),
                     height=D.exact(1),
                     style="class:search-bar",
@@ -97,12 +91,6 @@ class BlinkApp:
 
     def _build_style(self) -> Style:
         return Style.from_dict({
-            # Title bar
-            "title": "bg:#161b22",
-            "title-brand": "bold fg:#58a6ff bg:#161b22",
-            "title-sep": "fg:#30363d bg:#161b22",
-            "title-detail": "fg:#c9d1d9 bg:#161b22",
-            "title-count": "fg:#8b949e bg:#161b22",
             # Search
             "search-bar": "fg:#c9d1d9 bg:#0d1117",
             "search-input": "fg:#c9d1d9 bg:#0d1117",
@@ -393,12 +381,6 @@ class BlinkApp:
         detail_layout = Layout(
             HSplit([
                 Window(
-                    content=FormattedTextControl(text=self._title_text),
-                    height=D.exact(1),
-                    style="class:title",
-                ),
-                Window(height=D.exact(1), char="─", style="class:border"),
-                Window(
                     content=FormattedTextControl(text=self._detail_panel._formatted_text),
                     style="class:detail-panel",
                 ),
@@ -455,19 +437,6 @@ class BlinkApp:
 
         t = threading.Thread(target=run, daemon=True)
         t.start()
-
-    def _title_text(self) -> FormattedText:
-        if self._detail_panel is not None:
-            repo = self._detail_panel._repo
-            name = repo.alias or repo.name
-            return FormattedText([
-                ("class:title-brand", " ◆ blink"),
-                ("class:title-sep", " │ "),
-                ("class:title-detail", name),
-            ])
-        return FormattedText([
-            ("class:title-brand", " ◆ blink"),
-        ])
 
     def _styled_footer_hints(self, hints: list[tuple[str, str]]) -> FormattedText:
         parts: list[tuple[str, str]] = [("class:footer-dim", " ")]
