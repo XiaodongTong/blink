@@ -123,8 +123,8 @@ def test_ctrl_c_detail_view_returns_to_list(app_with_store):
     app, store, rid = app_with_store
     event = MagicMock()
     panel = MagicMock()
-    panel.is_editing_alias = False
-    panel.is_adding_tag = False
+    panel.is_editing = False
+    panel.edit_mode = None
     app._detail_panel = panel
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "c-c")
@@ -202,14 +202,31 @@ def test_shift_keys_blocked_during_search(app_with_store):
                 assert not reg.filter(), f"Shift key '{key_str}' should be blocked during search"
 
 
-def test_e_t_filtered_to_detail(app_with_store):
-    """e and t bare keys should only work in detail view."""
+def test_e_t_routed_via_printable_characters(app_with_store):
+    """e and t are now routed via the printable character loop (not dedicated handlers)."""
     app, store, rid = app_with_store
     kb = app._build_key_bindings()
+    # In the new design, e and t are part of the printable-char loop (range 33-127).
+    # They should NOT have dedicated kb.add() calls, only the loop-level ones.
+    # We verify this by checking that e/t only appear as 'char' bindings, not as
+    # top-level string key bindings (which would indicate a dedicated handler).
     for reg in kb.bindings:
         for key in reg.keys:
-            if str(key) in ("e", "t"):
-                assert reg.filter is not None, f"Bare key '{key}' should be filtered to detail view"
+            key_str = str(key)
+            if key_str in ("e", "t"):
+                # These should only be caught by the printable-char loop,
+                # which uses the handler that routes via _route_printable
+                # Verify it's not a dedicated enter/backspace handler
+                import inspect
+                src = inspect.getsource(reg.handler)
+                assert "_route_printable" in src or "route_printable" in src, \
+                    f"Key '{key_str}' should be routed via printable-char handler"
+
+
+def test_detail_footer_removed(app_with_store):
+    """Detail view should not have a footer window."""
+    app, store, rid = app_with_store
+    assert not hasattr(app, "_detail_footer_text")
 
 
 def test_footer_text_no_q_quit(app_with_store):
@@ -226,15 +243,17 @@ def test_footer_text_contains_shift_hints(app_with_store):
     assert "Shift" in footer_str
 
 
-def test_detail_footer_has_ctrl_c_back(app_with_store):
+def test_detail_view_has_no_footer(app_with_store):
+    """Detail view layout should not include a footer window."""
     app, store, rid = app_with_store
-    panel = MagicMock(spec=DetailPanel)
-    panel.is_editing_alias = False
-    panel.is_adding_tag = False
-    app._detail_panel = panel
-    footer = app._detail_footer_text()
-    footer_str = str(footer)
-    assert "Ctrl+C" in footer_str
+    # Build the detail layout and verify it has no footer window
+    app._detail_panel = MagicMock()
+    layout = app._build_detail_layout()
+    # The detail layout is HSplit([Window (detail), Window (border), Window (status)])
+    # i.e. exactly 3 windows, no footer
+    root = layout.container
+    children = root.children
+    assert len(children) == 3
 
 
 # --- Phase 3: Search isolation ---

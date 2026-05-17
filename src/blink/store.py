@@ -172,6 +172,11 @@ class Store:
         conn.execute("UPDATE repos SET alias=? WHERE id=?", (alias, repo_id))
         conn.commit()
 
+    def set_description(self, repo_id: int, description: str) -> None:
+        conn = self._connect()
+        conn.execute("UPDATE repos SET description=? WHERE id=?", (description, repo_id))
+        conn.commit()
+
     def get_tags_for_repo(self, repo_id: int) -> List[str]:
         conn = self._connect()
         rows = conn.execute(

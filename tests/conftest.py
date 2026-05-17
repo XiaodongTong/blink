@@ -4,8 +4,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from prompt_toolkit.buffer import Buffer
-
 from blink.models import Repo
 from blink.store import Store
 from blink.scanner import Scanner
@@ -36,11 +34,6 @@ def app_with_store():
     app._search_active = False
     app._search_filtering = False
     app._footer_highlight_until = 0.0
-    app._editing_alias = False
-    app._alias_buffer = Buffer()
-    app._editing_tag = False
-    app._tag_buffer = Buffer()
-    app._editing_repo = None
     app._last_ctrl_c = 0.0
     app._ctrl_c_quit_hint = False
     app._app = MagicMock()

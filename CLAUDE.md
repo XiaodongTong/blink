@@ -88,7 +88,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 | `Shift+R` | 重新扫描文件系统 | ✓ |
 | `Ctrl+C` ×2 | 退出程序（2秒内按两次） | ✗ |
 
-- 列表视图下裸按键（`v`/`u`/`a`/`o`/`y`/`r`/`j`/`k`/`q`/`e`/`t`）不触发任何操作
+- 列表视图下裸按键（`v`/`u`/`a`/`o`/`y`/`r`/`j`/`k`/`q`）不触发任何操作
 - `Esc` 不退出程序，仅用于清空搜索
 
 ### 搜索状态
@@ -109,31 +109,44 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 
 ```
 ┌─────────────────────────────────────────────────┐
-│   Alias     (none)                               │
-│   Name      repo-name              ┐             │
-│   Path      /path/to/repo          │             │
-│   Desc      description            │ 详情面板    │
-│                                  ┌─┘             │
-│   Remotes                      ←─┘               │
-│   Tags      [tag1] [tag2]                         │
-│   Scanned   2025-01-01                           │
-│   Actions: e:edit alias  t:manage tags …          │
+│   ▸ Alias     (none)              ← 选中行     │
+│     Name      repo-name                            │
+│     Path      /path/to/repo                       │
+│     Desc      description                         │
 │─────────────────────────────────────────────────│
-│ 42 repos                           ← 状态栏      │
-│ e:edit alias  Ctrl+C:back  Esc:back ← 快捷键栏  │
+│     Remotes   git@github.com/org/repo.git         │
+│     Tags      [python] [api]                      │
+│─────────────────────────────────────────────────│
+│     Scanned   2025-01-01                         │
+│─────────────────────────────────────────────────│
+│     Antigravity                                 │
+│     Cursor                                      │
+│     Visual Studio Code                          │
+│     Finder                                      │
 └─────────────────────────────────────────────────┘
 ```
 
-- **详情面板**（detail panel）— 展示项目完整信息：别名、名称、路径、描述、远程仓库、标签、扫描时间、可用操作
-  - **标签管理浮层**（tag popover）— 按 `t` 弹出，列出已有标签（可按数字键删除）和添加输入框
-- 详情视图内裸键 `v`/`u`/`a`/`o`/`y`/`e`/`t` 保持原有行为，不需要 Shift
+- **详情面板**（detail panel）— 11 行可选中，每行按 Enter 执行对应操作
+  - 行 0（Alias）— Enter 进入别名编辑态
+  - 行 1（Name）— Enter 复制项目名称
+  - 行 2（Path）— Enter 复制路径
+  - 行 3（Description）— Enter 进入描述编辑态
+  - 行 4（Remotes）— Enter 复制远程地址
+  - 行 5（Tags）— Enter 进入标签编辑态
+  - 行 6（Scanned）— Enter 复制扫描时间
+  - 行 7-10（Antigravity/Cursor/VSCode/Finder）— Enter 执行打开
+- `↑`/`↓` 切换选中行（无需 Shift）
+- `Esc` / `Ctrl+C` 返回列表视图
+- 编辑态（Alias/Description/Tags）下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消
+- 无 footer 快捷键栏
 
 ### 编辑模式（Edit Modes）
 
 编辑模式仅在详情视图中触发：
 
-- **别名编辑模式**（alias edit）— 详情视图按 `e` 进入，Enter 保存，Esc/Ctrl+C 取消
-- **标签管理模式**（tag edit）— 详情视图按 `t` 进入，1-9 删除标签，输入+Enter 添加，Esc/Ctrl+C 退出
+- **别名编辑模式**（alias edit）— 选中 Alias 行按 Enter 进入，Enter 保存，Esc/Ctrl+C 取消
+- **描述编辑模式**（description edit）— 选中 Description 行按 Enter 进入，Enter 保存，Esc/Ctrl+C 取消
+- **标签管理模式**（tag edit）— 选中 Tags 行按 Enter 进入，输入+Enter 添加，`Shift+1`~`Shift+9` 删除，Esc/Ctrl+C 退出
 
 ## Key Patterns
 
@@ -141,10 +154,10 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 - Scanner's `run_scan(blocking=True/False)` toggles between synchronous and threaded execution
 - TUI uses `app.invalidate()` to trigger re-renders after state changes
 - Config falls back to defaults if the file is missing or corrupted, and rewrites it
-- Edit modes (alias/tag) are routed manually: key bindings check `_in_edit_mode()` and delegate printable/backspace to the active buffer via `_route_printable`/`_route_backspace`
+- Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view
 - Layout switching replaces `app.layout` entirely (list layout vs detail layout), stored in `_list_layout` for reuse
 - Search input visibility controlled by `ConditionalContainer` with `_search_active` condition
-- Key bindings use `Condition` filters for view-dependent behavior (e.g. `v`/`u`/`a`/`o`/`y` only in detail view; shift-gated `V`/`U`/`A`/`O`/`Y`/`R` for list view)
+- Key bindings use `Condition` filters for view-dependent behavior (e.g. shift-gated `V`/`U`/`A`/`O`/`Y`/`R` for list view)
 - Footer highlight timer uses `threading.Timer` for 2-second decay
 - Style class names avoid prompt_toolkit built-in names (e.g. `repo-selected` instead of `selected`) to prevent style conflicts
 - Tests create real git repos via subprocess in `tmp_path` fixtures

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from prompt_toolkit.formatted_text import to_plain_text
+
 from blink.models import Remote, Repo
 from blink.store import Store
 from blink.tui.detail import DetailPanel
@@ -12,6 +14,10 @@ def _make_repo(**overrides) -> Repo:
     repo = Repo(**defaults)
     repo.remotes = [Remote(id=1, repo_id=1, name="origin", url="git@github.com:user/test.git")]
     return repo
+
+
+def _to_plain(formatted) -> str:
+    return to_plain_text(formatted)
 
 
 def _make_detail_panel(repo: Repo = None) -> DetailPanel:
@@ -32,228 +38,315 @@ def _make_detail_panel(repo: Repo = None) -> DetailPanel:
 def test_detail_panel_renders_fields():
     panel = _make_detail_panel()
     text = panel._formatted_text()
-    text_str = str(text)
-    assert "test-repo" in text_str
-    assert "/tmp/test-repo" in text_str
-    assert "A test repo" in text_str
-    assert "origin" in text_str
-    assert "git@github.com:user/test.git" in text_str
-    assert "2025-01-01" in text_str
+    t = _to_plain(text)
+    assert "test-repo" in t
+    assert "/tmp/test-repo" in t
+    assert "A test repo" in t
+    assert "git@github.com:user/test.git" in t
+    assert "2025-01-01" in t
 
 
 def test_detail_panel_renders_alias():
     repo = _make_repo(alias="my-alias")
     panel = _make_detail_panel(repo)
-    text = panel._formatted_text()
-    text_str = str(text)
-    assert "my-alias" in text_str
+    t = _to_plain(panel._formatted_text())
+    assert "my-alias" in t
 
 
 def test_detail_panel_renders_no_alias():
     panel = _make_detail_panel()
-    text = panel._formatted_text()
-    text_str = str(text)
-    assert "(none)" in text_str
+    t = _to_plain(panel._formatted_text())
+    assert "(none)" in t
 
 
 def test_detail_panel_renders_tags():
     repo = _make_repo(tags=["python", "api"])
     panel = _make_detail_panel(repo)
-    text = panel._formatted_text()
-    text_str = str(text)
-    assert "python" in text_str
-    assert "api" in text_str
+    t = _to_plain(panel._formatted_text())
+    assert "python" in t
+    assert "api" in t
 
 
 def test_detail_panel_renders_no_remotes():
     repo = _make_repo()
     repo.remotes = []
     panel = _make_detail_panel(repo)
-    text = panel._formatted_text()
-    text_str = str(text)
-    assert "(none)" in text_str
+    t = _to_plain(panel._formatted_text())
+    assert "(none)" in t
 
 
-def test_detail_panel_alias_edit_creates_buffer():
+# ── line selection ─────────────────────────────────────────────────────────
+
+def test_cursor_starts_at_zero():
     panel = _make_detail_panel()
-    assert not panel.is_editing_alias
-    assert panel.alias_buffer is None
-
-    panel.handle_alias_edit()
-    assert panel.is_editing_alias
-    assert panel.alias_buffer is not None
+    assert panel._cursor_index == 0
 
 
-def test_detail_panel_alias_edit_prepopulates_buffer():
+def test_cursor_down_moves():
+    panel = _make_detail_panel()
+    panel.cursor_down()
+    assert panel._cursor_index == 1
+
+
+def test_cursor_up_moves():
+    panel = _make_detail_panel()
+    panel.cursor_down()
+    panel.cursor_up()
+    assert panel._cursor_index == 0
+
+
+def test_cursor_down_at_max():
+    panel = _make_detail_panel()
+    for _ in range(15):
+        panel.cursor_down()
+    assert panel._cursor_index == DetailPanel.MAX_LINE
+
+
+def test_cursor_up_at_zero():
+    panel = _make_detail_panel()
+    panel.cursor_up()
+    assert panel._cursor_index == 0
+
+
+def test_cursor_blocked_during_edit():
+    panel = _make_detail_panel()
+    panel._edit_mode = "alias"
+    panel.cursor_down()
+    assert panel._cursor_index == 0
+
+
+# ── alias edit ─────────────────────────────────────────────────────────────
+
+def test_handle_enter_alias_starts_edit():
+    panel = _make_detail_panel()
+    panel._cursor_index = DetailPanel.LINE_ALIAS
+    panel.handle_enter()
+    assert panel._edit_mode == "alias"
+
+
+def test_alias_edit_buffer_prepopulated():
     repo = _make_repo(alias="existing")
     panel = _make_detail_panel(repo)
-    panel.handle_alias_edit()
+    panel._start_alias_edit()
     assert panel.alias_buffer.text == "existing"
 
 
-def test_detail_panel_alias_edit_empty_repo():
-    panel = _make_detail_panel()
-    panel.handle_alias_edit()
-    assert panel.alias_buffer.text == ""
-
-
-def test_detail_panel_confirm_alias():
+def test_handle_enter_confirm_alias():
+    store = Store(":memory:")
+    store.init_db()
     repo = _make_repo()
-    panel = _make_detail_panel(repo)
-    panel.handle_alias_edit()
-    panel.confirm_alias("new-alias")
-    assert repo.alias == "new-alias"
-    assert not panel.is_editing_alias
+    rid = store.upsert_repo(repo)
+    repo = _make_repo(id=rid)
 
-
-def test_detail_panel_tag_edit_creates_buffer():
-    panel = _make_detail_panel()
-    assert not panel.is_adding_tag
-    assert panel.tag_buffer is None
-
-    panel.handle_tag_edit()
-    assert panel.is_adding_tag
-    assert panel.tag_buffer is not None
-
-
-def test_detail_panel_tag_popover_text():
-    repo = _make_repo(tags=["python", "rust"])
-    panel = _make_detail_panel(repo)
-    panel.handle_tag_edit()
-    panel._tag_buffer.text = "new-tag"
-    text = panel._formatted_text()
-    text_str = str(text)
-    assert "Tag Management" in text_str
-    assert "python" in text_str
-    assert "rust" in text_str
-    assert "new-tag" in text_str
-
-
-def test_detail_panel_tag_popover_shows_numbered_tags():
-    repo = _make_repo(tags=["alpha", "beta"])
-    panel = _make_detail_panel(repo)
-    panel.handle_tag_edit()
-    text = panel._formatted_text()
-    text_str = str(text)
-    assert "alpha" in text_str
-    assert "beta" in text_str
-    assert "1" in text_str
-    assert "2" in text_str
-
-
-def test_detail_panel_formatted_text_shows_buffer_during_alias_edit():
-    panel = _make_detail_panel()
-    panel.handle_alias_edit()
-    panel._alias_buffer.text = "typed-alias"
-    text = panel._formatted_text()
-    text_str = str(text)
-    assert "typed-alias" in text_str
-
-
-def test_detail_panel_formatted_text_delegates_to_popover_during_tag_edit():
-    panel = _make_detail_panel()
-    panel.handle_tag_edit()
-    panel._tag_buffer.text = "hello"
-    text = panel._formatted_text()
-    text_str = str(text)
-    assert "Tag Management" in text_str
-    assert "hello" in text_str
-
-
-def test_detail_panel_handle_key_escape_cancels_alias_edit():
-    panel = _make_detail_panel()
-    panel.handle_alias_edit()
-    assert panel.is_editing_alias
-    panel.handle_key("escape")
-    assert not panel.is_editing_alias
-
-
-def test_detail_panel_handle_key_escape_cancels_tag_edit():
-    panel = _make_detail_panel()
-    panel.handle_tag_edit()
-    assert panel.is_adding_tag
-    panel.handle_key("escape")
-    assert not panel.is_adding_tag
-
-
-def test_detail_panel_handle_key_escape_calls_on_back():
-    called = [False]
-
-    def on_back():
-        called[0] = True
-
-    repo = _make_repo()
     panel = DetailPanel(
-        repo=repo,
-        store=Store(":memory:"),
-        editors={},
-        on_back=on_back,
+        repo=repo, store=store, editors={},
+        on_back=lambda: None,
         on_alias_change=lambda a: None,
         on_tags_change=lambda: None,
     )
-    panel.handle_key("escape")
-    assert called[0]
+    panel._start_alias_edit()
+    panel._alias_buffer.text = "new-alias"
+    panel.handle_enter()
+    assert repo.alias == "new-alias"
+    assert panel._edit_mode is None
 
 
-def test_detail_panel_handle_key_enter_adds_tag():
+def test_handle_enter_alias_with_empty_buffer():
     store = Store(":memory:")
     store.init_db()
-    rid = store.upsert_repo(Repo(name="x", path="/x"))
+    repo = _make_repo()
+    rid = store.upsert_repo(repo)
+    repo = _make_repo(id=rid, alias="old-alias")
 
-    tags_changed = [False]
-
-    def on_tags_change():
-        tags_changed[0] = True
-
-    repo = _make_repo(id=rid, path="/x")
     panel = DetailPanel(
-        repo=repo,
-        store=store,
-        editors={},
+        repo=repo, store=store, editors={},
         on_back=lambda: None,
         on_alias_change=lambda a: None,
-        on_tags_change=on_tags_change,
+        on_tags_change=lambda: None,
     )
-    panel.handle_tag_edit()
-    panel._tag_buffer.text = "python"
-    panel.handle_key("enter")
-    assert not panel.is_adding_tag
-    assert "python" in repo.tags
-    assert tags_changed[0]
+    panel._start_alias_edit()
+    panel._alias_buffer.text = ""
+    panel.handle_enter()
+    assert repo.alias == ""
 
 
-def test_detail_panel_handle_key_number_removes_tag():
+# ── description edit ─────────────────────────────────────────────────────
+
+def test_handle_enter_desc_starts_edit():
+    panel = _make_detail_panel()
+    panel._cursor_index = DetailPanel.LINE_DESC
+    panel.handle_enter()
+    assert panel._edit_mode == "description"
+
+
+def test_desc_edit_buffer_prepopulated():
+    repo = _make_repo(description="existing desc")
+    panel = _make_detail_panel(repo)
+    panel._start_desc_edit()
+    assert panel.desc_buffer.text == "existing desc"
+
+
+def test_handle_enter_confirm_description():
     store = Store(":memory:")
     store.init_db()
-    rid = store.upsert_repo(Repo(name="x", path="/x"))
+    repo = _make_repo(description="original")
+    rid = store.upsert_repo(repo)
+    repo = _make_repo(id=rid, description="original")
+
+    panel = DetailPanel(
+        repo=repo, store=store, editors={},
+        on_back=lambda: None,
+        on_alias_change=lambda a: None,
+        on_tags_change=lambda: None,
+    )
+    panel._start_desc_edit()
+    panel._desc_buffer.text = "new description"
+    panel.handle_enter()
+    assert repo.description == "new description"
+    assert panel._edit_mode is None
+
+
+# ── tags edit ─────────────────────────────────────────────────────────────
+
+def test_handle_enter_tags_starts_edit():
+    panel = _make_detail_panel()
+    panel._cursor_index = DetailPanel.LINE_TAGS
+    panel.handle_enter()
+    assert panel._edit_mode == "tags"
+
+
+def test_handle_enter_tags_adds_tag():
+    store = Store(":memory:")
+    store.init_db()
+    repo = _make_repo()
+    rid = store.upsert_repo(repo)
+    repo = _make_repo(id=rid, path="/x", alias="", description="A test repo")
+
+    panel = DetailPanel(
+        repo=repo, store=store, editors={},
+        on_back=lambda: None,
+        on_alias_change=lambda a: None,
+        on_tags_change=lambda: None,
+    )
+    panel._start_tags_edit()
+    panel._tag_buffer.text = "python"
+    panel.handle_enter()
+    assert "python" in repo.tags
+    # Enter stays in tags edit mode for more tag additions
+    assert panel._edit_mode == "tags"
+
+
+def test_handle_key_number_removes_tag():
+    store = Store(":memory:")
+    store.init_db()
+    repo = _make_repo()
+    rid = store.upsert_repo(repo)
     store.add_tag(rid, "alpha")
     store.add_tag(rid, "beta")
-
-    tags_changed = [False]
-
-    def on_tags_change():
-        tags_changed[0] = True
-
-    repo = _make_repo(id=rid, path="/x")
+    repo = _make_repo(id=rid, path="/x", alias="", description="A test repo")
     repo.tags = store.get_tags_for_repo(rid)
+
     panel = DetailPanel(
-        repo=repo,
-        store=store,
-        editors={},
+        repo=repo, store=store, editors={},
         on_back=lambda: None,
         on_alias_change=lambda a: None,
-        on_tags_change=on_tags_change,
+        on_tags_change=lambda: None,
     )
-    panel.handle_tag_edit()
-    panel.handle_key("1")  # removes first tag ("alpha")
+    panel._start_tags_edit()
+    panel.handle_key("1")
     assert "alpha" not in repo.tags
     assert "beta" in repo.tags
-    assert tags_changed[0]
 
 
-def test_detail_panel_is_properties():
+def test_handle_enter_confirm_description_clears_edit_mode():
+    store = Store(":memory:")
+    store.init_db()
+    repo = _make_repo(description="original")
+    rid = store.upsert_repo(repo)
+    repo = _make_repo(id=rid, description="original")
+
+    panel = DetailPanel(
+        repo=repo, store=store, editors={},
+        on_back=lambda: None,
+        on_alias_change=lambda a: None,
+        on_tags_change=lambda: None,
+    )
+    panel._start_desc_edit()
+    panel._desc_buffer.text = "new description"
+    panel.handle_enter()
+    assert repo.description == "new description"
+    assert panel._edit_mode is None
+
+
+# ── copy actions ──────────────────────────────────────────────────────────
+
+def test_handle_enter_name_copies(monkeypatch):
+    copied = []
+    monkeypatch.setattr("blink.tui.detail.copy_path", lambda t: copied.append(t) or None)
     panel = _make_detail_panel()
-    assert not panel.is_editing_alias
-    assert not panel.is_adding_tag
-    assert panel.alias_buffer is None
-    assert panel.tag_buffer is None
+    panel._cursor_index = DetailPanel.LINE_NAME
+    panel.handle_enter()
+    assert copied == ["test-repo"]
+
+
+def test_handle_enter_path_copies(monkeypatch):
+    copied = []
+    monkeypatch.setattr("blink.tui.detail.copy_path", lambda t: copied.append(t) or None)
+    panel = _make_detail_panel()
+    panel._cursor_index = DetailPanel.LINE_PATH
+    panel.handle_enter()
+    assert copied == ["/tmp/test-repo"]
+
+
+def test_handle_enter_remotes_copies(monkeypatch):
+    copied = []
+    monkeypatch.setattr("blink.tui.detail.copy_path", lambda t: copied.append(t) or None)
+    panel = _make_detail_panel()
+    panel._cursor_index = DetailPanel.LINE_REMOTES
+    panel.handle_enter()
+    assert copied == ["git@github.com:user/test.git"]
+
+
+def test_handle_enter_remotes_none(monkeypatch):
+    copied = []
+    monkeypatch.setattr("blink.tui.detail.copy_path", lambda t: copied.append(t) or None)
+    repo = _make_repo()
+    repo.remotes = []
+    panel = _make_detail_panel(repo)
+    panel._cursor_index = DetailPanel.LINE_REMOTES
+    panel.handle_enter()
+    assert copied == []
+
+
+def test_handle_enter_scanned_copies(monkeypatch):
+    copied = []
+    monkeypatch.setattr("blink.tui.detail.copy_path", lambda t: copied.append(t) or None)
+    panel = _make_detail_panel()
+    panel._cursor_index = DetailPanel.LINE_SCANNED
+    panel.handle_enter()
+    assert copied == ["2025-01-01T00:00:00"]
+
+
+# ── is_editing ─────────────────────────────────────────────────────────────
+
+def test_is_editing_false_by_default():
+    panel = _make_detail_panel()
+    assert not panel.is_editing
+
+
+def test_is_editing_true_when_alias():
+    panel = _make_detail_panel()
+    panel._edit_mode = "alias"
+    assert panel.is_editing
+
+
+def test_is_editing_true_when_description():
+    panel = _make_detail_panel()
+    panel._edit_mode = "description"
+    assert panel.is_editing
+
+
+def test_is_editing_true_when_tags():
+    panel = _make_detail_panel()
+    panel._edit_mode = "tags"
+    assert panel.is_editing

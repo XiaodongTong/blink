@@ -152,6 +152,28 @@ def test_set_alias() -> None:
     store.close()
 
 
+def test_set_description() -> None:
+    store = _make_store()
+    rid = store.upsert_repo(Repo(name="x", path="/x"))
+    store.set_description(rid, "my description")
+    repo = store.get_repo_by_path("/x")
+    assert repo is not None
+    assert repo.description == "my description"
+    store.close()
+
+
+def test_set_description_null_old_db() -> None:
+    # The description column has a NOT NULL DEFAULT '' constraint,
+    # so we test that set_description works on repos created with empty string.
+    store = _make_store()
+    rid = store.upsert_repo(Repo(name="x", path="/x", description=""))
+    store.set_description(rid, "new desc")
+    repo = store.get_repo_by_path("/x")
+    assert repo is not None
+    assert repo.description == "new desc"
+    store.close()
+
+
 def test_upsert_preserves_alias_on_rescan() -> None:
     store = _make_store()
     store.upsert_repo(Repo(name="x", path="/x"))
