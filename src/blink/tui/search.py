@@ -19,7 +19,7 @@ class SearchBar:
         self.window = Window(
             content=self.control,
             height=D.exact(1),
-            style="class:search-bar",
+            style="class:search-input",
         )
 
     def _text_changed(self, buf: Buffer) -> None:

@@ -76,9 +76,15 @@ class BlinkApp:
         return Layout(
             HSplit([
                 Window(
-                    content=FormattedTextControl(text=lambda: FormattedText([("class:label", " Search: ")])),
+                    content=FormattedTextControl(text=self._title_text),
                     height=D.exact(1),
-                    style="class:label",
+                    style="class:title",
+                ),
+                Window(height=D.exact(1), char="─", style="class:border"),
+                Window(
+                    content=FormattedTextControl(text=lambda: FormattedText([("class:search-prefix", " / ")])),
+                    height=D.exact(1),
+                    style="class:search-bar",
                 ),
                 self._search_bar.window,
                 Window(height=D.exact(1), char="─", style="class:border"),
@@ -91,17 +97,50 @@ class BlinkApp:
 
     def _build_style(self) -> Style:
         return Style.from_dict({
-            "selected": "reverse",
-            "selected-dim": "reverse",
-            "normal": "",
-            "dim": "#888888",
-            "search-bar": "",
-            "status": "bg:#333333 #cccccc",
-            "footer": "bg:#222222 #888888",
-            "label": "bold",
-            "border": "#555555",
+            # Title bar
+            "title": "bg:#161b22",
+            "title-brand": "bold fg:#58a6ff bg:#161b22",
+            "title-sep": "fg:#30363d bg:#161b22",
+            "title-detail": "fg:#c9d1d9 bg:#161b22",
+            "title-count": "fg:#8b949e bg:#161b22",
+            # Search
+            "search-bar": "fg:#c9d1d9 bg:#0d1117",
+            "search-input": "fg:#c9d1d9 bg:#0d1117",
+            "search-prefix": "fg:#58a6ff bg:#0d1117",
+            # Repo list — normal row
             "repo-list": "",
-            "detail-panel": "",
+            "normal": "fg:#c9d1d9",
+            "dim": "fg:#484f58",
+            "path": "fg:#484f58",
+            "tag": "fg:#3fb950",
+            "tag-bracket": "fg:#238636",
+            # Repo list — selected row
+            "indicator": "fg:#58a6ff bold bg:#264f78",
+            "repo-selected": "fg:#f0f6fc bg:#264f78",
+            "selected-dim": "fg:#8db9e2 bg:#264f78",
+            "selected-tag": "fg:#7ee787 bg:#264f78",
+            "selected-tag-bracket": "fg:#3fb950 bg:#264f78",
+            # Empty state
+            "empty": "fg:#484f58 italic",
+            # Borders
+            "border": "fg:#30363d",
+            # Status bar
+            "status": "bg:#161b22",
+            "status-label": "fg:#8b949e bg:#161b22",
+            "status-value": "fg:#c9d1d9 bg:#161b22",
+            "status-accent": "fg:#58a6ff bg:#161b22",
+            "status-dim": "fg:#484f58 bg:#161b22",
+            # Footer
+            "footer": "bg:#0d1117",
+            "footer-key": "bold fg:#58a6ff bg:#0d1117",
+            "footer-dim": "fg:#484f58 bg:#0d1117",
+            # Detail panel
+            "detail-panel": "fg:#c9d1d9",
+            "label": "bold fg:#58a6ff",
+            "detail-sep": "fg:#30363d",
+            # Tags in detail
+            "detail-tag": "fg:#3fb950",
+            "detail-tag-bracket": "fg:#238636",
         })
 
     def _build_key_bindings(self) -> KeyBindings:
@@ -354,6 +393,12 @@ class BlinkApp:
         detail_layout = Layout(
             HSplit([
                 Window(
+                    content=FormattedTextControl(text=self._title_text),
+                    height=D.exact(1),
+                    style="class:title",
+                ),
+                Window(height=D.exact(1), char="─", style="class:border"),
+                Window(
                     content=FormattedTextControl(text=self._detail_panel._formatted_text),
                     style="class:detail-panel",
                 ),
@@ -411,42 +456,96 @@ class BlinkApp:
         t = threading.Thread(target=run, daemon=True)
         t.start()
 
+    def _title_text(self) -> FormattedText:
+        if self._detail_panel is not None:
+            repo = self._detail_panel._repo
+            name = repo.alias or repo.name
+            return FormattedText([
+                ("class:title-brand", " ◆ blink"),
+                ("class:title-sep", " │ "),
+                ("class:title-detail", name),
+            ])
+        return FormattedText([
+            ("class:title-brand", " ◆ blink"),
+        ])
+
+    def _styled_footer_hints(self, hints: list[tuple[str, str]]) -> FormattedText:
+        parts: list[tuple[str, str]] = [("class:footer-dim", " ")]
+        for i, (key, desc) in enumerate(hints):
+            if i > 0:
+                parts.append(("class:footer-dim", "  "))
+            parts.append(("class:footer-key", key))
+            parts.append(("class:footer-dim", f":{desc}"))
+        return FormattedText(parts)
+
     def _status_text(self) -> FormattedText:
         if self._editing_alias:
             buf_text = self._alias_buffer.text
-            return FormattedText([("", f" Alias: {buf_text}")])
+            return FormattedText([
+                ("class:status-label", " Alias: "),
+                ("class:status-value", buf_text),
+            ])
         if self._editing_tag:
             buf_text = self._tag_buffer.text
-            return FormattedText([("", f" Tag: {buf_text}")])
+            return FormattedText([
+                ("class:status-label", " Tag: "),
+                ("class:status-value", buf_text),
+            ])
         if self._detail_panel is not None:
             if self._detail_panel.is_editing_alias and self._detail_panel._alias_buffer:
                 buf_text = self._detail_panel._alias_buffer.text
-                return FormattedText([("", f" Alias: {buf_text}")])
+                return FormattedText([
+                    ("class:status-label", " Alias: "),
+                    ("class:status-value", buf_text),
+                ])
             if self._detail_panel.is_adding_tag and self._detail_panel._tag_buffer:
                 buf_text = self._detail_panel._tag_buffer.text
-                return FormattedText([("", f" Tag: {buf_text}")])
+                return FormattedText([
+                    ("class:status-label", " Tag: "),
+                    ("class:status-value", buf_text),
+                ])
         count = len(self._repo_control.repos)
-        status = self._scan_status if self._scanning else f"{count} repo{'s' if count != 1 else ''}"
-        return FormattedText([("", f" {status}")])
+        if self._scanning:
+            return FormattedText([
+                ("class:status-accent", " ⟳ "),
+                ("class:status-label", "Scanning..."),
+            ])
+        return FormattedText([
+            ("class:status-accent", f" {count}"),
+            ("class:status-label", f" repo{'s' if count != 1 else ''}"),
+        ])
 
     def _footer_text(self) -> FormattedText:
         if self._editing_alias:
-            parts = ["Enter: save alias", "Esc: cancel"]
-            return FormattedText([("", " " + "  ".join(parts))])
+            return self._styled_footer_hints([
+                ("Enter", "save alias"), ("Esc", "cancel"),
+            ])
         if self._editing_tag:
-            parts = ["1-9: remove tag", "Enter: add tag", "Esc: cancel"]
-            return FormattedText([("", " " + "  ".join(parts))])
-        parts = ["j/k:nav", "Enter:detail", "/:search", "e:alias", "t:tags", "v:code", "u:cursor", "a:antigrav", "o:open", "y:yank", "r:rescan", "q:quit"]
-        return FormattedText([("", " " + "  ".join(parts))])
+            return self._styled_footer_hints([
+                ("1-9", "remove tag"), ("Enter", "add tag"), ("Esc", "cancel"),
+            ])
+        return self._styled_footer_hints([
+            ("j/k", "nav"), ("Enter", "detail"), ("/", "search"),
+            ("e", "alias"), ("t", "tags"), ("v", "code"),
+            ("u", "cursor"), ("a", "antigrav"), ("o", "open"),
+            ("y", "yank"), ("r", "rescan"), ("q", "quit"),
+        ])
 
     def _detail_footer_text(self) -> FormattedText:
         if self._detail_panel is not None:
             if self._detail_panel.is_editing_alias:
-                return FormattedText([("", " Enter: save alias  Esc: cancel")])
+                return self._styled_footer_hints([
+                    ("Enter", "save alias"), ("Esc", "cancel"),
+                ])
             if self._detail_panel.is_adding_tag:
-                return FormattedText([("", " 1-9: remove tag  Enter: add tag  Esc: cancel")])
-        parts = ["e:edit alias", "t:manage tags", "v:code", "u:cursor", "a:antigrav", "o:open", "y:copy path", "Esc:back"]
-        return FormattedText([("", " " + "  ".join(parts))])
+                return self._styled_footer_hints([
+                    ("1-9", "remove tag"), ("Enter", "add tag"), ("Esc", "cancel"),
+                ])
+        return self._styled_footer_hints([
+            ("e", "edit alias"), ("t", "manage tags"), ("v", "code"),
+            ("u", "cursor"), ("a", "antigrav"), ("o", "open"),
+            ("y", "copy path"), ("Esc", "back"),
+        ])
 
     def run(self) -> None:
         self._app.run()

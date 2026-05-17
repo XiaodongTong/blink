@@ -38,33 +38,55 @@ class RepoListControl(UIControl):
     def preferred_height(self, width: int, max_available_height: int, wrap_lines: bool, get_line_prefix) -> int | None:
         return max(len(self.repos) * 2, 1)
 
-    def _tag_text(self, tags: List[str]) -> str:
-        if tags:
-            return "  [" + ", ".join(tags) + "]"
-        return ""
-
-    def _render_repo(self, repo: Repo, selected: bool) -> List[AnyFormattedText]:
-        tag_text = self._tag_text(repo.tags)
-        line1 = f"  {repo.display_name}{tag_text}"
-        line2 = f"  {repo.path}"
+    def _render_repo(self, repo: Repo, selected: bool, width: int = 0) -> List[AnyFormattedText]:
         if selected:
-            return [
-                [("class:selected", line1)],
-                [("class:selected-dim", line2)],
-            ]
-        return [
-            [("class:normal", line1)],
-            [("class:dim", line2)],
-        ]
+            ind_s = "class:indicator"
+            name_s = "class:repo-selected"
+            alias_s = "class:selected-dim"
+            path_s = "class:selected-dim"
+            tag_s = "class:selected-tag"
+            tag_b = "class:selected-tag-bracket"
+        else:
+            ind_s = "class:dim"
+            name_s = "class:normal"
+            alias_s = "class:dim"
+            path_s = "class:path"
+            tag_s = "class:tag"
+            tag_b = "class:tag-bracket"
+
+        line1: list[tuple[str, str]] = [(ind_s, " ▸ " if selected else "   ")]
+        if repo.alias:
+            line1.append((name_s, repo.alias))
+            line1.append((alias_s, f" ({repo.name})"))
+        else:
+            line1.append((name_s, repo.name))
+
+        for tag in repo.tags:
+            line1.append((tag_b, " ["))
+            line1.append((tag_s, tag))
+            line1.append((tag_b, "]"))
+
+        line2: list[tuple[str, str]] = [(path_s, f"     {repo.path}")]
+
+        if selected and width > 0:
+            pad_s = "class:selected-dim"
+            line1_len = sum(len(t) for _, t in line1)
+            if line1_len < width:
+                line1.append((pad_s, " " * (width - line1_len)))
+            line2_len = sum(len(t) for _, t in line2)
+            if line2_len < width:
+                line2.append((pad_s, " " * (width - line2_len)))
+
+        return [line1, line2]
 
     def create_content(self, width: int, height: int) -> UIContent:
         lines: list[list[tuple[str, str]]] = []
         for i, repo in enumerate(self.repos):
-            rendered = self._render_repo(repo, i == self.selected_index)
+            rendered = self._render_repo(repo, i == self.selected_index, width)
             lines.extend(rendered)
 
         if not lines:
-            lines.append([("class:normal", "  No repositories found.")])
+            lines.append([("class:empty", "  No repositories found.")])
             lines.append([("class:dim", "")])
 
         def get_line(i: int):

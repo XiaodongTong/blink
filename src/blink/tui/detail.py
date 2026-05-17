@@ -31,33 +31,63 @@ class DetailPanel:
             return self._tag_popover_text(tag_input)
 
         parts: List[tuple[str, str]] = []
-        alias_label = "Alias"
+
+        # Alias
         if self._editing_alias and self._alias_buffer:
             alias_val = self._alias_buffer.text
         else:
             alias_val = self._repo.alias if self._repo.alias else "(none)"
-        parts.append(("class:label", f"  {alias_label}: "))
+        parts.append(("class:label", "  Alias     "))
         parts.append(("class:normal", f"{alias_val}\n"))
-        parts.append(("class:label", "  Name: "))
+
+        # Name
+        parts.append(("class:label", "  Name      "))
         parts.append(("class:normal", f"{self._repo.name}\n"))
-        parts.append(("class:label", "  Path: "))
-        parts.append(("class:normal", f"{self._repo.path}\n"))
+
+        # Path
+        parts.append(("class:label", "  Path      "))
+        parts.append(("class:dim", f"{self._repo.path}\n"))
+
         if self._repo.description:
-            parts.append(("class:label", "  Description: "))
+            parts.append(("class:label", "  Desc      "))
             parts.append(("class:normal", f"{self._repo.description}\n"))
+
+        # Separator
+        parts.append(("class:detail-sep", "\n"))
+
+        # Remotes
         if self._repo.remotes:
-            parts.append(("class:label", "  Remotes:\n"))
+            parts.append(("class:label", "  Remotes\n"))
             for rm in self._repo.remotes:
-                parts.append(("class:dim", f"    - {rm.name}: {rm.url}\n"))
+                parts.append(("class:dim", "    ○ "))
+                parts.append(("class:normal", f"{rm.name}"))
+                parts.append(("class:dim", " → "))
+                parts.append(("class:dim", f"{rm.url}\n"))
         else:
-            parts.append(("class:label", "  Remotes: "))
+            parts.append(("class:label", "  Remotes   "))
             parts.append(("class:dim", "(none)\n"))
-        tag_str = ", ".join(self._repo.tags) if self._repo.tags else "(none)"
-        parts.append(("class:label", "  Tags: "))
-        parts.append(("class:normal", f"{tag_str}\n"))
-        parts.append(("class:label", "  Last scanned: "))
+
+        # Tags
+        parts.append(("class:label", "  Tags      "))
+        if self._repo.tags:
+            for tag in self._repo.tags:
+                parts.append(("class:detail-tag-bracket", "["))
+                parts.append(("class:detail-tag", tag))
+                parts.append(("class:detail-tag-bracket", "] "))
+        else:
+            parts.append(("class:dim", "(none)"))
+        parts.append(("", "\n"))
+
+        # Separator
+        parts.append(("class:detail-sep", "\n"))
+
+        # Last scanned
+        parts.append(("class:label", "  Scanned   "))
         parts.append(("class:dim", f"{self._repo.last_synced}\n"))
-        parts.append(("class:label", "\n  Actions: "))
+
+        # Actions
+        parts.append(("class:detail-sep", "\n"))
+        parts.append(("class:dim", "  Actions: "))
         parts.append(("class:normal", "e:edit alias  t:manage tags  "))
         parts.append(("class:normal", "v:VSCode  u:Cursor  a:Antigrav  o:open  "))
         parts.append(("class:normal", "y:copy path\n"))
@@ -67,16 +97,24 @@ class DetailPanel:
     def _tag_popover_text(self, add_input: str) -> FormattedText:
         parts: List[tuple[str, str]] = []
         parts.append(("class:label", "  Tag Management\n"))
-        parts.append(("class:normal", "  Current tags: "))
-        tag_str = ", ".join(self._repo.tags) if self._repo.tags else "(none)"
-        parts.append(("class:normal", f"{tag_str}\n"))
+        parts.append(("class:normal", "  Current tags "))
+        if self._repo.tags:
+            for tag in self._repo.tags:
+                parts.append(("class:detail-tag-bracket", "["))
+                parts.append(("class:detail-tag", tag))
+                parts.append(("class:detail-tag-bracket", "] "))
+        else:
+            parts.append(("class:dim", "(none)"))
+        parts.append(("", "\n"))
         if self._repo.tags:
             parts.append(("class:dim", "  [number] remove tag\n"))
             for i, tag in enumerate(self._repo.tags):
-                parts.append(("class:dim", f"    {i+1}: {tag}\n"))
-        parts.append(("class:normal", "\n  Add tag: "))
-        parts.append(("class:selected", add_input))
-        parts.append(("class:normal", "  (Enter to add, Esc to close)\n"))
+                parts.append(("class:dim", f"    "))
+                parts.append(("class:label", f"{i+1}"))
+                parts.append(("class:dim", f": {tag}\n"))
+        parts.append(("class:label", "\n  Add tag "))
+        parts.append(("class:status-value", add_input))
+        parts.append(("class:dim", "  (Enter to add, Esc to close)\n"))
         return FormattedText(parts)
 
     def handle_key(self, key: str) -> bool:

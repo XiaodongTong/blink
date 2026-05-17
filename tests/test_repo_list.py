@@ -47,7 +47,8 @@ def test_two_line_render_with_tags():
     line0 = content.get_line(0)
     line0_str = str(line0)
     assert "test" in line0_str
-    assert "[python, api]" in line0_str
+    assert "python" in line0_str
+    assert "api" in line0_str
 
 
 def test_two_line_render_unselected():
@@ -64,14 +65,15 @@ def test_two_line_render_unselected():
     assert "/b" in str(line3)
 
 
-def test_display_name_prefers_alias():
+def test_display_name_shows_both_alias_and_name():
     control = RepoListControl()
     repo = Repo(name="real-name", alias="my-alias", path="/x")
     control.set_repos([repo])
     content = control.create_content(80, 40)
     line0 = content.get_line(0)
-    assert "my-alias" in str(line0)
-    assert "real-name" not in str(line0)
+    line0_str = str(line0)
+    assert "my-alias" in line0_str
+    assert "real-name" in line0_str
 
 
 def test_move_up_down():

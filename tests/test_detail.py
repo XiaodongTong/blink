@@ -135,8 +135,10 @@ def test_detail_panel_tag_popover_shows_numbered_tags():
     panel.handle_tag_edit()
     text = panel._formatted_text()
     text_str = str(text)
-    assert "1: alpha" in text_str
-    assert "2: beta" in text_str
+    assert "alpha" in text_str
+    assert "beta" in text_str
+    assert "1" in text_str
+    assert "2" in text_str
 
 
 def test_detail_panel_formatted_text_shows_buffer_during_alias_edit():
