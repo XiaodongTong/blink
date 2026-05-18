@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
+from prompt_toolkit.data_structures import Point
 from prompt_toolkit.formatted_text import AnyFormattedText, FormattedText
 from prompt_toolkit.layout.controls import UIContent, UIControl
 from prompt_toolkit.layout.dimension import D
@@ -98,6 +99,7 @@ class RepoListControl(UIControl):
             get_line=get_line,
             line_count=max(len(lines), height if height > 0 else 1),
             show_cursor=False,
+            cursor_position=Point(x=0, y=self.selected_index * 2),
         )
 
 
