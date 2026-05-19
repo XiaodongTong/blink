@@ -31,7 +31,7 @@ def main(rescan: bool) -> None:
         def on_progress(count: int) -> None:
             print(f"\r  Found {count} repos...", end="", flush=True)
 
-        app = BlinkApp(store=store, scanner=scanner, is_first_run=is_first_run)
+        app = BlinkApp(store=store, scanner=scanner, config=config, is_first_run=is_first_run)
         app.run_scan_blocking(on_progress=on_progress)
         print(f"\r  Found {store.repo_count()} repos.      ")
     else:
@@ -45,7 +45,7 @@ def main(rescan: bool) -> None:
             store.delete_stale_repos(valid_paths)
 
         scanner = Scanner(roots=config.scan_paths, excludes=config.exclude_dirs)
-        app = BlinkApp(store=store, scanner=scanner, is_first_run=False)
+        app = BlinkApp(store=store, scanner=scanner, config=config, is_first_run=False)
 
     app.run()
     store.close()

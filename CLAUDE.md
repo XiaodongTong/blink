@@ -40,8 +40,8 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 - `app.py` — Main `BlinkApp` class. Composes full-screen layout (search prefix → repo list → status → footer). All key bindings, search state machine, exit mechanism, edit-mode input routing, layout switching (list ↔ detail), and background scan orchestration live here. Styles are defined in `_build_style()` using GitHub dark theme colors.
 - `repo_list.py` — Custom `UIControl`/`Window` for the two-line repo list. Each repo renders as: line 1 = indicator + `★` (if pinned) + name/alias + tags, line 2 = path. Selected items pad lines to full width for consistent background fill.
 - `search.py` — `SearchBar` wrapping a `prompt_toolkit.Buffer`. Visibility controlled by `ConditionalContainer` in app layout.
-- `actions.py` — Editor detection and launch (VSCode, Cursor, Antigravity, system open), clipboard via `pbcopy`
-- `detail.py` — `DetailPanel` class rendering full repo info (alias, name, path, description, remotes, tags, pinned, actions). 12 selectable lines. Supports inline alias edit, tag management popovers, and pin toggle.
+- `actions.py` — Editor detection and launch (VSCode, Cursor, Antigravity, system open), clipboard via `pbcopy`. `IDE_CHOICES` defines the three IDE options for the unified IDE selection flow.
+- `detail.py` — `DetailPanel` class rendering full repo info (alias, name, path, description, remotes, tags, pinned, actions). 10 selectable lines. Supports inline alias edit, tag management popovers, and pin toggle.
 
 **Data flow**: Scanner finds git dirs → creates `ScanResult(repo, remotes)` → Store upserts into SQLite → TUI loads from Store for display/search.
 
@@ -57,7 +57,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 │     /path/to/repo        ┘ 列表项 ┘ ← 项目列表                      │
 │─────────────────────────────────────────────────────────────────────│
 │ description  /path/to/repo                            ← 状态栏      │
-│ Enter:detail  /:search  Shift+V:code …               ← 快捷键栏  │
+│ Enter:detail  /:search  Shift+I:ide …                ← 快捷键栏  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -79,9 +79,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 | `↑` / `↓` | 导航 | ✗ |
 | `Enter` | 进入详情视图 | ✗ |
 | `/` | 进入搜索 | ✗ |
-| `Shift+V` | 用 VSCode 打开 | ✓ |
-| `Shift+U` | 用 Cursor 打开 | ✓ |
-| `Shift+A` | 用 Antigravity 打开 | ✓ |
+| `Shift+I` | 用 IDE 打开 | ✓ |
 | `Shift+O` | 用系统默认方式打开 | ✓ |
 | `Shift+P` | 复制仓库路径到剪贴板 | ✓ |
 | `Shift+R` | 重新扫描文件系统 | ✓ |
@@ -117,15 +115,13 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 │     Tags      [python] [api]                      │
 │     Pinned    No                                  │
 │─────────────────────────────────────────────────│
-│     Open with Antigravity                        │
-│     Open with Cursor                             │
-│     Open with Visual Studio Code                 │
-│     Open with Finder                             │
-│     Add Loop Task                                │
+│     Open with IDE                                 │
+│     Open with Finder                              │
+│     Add Loop Task                                 │
 └─────────────────────────────────────────────────┘
 ```
 
-- **详情面板**（detail panel）— 12 行可选中，每行按 Enter 执行对应操作
+- **详情面板**（detail panel）— 10 行可选中，每行按 Enter 执行对应操作
   - 行 0（Name）— Enter 复制项目名称，状态栏提示
   - 行 1（Alias）— Enter 进入别名编辑态
   - 行 2（Path）— Enter 复制路径，状态栏提示
@@ -133,8 +129,9 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
   - 行 4（Git）— Enter 将 SSH 地址转为 HTTPS 并在浏览器打开
   - 行 5（Tags）— Enter 进入标签编辑态
   - 行 6（Pinned）— Enter 切换置顶状态，状态栏提示"已置顶"/"已取消置顶"
-  - 行 7-10（Open with Antigravity/Cursor/VSCode/Finder）— Enter 执行打开
-  - 行 11（Add Loop Task）— Enter 执行 `tloop edit`，未安装时状态栏提示"未安装 tloop"
+  - 行 7（Open with IDE）— Enter 用首选 IDE 打开，首次使用时弹出选择
+  - 行 8（Open with Finder）— Enter 执行打开
+  - 行 9（Add Loop Task）— Enter 执行 `tloop edit`，未安装时状态栏提示"未安装 tloop"
 - 进入详情视图时自动增加该项目的查看次数（`view_count`）
 - `↑`/`↓` 切换选中行（无需 Shift）
 - `Esc` / `Ctrl+C` 返回列表视图
@@ -158,7 +155,8 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 - Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view. Git row displays SSH→HTTPS converted URL; Enter opens in browser via `webbrowser.open()`. Pinned row toggles `repo.pinned` via `store.toggle_pin()` and triggers `on_pin_change` callback. Edit mode renders the input text and cursor only in the status bar (`_EditStatusControl`); detail panel rows always show original values. `DetailPanel.is_focusable()` returns `True` so the window can receive focus in non-edit mode.
 - Layout switching replaces `app.layout` entirely (list layout vs detail layout), stored in `_list_layout` for reuse. Detail view stores `_detail_window` reference and calls `layout.focus()` on it. List view stores `_repo_list_window` reference; after closing search or returning from detail view, focus moves to the repo list window.
 - Search area completely hidden by default via `ConditionalContainer` with `_search_filtering and not _search_active` for the prefix and `_search_active` for the bordered input. Search input has no background color; bright border (`fg:#58a6ff`) surrounds it via `Window(char="─")` lines above and below. When search is confirmed or canceled, focus returns to the repo list window to prevent hidden buffer from receiving keystrokes.
-- Key bindings use `Condition` filters for view-dependent behavior (e.g. shift-gated `V`/`U`/`A`/`O`/`P`/`R` for list view)
+- Key bindings use `Condition` filters for view-dependent behavior (e.g. shift-gated `I`/`O`/`P`/`R` for list view)
+- IDE selection mode (`_ide_selecting`) is a temporary overlay state: when `Shift+I` is pressed and no preferred IDE is set in config (`preferred_ide`), the status bar shows IDE options (VSCode/Cursor/Antigravity). `↑`/`↓` navigates, `Enter` confirms and saves preference to `~/.blink/config.json`, `Esc`/`Ctrl+C` cancels. IDE selection handlers are registered first in key bindings so they take priority over navigation when active.
 - Footer highlight timer uses `threading.Timer` for 2-second decay
 - Style class names avoid prompt_toolkit built-in names (e.g. `repo-selected` instead of `selected`) to prevent style conflicts
 - Tests create real git repos via subprocess in `tmp_path` fixtures

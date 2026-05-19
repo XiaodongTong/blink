@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from prompt_toolkit.keys import Keys
 
 from blink.models import Repo
+from blink.config import Config
 from blink.store import Store
 from blink.scanner import Scanner
 from blink.tui.app import BlinkApp
@@ -22,6 +23,8 @@ def _make_app():
     app = BlinkApp.__new__(BlinkApp)
     app._store = store
     app._scanner = scanner
+    app._config = MagicMock(spec=Config)
+    app._config.preferred_ide = None
     app._editors = {}
     app._scanning = False
     app._scan_status = ""
@@ -46,6 +49,9 @@ def _make_app():
     app._last_ctrl_c = 0.0
     app._ctrl_c_quit_hint = False
     app._app = MagicMock()
+    app._ide_selecting = False
+    app._ide_select_cursor = 0
+    app._ide_pending_repo = None
     return app, store, rid
 
 
@@ -56,7 +62,8 @@ def _find_binding(kb, key):
         for k in reg.keys:
             val = k.value if hasattr(k, 'value') else str(k)
             if val == lookup or str(k) == key:
-                return reg.handler
+                if reg.filter is None or reg.filter():
+                    return reg.handler
     return None
 
 
@@ -185,7 +192,7 @@ def test_shift_keys_present(app_with_store):
     for reg in kb.bindings:
         for k in reg.keys:
             bound_keys.append(k.value if hasattr(k, 'value') else str(k))
-    for expected in ("V", "U", "A", "O", "Y", "R", "s-up", "s-down"):
+    for expected in ("I", "O", "R", "s-up", "s-down"):
         assert expected in bound_keys, f"Missing Shift-gated key: {expected}"
 
 
@@ -194,7 +201,7 @@ def test_shift_keys_blocked_during_search(app_with_store):
     app, store, rid = app_with_store
     app._search_active = True
     kb = app._build_key_bindings()
-    shift_keys = {"V", "U", "A", "O", "Y", "R", "s-up"}
+    shift_keys = {"I", "O", "R", "s-up"}
     for reg in kb.bindings:
         for key in reg.keys:
             key_str = key.value if hasattr(key, 'value') else str(key)

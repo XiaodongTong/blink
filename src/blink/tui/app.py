@@ -17,11 +17,12 @@ from prompt_toolkit.layout.dimension import D
 from prompt_toolkit.styles import Style
 
 from blink.models import Repo
+from blink.config import Config
 from blink.store import Store
 from blink.scanner import Scanner, ScanResult
 from blink.tui.repo_list import RepoListControl, RepoListWindow
 from blink.tui.search import SearchBar
-from blink.tui.actions import EditorInfo, copy_path, detect_editors, open_in_editor
+from blink.tui.actions import EditorInfo, IDE_CHOICES, copy_path, detect_editors, open_in_editor
 from blink.tui.detail import DetailPanel, _display_width
 
 
@@ -58,9 +59,10 @@ class _EditStatusControl(UIControl):
 
 
 class BlinkApp:
-    def __init__(self, store: Store, scanner: Scanner, is_first_run: bool = False) -> None:
+    def __init__(self, store: Store, scanner: Scanner, config: Config, is_first_run: bool = False) -> None:
         self._store = store
         self._scanner = scanner
+        self._config = config
         self._editors: Dict[str, EditorInfo] = detect_editors()
         self._scanning = False
         self._scan_status = ""
@@ -88,6 +90,10 @@ class BlinkApp:
         self._last_ctrl_c: float = 0.0
         self._ctrl_c_quit_hint: bool = False
 
+        self._ide_selecting: bool = False
+        self._ide_select_cursor: int = 0
+        self._ide_pending_repo: Optional[Repo] = None
+
         self._list_layout = self._build_list_layout()
 
         self._app = Application(
@@ -111,6 +117,21 @@ class BlinkApp:
         if self._detail_panel is not None:
             return self._detail_panel.edit_mode == "tags"
         return False
+
+    # ── IDE helpers ───────────────────────────────────────────────────────
+
+    def _ide_options(self) -> List[tuple[str, str]]:
+        return list(IDE_CHOICES)
+
+    def _trigger_open_ide(self, repo: Repo) -> None:
+        preferred = self._config.preferred_ide
+        if preferred:
+            open_in_editor(repo.path, preferred, self._editors)
+        else:
+            self._ide_pending_repo = repo
+            self._ide_selecting = True
+            self._ide_select_cursor = 0
+            self._app.invalidate()
 
     def _edit_cursor_col(self) -> int | None:
         panel = self._detail_panel
@@ -234,6 +255,46 @@ class BlinkApp:
     def _build_key_bindings(self) -> KeyBindings:
         kb = KeyBindings()
 
+        # ── IDE selection mode (highest priority) ───────────────────────────
+        @kb.add("up", filter=Condition(lambda: self._ide_selecting))
+        def _(event):
+            self._ide_select_cursor = max(0, self._ide_select_cursor - 1)
+            self._app.invalidate()
+
+        @kb.add("down", filter=Condition(lambda: self._ide_selecting))
+        def _(event):
+            opts = self._ide_options()
+            self._ide_select_cursor = min(len(opts) - 1, self._ide_select_cursor + 1)
+            self._app.invalidate()
+
+        @kb.add("enter", filter=Condition(lambda: self._ide_selecting))
+        def _(event):
+            opts = self._ide_options()
+            if opts and 0 <= self._ide_select_cursor < len(opts):
+                key, name = opts[self._ide_select_cursor]
+                self._config.set("preferred_ide", key)
+                self._ide_selecting = False
+                repo = self._ide_pending_repo
+                self._ide_pending_repo = None
+                if repo:
+                    open_in_editor(repo.path, key, self._editors)
+                self._app.invalidate()
+            return
+
+        @kb.add("escape", filter=Condition(lambda: self._ide_selecting))
+        def _(event):
+            self._ide_selecting = False
+            self._ide_pending_repo = None
+            self._app.invalidate()
+            return
+
+        @kb.add("c-c", filter=Condition(lambda: self._ide_selecting))
+        def _(event):
+            self._ide_selecting = False
+            self._ide_pending_repo = None
+            self._app.invalidate()
+            return
+
         # ── Ctrl+C ──────────────────────────────────────────────────────────
         @kb.add("c-c")
         def _(event):
@@ -319,26 +380,26 @@ class BlinkApp:
             return
 
         # ── Arrow keys — list view navigation ───────────────────────────────
-        @kb.add("down", filter=Condition(lambda: not self._search_active and self._detail_panel is None))
-        @kb.add("s-down", filter=Condition(lambda: not self._search_active and self._detail_panel is None))
+        @kb.add("down", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        @kb.add("s-down", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
         def _(event):
             self._repo_control.move_down()
             self._app.invalidate()
 
-        @kb.add("up", filter=Condition(lambda: not self._search_active and self._detail_panel is None))
-        @kb.add("s-up", filter=Condition(lambda: not self._search_active and self._detail_panel is None))
+        @kb.add("up", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        @kb.add("s-up", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
         def _(event):
             self._repo_control.move_up()
             self._app.invalidate()
 
         # ── Arrow keys — detail view line navigation ──────────────────────────
-        @kb.add("down", filter=Condition(lambda: self._detail_panel is not None and not self._search_active))
+        @kb.add("down", filter=Condition(lambda: self._detail_panel is not None and not self._search_active and not self._ide_selecting))
         def _(event):
             if self._detail_panel:
                 self._detail_panel.cursor_down()
                 self._app.invalidate()
 
-        @kb.add("up", filter=Condition(lambda: self._detail_panel is not None and not self._search_active))
+        @kb.add("up", filter=Condition(lambda: self._detail_panel is not None and not self._search_active and not self._ide_selecting))
         def _(event):
             if self._detail_panel:
                 self._detail_panel.cursor_up()
@@ -353,20 +414,27 @@ class BlinkApp:
             self._search_bar.focus(event.app)
             self._app.invalidate()
 
-        # ── Shift-gated list view actions ───────────────────────────────────
-        for skey, raw in (("V", "v"), ("U", "u"), ("A", "a"), ("O", "o")):
-            def make_shift_handler(k):
-                def _(event):
-                    self._trigger_footer_highlight()
-                    if self._in_edit_mode():
-                        return
-                    repo = self._get_active_repo()
-                    if repo:
-                        open_in_editor(repo.path, k, self._editors)
-                return _
-            kb.add(skey, filter=Condition(lambda: not self._search_active and self._detail_panel is None))(make_shift_handler(raw))
+        # ── Shift+I — open with preferred IDE ──────────────────────────────
+        @kb.add("I", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        def _(event):
+            self._trigger_footer_highlight()
+            if self._in_edit_mode():
+                return
+            repo = self._get_active_repo()
+            if repo:
+                self._trigger_open_ide(repo)
 
-        @kb.add("P", filter=Condition(lambda: not self._search_active and self._detail_panel is None))
+        # ── Shift+O — open with system default ─────────────────────────────
+        @kb.add("O", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        def _(event):
+            self._trigger_footer_highlight()
+            if self._in_edit_mode():
+                return
+            repo = self._get_active_repo()
+            if repo:
+                open_in_editor(repo.path, "o", self._editors)
+
+        @kb.add("P", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
         def _(event):
             self._trigger_footer_highlight()
             repo = self._repo_control.selected_repo()
@@ -376,7 +444,7 @@ class BlinkApp:
                 self._app.invalidate()
                 threading.Timer(5.0, self._clear_scan_status).start()
 
-        @kb.add("R", filter=Condition(lambda: not self._search_active and self._detail_panel is None))
+        @kb.add("R", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
         def _(event):
             self._trigger_footer_highlight()
             if not self._scanning and not self._in_edit_mode():
@@ -404,8 +472,6 @@ class BlinkApp:
                 repo = self._repo_control.selected_repo()
                 if repo:
                     self._show_detail_view(repo)
-
-        # ── Detail view: bare keys (v/u/a/o/y) — work via Enter on action rows ─
 
         # ── Tag removal 1-9 (detail panel tag edit mode) ────────────────────
         for i in range(1, 10):
@@ -489,6 +555,17 @@ class BlinkApp:
     # ── status text ─────────────────────────────────────────────────────────
 
     def _status_text(self) -> FormattedText:
+        if self._ide_selecting:
+            opts = self._ide_options()
+            parts: list[tuple[str, str]] = [("class:status-label", " Select IDE:  ")]
+            for i, (key, name) in enumerate(opts):
+                if i > 0:
+                    parts.append(("class:status-dim", "    "))
+                if i == self._ide_select_cursor:
+                    parts.append(("class:status-accent", f"▸ {name}"))
+                else:
+                    parts.append(("class:status-dim", f"  {name}"))
+            return FormattedText(parts)
         if self._detail_panel is not None and self._detail_panel.is_editing:
             mode = self._detail_panel.edit_mode
             if mode == "alias" and self._detail_panel.alias_buffer:
@@ -545,13 +622,16 @@ class BlinkApp:
             return self._styled_footer_hints([
                 ("Enter", "confirm"), ("Esc/Ctrl+C", "cancel"),
             ])
+        if self._ide_selecting:
+            return self._styled_footer_hints([
+                ("↑↓", "选择"), ("Enter", "确认"), ("Esc", "取消"),
+            ])
         highlighted = time.monotonic() < self._footer_highlight_until
         style_key = "class:footer-key" if highlighted else "class:footer-dim-key"
         style_dim = "class:footer-highlight" if highlighted else "class:footer-dim"
         hints = [
             ("Enter", "detail"), ("/", "search"),
-            ("Shift+V", "code"), ("Shift+U", "cursor"), ("Shift+A", "antigrav"),
-            ("Shift+O", "open"), ("Shift+P", "path"), ("Shift+R", "rescan"),
+            ("Shift+I", "ide"), ("Shift+O", "open"), ("Shift+P", "path"), ("Shift+R", "rescan"),
         ]
         parts: list[tuple[str, str]] = [("class:footer-dim", " ")]
         for i, (key, desc) in enumerate(hints):
@@ -598,6 +678,7 @@ class BlinkApp:
             on_tags_change=lambda: self._refresh_repo_tags(repo),
             on_status_message=self._set_scan_status,
             on_pin_change=lambda: self._refresh_repo_pin(repo),
+            on_open_ide=lambda: self._trigger_open_ide(repo),
         )
         self._mode = "detail"
         layout = self._build_detail_layout()

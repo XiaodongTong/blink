@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 DEFAULT_DIR = Path.home() / ".blink"
 DEFAULT_CONFIG_PATH = DEFAULT_DIR / "config.json"
@@ -12,6 +12,7 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "scan_paths": [str(Path.home())],
     "exclude_dirs": [".Trash", ".cache", ".npm", ".docker", ".vscode", "Library", "Applications", "node_modules", "__pycache__"],
     "editor": "code",
+    "preferred_ide": None,
     "auto_sync_days": 0,
 }
 
@@ -58,6 +59,10 @@ class Config:
     @property
     def editor(self) -> str:
         return str(self._data.get("editor", _DEFAULT_CONFIG["editor"]))
+
+    @property
+    def preferred_ide(self) -> Optional[str]:
+        return self._data.get("preferred_ide")
 
     @property
     def auto_sync_days(self) -> int:

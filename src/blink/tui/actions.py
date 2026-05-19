@@ -17,6 +17,9 @@ class EditorInfo:
         return self.command is not None
 
 
+IDE_CHOICES = [("v", "VSCode"), ("u", "Cursor"), ("a", "Antigravity")]
+
+
 def detect_editors() -> Dict[str, EditorInfo]:
     editors: Dict[str, EditorInfo] = {}
     for key, name, cmd in [

@@ -44,18 +44,17 @@ class DetailPanel(UIControl):
     LINE_GIT = 4
     LINE_TAGS = 5
     LINE_PINNED = 6
-    LINE_ANTIGRAVITY = 7
-    LINE_CURSOR = 8
-    LINE_VSCODE = 9
-    LINE_FINDER = 10
-    LINE_TLOOP = 11
-    MAX_LINE = 11
+    LINE_IDE = 7
+    LINE_FINDER = 8
+    LINE_TLOOP = 9
+    MAX_LINE = 9
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
                  on_back: Callable[[], None], on_alias_change: Callable[[str], None],
                  on_tags_change: Callable[[], None],
                  on_status_message: Callable[[str], None] = lambda msg: None,
-                 on_pin_change: Callable[[], None] = lambda: None) -> None:
+                 on_pin_change: Callable[[], None] = lambda: None,
+                 on_open_ide: Callable[[], None] = lambda: None) -> None:
         self._repo = repo
         self._store = store
         self._editors = editors
@@ -64,6 +63,7 @@ class DetailPanel(UIControl):
         self._on_tags_change = on_tags_change
         self._on_status_message = on_status_message
         self._on_pin_change = on_pin_change
+        self._on_open_ide = on_open_ide
 
         self._cursor_index = 0
         self._edit_mode: str | None = None  # None | "alias" | "description" | "tags"
@@ -122,12 +122,8 @@ class DetailPanel(UIControl):
             self._start_tags_edit()
         elif line == self.LINE_PINNED:
             self._toggle_pin()
-        elif line == self.LINE_ANTIGRAVITY:
-            open_in_editor(self._repo.path, "a", self._editors)
-        elif line == self.LINE_CURSOR:
-            open_in_editor(self._repo.path, "u", self._editors)
-        elif line == self.LINE_VSCODE:
-            open_in_editor(self._repo.path, "v", self._editors)
+        elif line == self.LINE_IDE:
+            self._on_open_ide()
         elif line == self.LINE_FINDER:
             open_in_editor(self._repo.path, "o", self._editors)
         elif line == self.LINE_TLOOP:
@@ -311,19 +307,13 @@ class DetailPanel(UIControl):
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
-        # Row 6: Antigravity
-        lines.append(self._build_one_line("", "Open with Antigravity", cur == self.LINE_ANTIGRAVITY, width))
+        # Row 7: IDE
+        lines.append(self._build_one_line("", "Open with IDE", cur == self.LINE_IDE, width))
 
-        # Row 7: Cursor
-        lines.append(self._build_one_line("", "Open with Cursor", cur == self.LINE_CURSOR, width))
-
-        # Row 8: VSCode
-        lines.append(self._build_one_line("", "Open with Visual Studio Code", cur == self.LINE_VSCODE, width))
-
-        # Row 9: Finder
+        # Row 8: Finder
         lines.append(self._build_one_line("", "Open with Finder", cur == self.LINE_FINDER, width))
 
-        # Row 11: Tloop
+        # Row 9: Tloop
         lines.append(self._build_one_line("", "Add Loop Task", cur == self.LINE_TLOOP, width))
 
         return lines

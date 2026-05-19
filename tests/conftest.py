@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from blink.models import Repo
+from blink.config import Config
 from blink.store import Store
 from blink.scanner import Scanner
 from blink.tui.app import BlinkApp
@@ -20,6 +21,8 @@ def app_with_store():
     app = BlinkApp.__new__(BlinkApp)
     app._store = store
     app._scanner = scanner
+    app._config = MagicMock(spec=Config)
+    app._config.preferred_ide = None
     app._editors = {}
     app._scanning = False
     app._scan_status = ""
@@ -38,4 +41,7 @@ def app_with_store():
     app._last_ctrl_c = 0.0
     app._ctrl_c_quit_hint = False
     app._app = MagicMock()
+    app._ide_selecting = False
+    app._ide_select_cursor = 0
+    app._ide_pending_repo = None
     yield app, store, rid

@@ -386,6 +386,6 @@ def test_handle_enter_pinned_toggles():
 
 def test_detail_panel_line_constants():
     assert DetailPanel.LINE_PINNED == 6
-    assert DetailPanel.LINE_ANTIGRAVITY == 7
-    assert DetailPanel.LINE_TLOOP == 11
-    assert DetailPanel.MAX_LINE == 11
+    assert DetailPanel.LINE_IDE == 7
+    assert DetailPanel.LINE_TLOOP == 9
+    assert DetailPanel.MAX_LINE == 9
