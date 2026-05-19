@@ -4,6 +4,7 @@ from typing import List
 
 from prompt_toolkit.data_structures import Point
 from prompt_toolkit.formatted_text import AnyFormattedText, FormattedText
+from prompt_toolkit.layout.containers import ScrollOffsets
 from prompt_toolkit.layout.controls import UIContent, UIControl
 from prompt_toolkit.layout.dimension import D
 from prompt_toolkit.layout.layout import Window
@@ -114,4 +115,5 @@ class RepoListWindow(Window):
             content=control,
             height=D(min=1),
             style="class:repo-list",
+            scroll_offsets=ScrollOffsets(bottom=1),
         )
