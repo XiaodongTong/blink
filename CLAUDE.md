@@ -30,18 +30,18 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 
 **Core modules** (all in `src/blink/`):
 
-- `models.py` — `Repo` and `Remote` dataclasses
+- `models.py` — `Repo` (includes `pinned` and `view_count` fields) and `Remote` dataclasses
 - `config.py` — JSON config loader (`~/.blink/config.json`), with defaults for scan paths, excludes, editor
 - `scanner.py` — `Scanner` class that walks filesystem to find `.git` dirs, then fetches remotes/description via git subprocess. Uses `ThreadPoolExecutor` for parallel processing. Supports both blocking and background (threaded) scan modes.
-- `store.py` — SQLite persistence layer (WAL mode). Tables: `repos`, `remotes`, `schema_version`. Upsert-based writes. Full-text search across name/alias/description/path/remote URL.
+- `store.py` — SQLite persistence layer (WAL mode). Tables: `repos`, `remotes`, `schema_version`. Upsert-based writes. Full-text search across name/alias/description/path/remote URL. Schema migration v1→v2 adds `pinned` and `view_count` columns. Repos sorted by `pinned DESC, view_count DESC, name ASC`.
 
 **TUI** (`src/blink/tui/`):
 
 - `app.py` — Main `BlinkApp` class. Composes full-screen layout (search prefix → repo list → status → footer). All key bindings, search state machine, exit mechanism, edit-mode input routing, layout switching (list ↔ detail), and background scan orchestration live here. Styles are defined in `_build_style()` using GitHub dark theme colors.
-- `repo_list.py` — Custom `UIControl`/`Window` for the two-line repo list. Each repo renders as: line 1 = indicator + name/alias + tags, line 2 = path. Selected items pad lines to full width for consistent background fill.
+- `repo_list.py` — Custom `UIControl`/`Window` for the two-line repo list. Each repo renders as: line 1 = indicator + `★` (if pinned) + name/alias + tags, line 2 = path. Selected items pad lines to full width for consistent background fill.
 - `search.py` — `SearchBar` wrapping a `prompt_toolkit.Buffer`. Visibility controlled by `ConditionalContainer` in app layout.
 - `actions.py` — Editor detection and launch (VSCode, Cursor, Antigravity, system open), clipboard via `pbcopy`
-- `detail.py` — `DetailPanel` class rendering full repo info (alias, name, path, description, remotes, tags, actions). Supports inline alias edit and tag management popovers.
+- `detail.py` — `DetailPanel` class rendering full repo info (alias, name, path, description, remotes, tags, pinned, actions). 12 selectable lines. Supports inline alias edit, tag management popovers, and pin toggle.
 
 **Data flow**: Scanner finds git dirs → creates `ScanResult(repo, remotes)` → Store upserts into SQLite → TUI loads from Store for display/search.
 
@@ -53,8 +53,8 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│   ▸ name (alias) [tag]  ┐        ┐                                 │
-│     /path/to/repo       ┘ 列表项 ┘ ← 项目列表                      │
+│   ▸ ★ name (alias) [tag] ┐        ┐                                │
+│     /path/to/repo        ┘ 列表项 ┘ ← 项目列表                      │
 │─────────────────────────────────────────────────────────────────────│
 │ description  /path/to/repo                            ← 状态栏      │
 │ Enter:detail  /:search  Shift+V:code …               ← 快捷键栏  │
@@ -64,8 +64,9 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 - **搜索栏**（search bar）— 默认完全隐藏。按 `/` 展开带亮色边框的搜索输入框进入搜索输入态。Enter 确认后输入框隐藏，顶部显示当前搜索词（只读）。Esc/Ctrl+C 清空搜索恢复全部。
 - **项目列表**（repo list）— 两行式列表，`↑/↓` 方向键或 `Shift+↑/↓` 导航
   - **列表项**（list item）— 每项占两行：
-    - 第一行 = 指示符（`▸` 选中态 / 空格 普通态）+ 名称/别名 + 标签
+    - 第一行 = 指示符（`▸` 选中态 / 空格 普通态）+ `★`（置顶项）+ 名称/别名 + 标签
     - 第二行 = 路径
+  - 排序规则：置顶优先 → 查看次数降序 → 名称升序
   - 选中项以高亮背景区分（`#264f78`）
   - 无项目时显示空状态提示
 - **状态栏**（status bar）— 显示选中项目的描述和路径（无描述时仅显示路径）；过滤态下显示搜索词和结果数
@@ -114,6 +115,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 │─────────────────────────────────────────────────│
 │     Git       https://github.com/org/repo         │
 │     Tags      [python] [api]                      │
+│     Pinned    No                                  │
 │─────────────────────────────────────────────────│
 │     Open with Antigravity                        │
 │     Open with Cursor                             │
@@ -123,15 +125,17 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 └─────────────────────────────────────────────────┘
 ```
 
-- **详情面板**（detail panel）— 11 行可选中，每行按 Enter 执行对应操作
+- **详情面板**（detail panel）— 12 行可选中，每行按 Enter 执行对应操作
   - 行 0（Name）— Enter 复制项目名称，状态栏提示
   - 行 1（Alias）— Enter 进入别名编辑态
   - 行 2（Path）— Enter 复制路径，状态栏提示
   - 行 3（Description）— Enter 进入描述编辑态
   - 行 4（Git）— Enter 将 SSH 地址转为 HTTPS 并在浏览器打开
   - 行 5（Tags）— Enter 进入标签编辑态
-  - 行 6-9（Open with Antigravity/Cursor/VSCode/Finder）— Enter 执行打开
-  - 行 10（Loop Task）— Enter 执行 `tloop edit`，未安装时状态栏提示"未安装 tloop"
+  - 行 6（Pinned）— Enter 切换置顶状态，状态栏提示"已置顶"/"已取消置顶"
+  - 行 7-10（Open with Antigravity/Cursor/VSCode/Finder）— Enter 执行打开
+  - 行 11（Loop Task）— Enter 执行 `tloop edit`，未安装时状态栏提示"未安装 tloop"
+- 进入详情视图时自动增加该项目的查看次数（`view_count`）
 - `↑`/`↓` 切换选中行（无需 Shift）
 - `Esc` / `Ctrl+C` 返回列表视图
 - 编辑态（Alias/Description/Tags）下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入，编辑时面板底部渲染编辑输入行并显示光标
@@ -151,7 +155,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 - Scanner's `run_scan(blocking=True/False)` toggles between synchronous and threaded execution
 - TUI uses `app.invalidate()` to trigger re-renders after state changes
 - Config falls back to defaults if the file is missing or corrupted, and rewrites it
-- Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view. Git row displays SSH→HTTPS converted URL; Enter opens in browser via `webbrowser.open()`. Edit mode appends a separator + input line (e.g. " Alias: <text>") at the bottom of `_build_lines`; `create_content` sets `UIContent.show_cursor=True` with `cursor_position=Point(x=col, y=last_row)` to place the terminal cursor at the end of the input line; `DetailPanel.is_focusable()` returns `True` so the window receives focus for cursor display.
+- Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view. Git row displays SSH→HTTPS converted URL; Enter opens in browser via `webbrowser.open()`. Pinned row toggles `repo.pinned` via `store.toggle_pin()` and triggers `on_pin_change` callback. Edit mode appends a separator + input line (e.g. " Alias: <text>") at the bottom of `_build_lines`; `create_content` sets `UIContent.show_cursor=True` with `cursor_position=Point(x=col, y=last_row)` to place the terminal cursor at the end of the input line; `DetailPanel.is_focusable()` returns `True` so the window receives focus for cursor display.
 - Layout switching replaces `app.layout` entirely (list layout vs detail layout), stored in `_list_layout` for reuse. Detail view stores `_detail_window` reference and calls `layout.focus()` on it.
 - Search area completely hidden by default via `ConditionalContainer` with `_search_filtering and not _search_active` for the prefix and `_search_active` for the bordered input. Search input has no background color; bright border (`fg:#58a6ff`) surrounds it via `Window(char="─")` lines above and below.
 - Key bindings use `Condition` filters for view-dependent behavior (e.g. shift-gated `V`/`U`/`A`/`O`/`P`/`R` for list view)

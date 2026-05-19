@@ -22,6 +22,8 @@ class Repo:
     path: str = ""
     last_synced: str = ""
     created_at: str = ""
+    pinned: int = 0
+    view_count: int = 0
     remotes: List[Remote] = field(default_factory=list)
     tags: List[str] = field(default_factory=list)
 

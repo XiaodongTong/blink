@@ -47,6 +47,7 @@ class RepoListControl(UIControl):
             path_s = "class:selected-dim"
             tag_s = "class:selected-tag"
             tag_b = "class:selected-tag-bracket"
+            pin_s = "class:indicator"
         else:
             ind_s = "class:dim"
             name_s = "class:normal"
@@ -54,8 +55,11 @@ class RepoListControl(UIControl):
             path_s = "class:path"
             tag_s = "class:tag"
             tag_b = "class:tag-bracket"
+            pin_s = "class:tag"
 
         line1: list[tuple[str, str]] = [(ind_s, " ▸ " if selected else "   ")]
+        if repo.pinned:
+            line1.append((pin_s, "★"))
         if repo.alias:
             line1.append((name_s, repo.name))
             line1.append((alias_s, f" ({repo.alias})"))

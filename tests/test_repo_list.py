@@ -98,3 +98,22 @@ def test_move_down_no_wrap():
     control.set_repos([Repo(name="a", path="/a")])
     control.move_down()
     assert control.selected_index == 0
+
+
+def test_pinned_repo_shows_star():
+    control = RepoListControl()
+    repo = Repo(name="test", path="/tmp/test", pinned=1)
+    control.set_repos([repo])
+    content = control.create_content(80, 40)
+    line0 = content.get_line(0)
+    line0_str = str(line0)
+    assert "★" in line0_str
+
+
+def test_unpinned_repo_no_star():
+    control = RepoListControl()
+    repo = Repo(name="test", path="/tmp/test", pinned=0)
+    control.set_repos([repo])
+    content = control.create_content(80, 40)
+    line0 = content.get_line(0)
+    assert "★" not in str(line0)

@@ -43,17 +43,19 @@ class DetailPanel(UIControl):
     LINE_DESC = 3
     LINE_GIT = 4
     LINE_TAGS = 5
-    LINE_ANTIGRAVITY = 6
-    LINE_CURSOR = 7
-    LINE_VSCODE = 8
-    LINE_FINDER = 9
-    LINE_TLOOP = 10
-    MAX_LINE = 10
+    LINE_PINNED = 6
+    LINE_ANTIGRAVITY = 7
+    LINE_CURSOR = 8
+    LINE_VSCODE = 9
+    LINE_FINDER = 10
+    LINE_TLOOP = 11
+    MAX_LINE = 11
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
                  on_back: Callable[[], None], on_alias_change: Callable[[str], None],
                  on_tags_change: Callable[[], None],
-                 on_status_message: Callable[[str], None] = lambda msg: None) -> None:
+                 on_status_message: Callable[[str], None] = lambda msg: None,
+                 on_pin_change: Callable[[], None] = lambda: None) -> None:
         self._repo = repo
         self._store = store
         self._editors = editors
@@ -61,6 +63,7 @@ class DetailPanel(UIControl):
         self._on_alias_change = on_alias_change
         self._on_tags_change = on_tags_change
         self._on_status_message = on_status_message
+        self._on_pin_change = on_pin_change
 
         self._cursor_index = 0
         self._edit_mode: str | None = None  # None | "alias" | "description" | "tags"
@@ -117,6 +120,8 @@ class DetailPanel(UIControl):
             self._open_git_url()
         elif line == self.LINE_TAGS:
             self._start_tags_edit()
+        elif line == self.LINE_PINNED:
+            self._toggle_pin()
         elif line == self.LINE_ANTIGRAVITY:
             open_in_editor(self._repo.path, "a", self._editors)
         elif line == self.LINE_CURSOR:
@@ -176,6 +181,14 @@ class DetailPanel(UIControl):
     def _start_tags_edit(self) -> None:
         self._edit_mode = "tags"
         self._tag_buffer = Buffer()
+
+    def _toggle_pin(self) -> None:
+        if self._repo.id is not None:
+            new_val = self._store.toggle_pin(self._repo.id)
+            self._repo.pinned = new_val
+            self._on_pin_change()
+            status = "已置顶" if new_val else "已取消置顶"
+            self._on_status_message(status)
 
     # ── edit mode management ─────────────────────────────────────────────────
 
@@ -292,6 +305,10 @@ class DetailPanel(UIControl):
         # Row 5: Tags
         tag_str = " ".join(f"[{t}]" for t in self._repo.tags) if self._repo.tags else "(none)"
         lines.append(self._build_one_line("Tags      ", tag_str, cur == self.LINE_TAGS, width))
+
+        # Row 6: Pinned
+        pin_str = "Yes" if self._repo.pinned else "No"
+        lines.append(self._build_one_line("Pinned    ", pin_str, cur == self.LINE_PINNED, width))
 
         # Separator
         lines.append([("class:detail-sep", "─" * width)])

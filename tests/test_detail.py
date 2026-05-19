@@ -340,3 +340,52 @@ def test_is_editing_true_when_tags():
     panel = _make_detail_panel()
     panel._edit_mode = "tags"
     assert panel.is_editing
+
+
+# ── pinned toggle ─────────────────────────────────────────────────────────
+
+def test_detail_panel_shows_pinned_row():
+    panel = _make_detail_panel()
+    t = _to_plain(panel._formatted_text())
+    assert "Pinned" in t
+    assert "No" in t
+
+
+def test_detail_panel_shows_pinned_yes():
+    repo = _make_repo(pinned=1)
+    panel = _make_detail_panel(repo)
+    t = _to_plain(panel._formatted_text())
+    assert "Pinned" in t
+    assert "Yes" in t
+
+
+def test_handle_enter_pinned_toggles():
+    store = Store(":memory:")
+    store.init_db()
+    repo = _make_repo()
+    rid = store.upsert_repo(repo)
+    repo = _make_repo(id=rid)
+
+    pin_changed = []
+    panel = DetailPanel(
+        repo=repo, store=store, editors={},
+        on_back=lambda: None,
+        on_alias_change=lambda a: None,
+        on_tags_change=lambda: None,
+        on_pin_change=lambda: pin_changed.append(True),
+    )
+    panel._cursor_index = DetailPanel.LINE_PINNED
+    panel.handle_enter()
+    assert repo.pinned == 1
+    assert pin_changed == [True]
+
+    panel.handle_enter()
+    assert repo.pinned == 0
+    assert len(pin_changed) == 2
+
+
+def test_detail_panel_line_constants():
+    assert DetailPanel.LINE_PINNED == 6
+    assert DetailPanel.LINE_ANTIGRAVITY == 7
+    assert DetailPanel.LINE_TLOOP == 11
+    assert DetailPanel.MAX_LINE == 11

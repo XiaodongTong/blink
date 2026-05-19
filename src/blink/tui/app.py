@@ -575,6 +575,9 @@ class BlinkApp:
     # ── view switching ──────────────────────────────────────────────────────
 
     def _show_detail_view(self, repo: Repo) -> None:
+        if repo.id is not None:
+            self._store.increment_view_count(repo.id)
+            repo.view_count += 1
         self._detail_panel = DetailPanel(
             repo=repo,
             store=self._store,
@@ -583,6 +586,7 @@ class BlinkApp:
             on_alias_change=lambda alias: self._refresh_repo_alias(repo, alias),
             on_tags_change=lambda: self._refresh_repo_tags(repo),
             on_status_message=self._set_scan_status,
+            on_pin_change=lambda: self._refresh_repo_pin(repo),
         )
         self._mode = "detail"
         layout = self._build_detail_layout()
@@ -600,6 +604,9 @@ class BlinkApp:
         self._load_repos()
 
     def _refresh_repo_tags(self, repo: Repo) -> None:
+        self._load_repos()
+
+    def _refresh_repo_pin(self, repo: Repo) -> None:
         self._load_repos()
 
     # ── repo loading ────────────────────────────────────────────────────────

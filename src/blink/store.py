@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from blink.models import Remote, Repo
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _DDL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -20,7 +20,9 @@ CREATE TABLE IF NOT EXISTS repos (
     description TEXT NOT NULL DEFAULT '',
     path TEXT NOT NULL UNIQUE,
     last_synced TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    pinned INTEGER NOT NULL DEFAULT 0,
+    view_count INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS remotes (
@@ -67,6 +69,16 @@ class Store:
         if row is None:
             conn.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
             conn.commit()
+        elif row["version"] < SCHEMA_VERSION:
+            self._migrate(conn, row["version"])
+
+    def _migrate(self, conn: sqlite3.Connection, from_version: int) -> None:
+        if from_version < 2:
+            conn.execute("ALTER TABLE repos ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")
+            conn.execute("ALTER TABLE repos ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0")
+            conn.commit()
+        conn.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
+        conn.commit()
 
     def upsert_repo(self, repo: Repo) -> int:
         conn = self._connect()
@@ -98,7 +110,8 @@ class Store:
     def get_all_repos(self) -> List[Repo]:
         conn = self._connect()
         rows = conn.execute(
-            "SELECT id, name, alias, description, path, last_synced, created_at FROM repos ORDER BY name"
+            "SELECT id, name, alias, description, path, last_synced, created_at, "
+            "pinned, view_count FROM repos ORDER BY pinned DESC, view_count DESC, name"
         ).fetchall()
         repos = []
         for r in rows:
@@ -106,6 +119,7 @@ class Store:
                 id=r["id"], name=r["name"], alias=r["alias"],
                 description=r["description"], path=r["path"],
                 last_synced=r["last_synced"], created_at=r["created_at"],
+                pinned=r["pinned"], view_count=r["view_count"],
             )
             repo.remotes = self._get_remotes_for(conn, repo.id)
             repo.tags = self.get_tags_for_repo(repo.id)
@@ -118,13 +132,14 @@ class Store:
         conn = self._connect()
         pattern = f"%{query}%"
         rows = conn.execute(
-            "SELECT DISTINCT r.id, r.name, r.alias, r.description, r.path, r.last_synced, r.created_at "
+            "SELECT DISTINCT r.id, r.name, r.alias, r.description, r.path, r.last_synced, r.created_at, "
+            "r.pinned, r.view_count "
             "FROM repos r LEFT JOIN remotes rm ON r.id = rm.repo_id "
             "LEFT JOIN repo_tags rt ON r.id = rt.repo_id "
             "LEFT JOIN tags t ON rt.tag_id = t.id "
             "WHERE r.name LIKE ? OR r.alias LIKE ? OR r.description LIKE ? "
             "OR r.path LIKE ? OR rm.url LIKE ? OR t.name LIKE ? "
-            "ORDER BY r.name",
+            "ORDER BY r.pinned DESC, r.view_count DESC, r.name",
             (pattern, pattern, pattern, pattern, pattern, pattern),
         ).fetchall()
         repos = []
@@ -133,6 +148,7 @@ class Store:
                 id=r["id"], name=r["name"], alias=r["alias"],
                 description=r["description"], path=r["path"],
                 last_synced=r["last_synced"], created_at=r["created_at"],
+                pinned=r["pinned"], view_count=r["view_count"],
             )
             repo.remotes = self._get_remotes_for(conn, repo.id)
             repo.tags = self.get_tags_for_repo(repo.id)
@@ -148,7 +164,8 @@ class Store:
     def get_repo_by_path(self, path: str) -> Optional[Repo]:
         conn = self._connect()
         r = conn.execute(
-            "SELECT id, name, alias, description, path, last_synced, created_at FROM repos WHERE path = ?",
+            "SELECT id, name, alias, description, path, last_synced, created_at, "
+            "pinned, view_count FROM repos WHERE path = ?",
             (path,),
         ).fetchone()
         if r is None:
@@ -157,6 +174,7 @@ class Store:
             id=r["id"], name=r["name"], alias=r["alias"],
             description=r["description"], path=r["path"],
             last_synced=r["last_synced"], created_at=r["created_at"],
+            pinned=r["pinned"], view_count=r["view_count"],
         )
         repo.remotes = self._get_remotes_for(conn, repo.id)
         repo.tags = self.get_tags_for_repo(repo.id)
@@ -175,6 +193,19 @@ class Store:
     def set_description(self, repo_id: int, description: str) -> None:
         conn = self._connect()
         conn.execute("UPDATE repos SET description=? WHERE id=?", (description, repo_id))
+        conn.commit()
+
+    def toggle_pin(self, repo_id: int) -> int:
+        conn = self._connect()
+        row = conn.execute("SELECT pinned FROM repos WHERE id = ?", (repo_id,)).fetchone()
+        new_val = 0 if row["pinned"] else 1
+        conn.execute("UPDATE repos SET pinned=? WHERE id=?", (new_val, repo_id))
+        conn.commit()
+        return new_val
+
+    def increment_view_count(self, repo_id: int) -> None:
+        conn = self._connect()
+        conn.execute("UPDATE repos SET view_count = view_count + 1 WHERE id = ?", (repo_id,))
         conn.commit()
 
     def get_tags_for_repo(self, repo_id: int) -> List[str]:

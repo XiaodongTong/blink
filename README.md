@@ -6,6 +6,8 @@
 
 - 自动发现配置目录下的所有 git 仓库
 - 两行式列表展示：项目名 + 标签，路径（灰色）
+- 置顶常用项目（★ 标记），置顶项目始终排在前面
+- 按查看次数自动排序，常用项目靠前
 - 按名称、别名、路径、描述、远程 URL 或标签实时搜索
 - 别名编辑、标签管理（添加 / 按序号移除）
 - 详情面板查看仓库完整信息并执行操作
@@ -51,7 +53,7 @@ blink --rescan # 强制重新扫描后启动
 
 ### 详情面板
 
-按 `Enter` 进入详情面板，显示名称、别名、路径、描述、Git 地址、标签等 11 行。`↑`/`↓` 切换选中行（高亮背景 `#264f78`），按 Enter 执行当前行操作：Name/Path 行复制内容并在状态栏提示，Git 行将 SSH 协议地址转换为 HTTPS 地址并在浏览器打开，Alias/Description/Tags 行进入编辑态，Open with Antigravity/Cursor/VSCode/Finder 行执行打开，Loop Task 行执行 `tloop edit`（未安装时状态栏提示"未安装 tloop"）。编辑态下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入，编辑时面板底部渲染编辑输入行并显示光标。详情面板无 footer 快捷键栏。按 `Ctrl+C` 或 `Esc` 返回列表。
+按 `Enter` 进入详情面板，显示名称、别名、路径、描述、Git 地址、标签、置顶状态等 12 行。`↑`/`↓` 切换选中行（高亮背景 `#264f78`），按 Enter 执行当前行操作：Name/Path 行复制内容并在状态栏提示，Git 行将 SSH 协议地址转换为 HTTPS 地址并在浏览器打开，Alias/Description/Tags 行进入编辑态，Pinned 行切换置顶状态（状态栏提示"已置顶"/"已取消置顶"），Open with Antigravity/Cursor/VSCode/Finder 行执行打开，Loop Task 行执行 `tloop edit`（未安装时状态栏提示"未安装 tloop"）。编辑态下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入，编辑时面板底部渲染编辑输入行并显示光标。详情面板无 footer 快捷键栏。按 `Ctrl+C` 或 `Esc` 返回列表。进入详情视图时自动累计查看次数，影响列表排序。
 
 ### 搜索
 

@@ -138,7 +138,7 @@ def test_schema_version_set() -> None:
     store = _make_store()
     conn = store._connect()
     row = conn.execute("SELECT version FROM schema_version").fetchone()
-    assert row["version"] == 1
+    assert row["version"] == 2
     store.close()
 
 
@@ -260,4 +260,99 @@ def test_load_repos_populates_tags() -> None:
     store.add_tag(rid, "api")
     repos = store.get_all_repos()
     assert repos[0].tags == ["api", "python"]
+    store.close()
+
+
+# ── pinned & view_count ──────────────────────────────────────────────────
+
+
+def test_toggle_pin() -> None:
+    store = _make_store()
+    rid = store.upsert_repo(Repo(name="x", path="/x"))
+    assert store.get_repo_by_path("/x").pinned == 0
+    new_val = store.toggle_pin(rid)
+    assert new_val == 1
+    assert store.get_repo_by_path("/x").pinned == 1
+    new_val = store.toggle_pin(rid)
+    assert new_val == 0
+    assert store.get_repo_by_path("/x").pinned == 0
+    store.close()
+
+
+def test_increment_view_count() -> None:
+    store = _make_store()
+    rid = store.upsert_repo(Repo(name="x", path="/x"))
+    assert store.get_repo_by_path("/x").view_count == 0
+    store.increment_view_count(rid)
+    store.increment_view_count(rid)
+    assert store.get_repo_by_path("/x").view_count == 2
+    store.close()
+
+
+def test_sort_by_pinned_then_view_count_then_name() -> None:
+    store = _make_store()
+    store.upsert_repo(Repo(name="beta", path="/b"))
+    r_alpha = store.upsert_repo(Repo(name="alpha", path="/a"))
+    r_gamma = store.upsert_repo(Repo(name="gamma", path="/c"))
+    # alpha: pinned, view_count=2
+    store.toggle_pin(r_alpha)
+    store.increment_view_count(r_alpha)
+    store.increment_view_count(r_alpha)
+    # gamma: not pinned, view_count=5
+    for _ in range(5):
+        store.increment_view_count(r_gamma)
+    repos = store.get_all_repos()
+    assert [r.name for r in repos] == ["alpha", "gamma", "beta"]
+    store.close()
+
+
+def test_search_repos_preserves_sort_order() -> None:
+    store = _make_store()
+    store.upsert_repo(Repo(name="alpha-repo", path="/a"))
+    r_beta = store.upsert_repo(Repo(name="beta-repo", path="/b"))
+    store.toggle_pin(r_beta)
+    repos = store.search_repos("repo")
+    assert repos[0].name == "beta-repo"
+    assert repos[1].name == "alpha-repo"
+    store.close()
+
+
+def test_upsert_preserves_pinned_and_view_count() -> None:
+    store = _make_store()
+    store.upsert_repo(Repo(name="x", path="/x"))
+    rid = store.get_repo_by_path("/x").id
+    store.toggle_pin(rid)
+    store.increment_view_count(rid)
+    # Simulate rescan
+    store.upsert_repo(Repo(name="x", path="/x", last_synced="2025-06-01T00:00:00"))
+    repo = store.get_repo_by_path("/x")
+    assert repo.pinned == 1
+    assert repo.view_count == 1
+    store.close()
+
+
+def test_migration_adds_columns() -> None:
+    store = Store(":memory:")
+    conn = store._connect()
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);
+        INSERT INTO schema_version (version) VALUES (1);
+        CREATE TABLE IF NOT EXISTS repos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            alias TEXT NOT NULL DEFAULT '',
+            description TEXT NOT NULL DEFAULT '',
+            path TEXT NOT NULL UNIQUE,
+            last_synced TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+    """)
+    conn.execute("INSERT INTO repos (name, path) VALUES ('old', '/old')")
+    conn.commit()
+    # Run migration via init_db
+    store.init_db()
+    repo = store.get_repo_by_path("/old")
+    assert repo is not None
+    assert repo.pinned == 0
+    assert repo.view_count == 0
     store.close()
