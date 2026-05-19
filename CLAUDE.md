@@ -95,7 +95,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 搜索有三个状态：
 1. **inactive** — 默认状态，搜索区域完全隐藏
 2. **active** — 按 `/` 进入，搜索输入框展开（带亮色边框），实时过滤。仅可打印字符、Backspace、Enter/↓、Esc/Ctrl+C 生效。↓ 与 Enter 效果相同，确认搜索并进入过滤态
-3. **filtering** — Enter 确认后进入，输入框隐藏，顶部显示搜索词（只读）。再按 `/` 恢复输入框继续编辑
+3. **filtering** — Enter 确认后进入，输入框隐藏，顶部显示搜索词（只读）。再按 `/` 清空搜索内容并恢复输入框重新输入
 
 ### 退出机制
 
@@ -121,7 +121,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 │     Open with Cursor                             │
 │     Open with Visual Studio Code                 │
 │     Open with Finder                             │
-│     Loop Task                                    │
+│     Add Loop Task                                │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -134,7 +134,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
   - 行 5（Tags）— Enter 进入标签编辑态
   - 行 6（Pinned）— Enter 切换置顶状态，状态栏提示"已置顶"/"已取消置顶"
   - 行 7-10（Open with Antigravity/Cursor/VSCode/Finder）— Enter 执行打开
-  - 行 11（Loop Task）— Enter 执行 `tloop edit`，未安装时状态栏提示"未安装 tloop"
+  - 行 11（Add Loop Task）— Enter 执行 `tloop edit`，未安装时状态栏提示"未安装 tloop"
 - 进入详情视图时自动增加该项目的查看次数（`view_count`）
 - `↑`/`↓` 切换选中行（无需 Shift）
 - `Esc` / `Ctrl+C` 返回列表视图

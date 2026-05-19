@@ -326,7 +326,7 @@ class DetailPanel(UIControl):
         lines.append(self._build_one_line("", "Open with Finder", cur == self.LINE_FINDER, width))
 
         # Row 10: Tloop
-        lines.append(self._build_one_line("", "Loop Task", cur == self.LINE_TLOOP, width))
+        lines.append(self._build_one_line("", "Add Loop Task", cur == self.LINE_TLOOP, width))
 
         # Edit input line at bottom
         if self._edit_mode:

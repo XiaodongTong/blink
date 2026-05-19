@@ -103,7 +103,7 @@ class RepoListControl(UIControl):
             get_line=get_line,
             line_count=max(len(lines), height if height > 0 else 1),
             show_cursor=False,
-            cursor_position=Point(x=0, y=self.selected_index * 2 + 1),
+            cursor_position=Point(x=0, y=self.selected_index * 2),
         )
 
 

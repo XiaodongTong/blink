@@ -66,7 +66,10 @@ class BlinkApp:
         self._scan_status = ""
 
         self._repo_control = RepoListControl()
-        self._search_bar = SearchBar(on_change=self._on_search_change)
+        self._search_bar = SearchBar(
+            on_change=self._on_search_change,
+            focusable=Condition(lambda: self._search_active),
+        )
 
         self._status_control = FormattedTextControl(text=self._status_text)
         self._footer_control = FormattedTextControl(text=self._footer_text)
@@ -340,6 +343,7 @@ class BlinkApp:
         def _(event):
             self._search_active = True
             self._search_filtering = False
+            self._search_bar.clear()
             self._search_bar.focus(event.app)
             self._app.invalidate()
 
