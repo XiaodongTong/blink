@@ -34,6 +34,7 @@ def _make_app():
     app._status_control = MagicMock()
     app._footer_control = MagicMock()
     app._detail_panel = None
+    app._repo_list_window = MagicMock()
     app._list_layout = MagicMock()
     app._mode = "list"
     app._search_active = False

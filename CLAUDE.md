@@ -138,7 +138,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 - 进入详情视图时自动增加该项目的查看次数（`view_count`）
 - `↑`/`↓` 切换选中行（无需 Shift）
 - `Esc` / `Ctrl+C` 返回列表视图
-- 编辑态（Alias/Description/Tags）下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入，编辑时面板底部渲染编辑输入行并显示光标
+- 编辑态（Alias/Description/Tags）下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入，编辑时状态栏显示输入内容和光标，详情页行保持原始值不变
 - 无 footer 快捷键栏
 
 ### 编辑模式（Edit Modes）
@@ -155,9 +155,9 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 - Scanner's `run_scan(blocking=True/False)` toggles between synchronous and threaded execution
 - TUI uses `app.invalidate()` to trigger re-renders after state changes
 - Config falls back to defaults if the file is missing or corrupted, and rewrites it
-- Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view. Git row displays SSH→HTTPS converted URL; Enter opens in browser via `webbrowser.open()`. Pinned row toggles `repo.pinned` via `store.toggle_pin()` and triggers `on_pin_change` callback. Edit mode appends a separator + input line (e.g. " Alias: <text>") at the bottom of `_build_lines`; `create_content` sets `UIContent.show_cursor=True` with `cursor_position=Point(x=col, y=last_row)` to place the terminal cursor at the end of the input line; `DetailPanel.is_focusable()` returns `True` so the window receives focus for cursor display.
-- Layout switching replaces `app.layout` entirely (list layout vs detail layout), stored in `_list_layout` for reuse. Detail view stores `_detail_window` reference and calls `layout.focus()` on it.
-- Search area completely hidden by default via `ConditionalContainer` with `_search_filtering and not _search_active` for the prefix and `_search_active` for the bordered input. Search input has no background color; bright border (`fg:#58a6ff`) surrounds it via `Window(char="─")` lines above and below.
+- Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view. Git row displays SSH→HTTPS converted URL; Enter opens in browser via `webbrowser.open()`. Pinned row toggles `repo.pinned` via `store.toggle_pin()` and triggers `on_pin_change` callback. Edit mode renders the input text and cursor only in the status bar (`_EditStatusControl`); detail panel rows always show original values. `DetailPanel.is_focusable()` returns `True` so the window can receive focus in non-edit mode.
+- Layout switching replaces `app.layout` entirely (list layout vs detail layout), stored in `_list_layout` for reuse. Detail view stores `_detail_window` reference and calls `layout.focus()` on it. List view stores `_repo_list_window` reference; after closing search or returning from detail view, focus moves to the repo list window.
+- Search area completely hidden by default via `ConditionalContainer` with `_search_filtering and not _search_active` for the prefix and `_search_active` for the bordered input. Search input has no background color; bright border (`fg:#58a6ff`) surrounds it via `Window(char="─")` lines above and below. When search is confirmed or canceled, focus returns to the repo list window to prevent hidden buffer from receiving keystrokes.
 - Key bindings use `Condition` filters for view-dependent behavior (e.g. shift-gated `V`/`U`/`A`/`O`/`P`/`R` for list view)
 - Footer highlight timer uses `threading.Timer` for 2-second decay
 - Style class names avoid prompt_toolkit built-in names (e.g. `repo-selected` instead of `selected`) to prevent style conflicts

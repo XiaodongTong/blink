@@ -74,6 +74,7 @@ class BlinkApp:
         self._status_control = FormattedTextControl(text=self._status_text)
         self._footer_control = FormattedTextControl(text=self._footer_text)
 
+        self._repo_list_window: Optional[RepoListWindow] = None
         self._detail_panel: Optional[DetailPanel] = None
         self._detail_window: Optional[Window] = None
         self._detail_status_window: Optional[Window] = None
@@ -127,6 +128,7 @@ class BlinkApp:
     # ── layouts ─────────────────────────────────────────────────────────────
 
     def _build_list_layout(self) -> Layout:
+        self._repo_list_window = RepoListWindow(self._repo_control)
         return Layout(
             HSplit([
                 # Filtering state: prefix + keyword (single line)
@@ -148,7 +150,7 @@ class BlinkApp:
                     filter=Condition(lambda: self._search_active),
                 ),
                 Window(height=D.exact(1), char="─", style="class:border"),
-                RepoListWindow(self._repo_control),
+                self._repo_list_window,
                 Window(height=D.exact(1), char="─", style="class:border"),
                 Window(content=self._status_control, height=D.exact(1), style="class:status"),
                 Window(content=self._footer_control, height=D.exact(1), style="class:footer"),
@@ -254,6 +256,7 @@ class BlinkApp:
                 self._search_active = False
                 self._search_filtering = False
                 self._load_repos()
+                self._app.layout.focus(self._repo_list_window)
                 self._app.invalidate()
                 return
             if self._detail_panel is not None:
@@ -290,12 +293,14 @@ class BlinkApp:
                 self._search_active = False
                 self._search_filtering = False
                 self._load_repos()
+                self._app.layout.focus(self._repo_list_window)
                 self._app.invalidate()
                 return
             if self._search_filtering:
                 self._search_bar.clear()
                 self._search_filtering = False
                 self._load_repos()
+                self._app.layout.focus(self._repo_list_window)
                 self._app.invalidate()
                 return
             if self._detail_panel is not None:
@@ -309,6 +314,7 @@ class BlinkApp:
             self._search_active = False
             if self._search_bar.text:
                 self._search_filtering = True
+            self._app.layout.focus(self._repo_list_window)
             self._app.invalidate()
             return
 
@@ -383,6 +389,7 @@ class BlinkApp:
                 self._search_active = False
                 if self._search_bar.text:
                     self._search_filtering = True
+                self._app.layout.focus(self._repo_list_window)
                 self._app.invalidate()
                 return
             if self._detail_panel is not None:
@@ -602,6 +609,7 @@ class BlinkApp:
         self._detail_panel = None
         self._mode = "list"
         self._app.layout = self._list_layout
+        self._app.layout.focus(self._repo_list_window)
         self._app.invalidate()
 
     def _refresh_repo_alias(self, repo: Repo, alias: str) -> None:

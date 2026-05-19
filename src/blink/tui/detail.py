@@ -286,15 +286,13 @@ class DetailPanel(UIControl):
         lines.append(self._build_one_line("Name      ", self._repo.name, cur == self.LINE_NAME, width))
 
         # Row 1: Alias
-        val = self._alias_buffer.text if edit == "alias" and self._alias_buffer else (self._repo.alias or "(none)")
-        lines.append(self._build_one_line("Alias     ", val, cur == self.LINE_ALIAS, width))
+        lines.append(self._build_one_line("Alias     ", self._repo.alias or "(none)", cur == self.LINE_ALIAS, width))
 
         # Row 2: Path
         lines.append(self._build_one_line("Path      ", self._repo.path, cur == self.LINE_PATH, width))
 
         # Row 3: Description
-        val = self._desc_buffer.text if edit == "description" and self._desc_buffer else (self._repo.description or "(none)")
-        lines.append(self._build_one_line("Desc      ", val, cur == self.LINE_DESC, width))
+        lines.append(self._build_one_line("Desc      ", self._repo.description or "(none)", cur == self.LINE_DESC, width))
 
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
@@ -325,22 +323,8 @@ class DetailPanel(UIControl):
         # Row 9: Finder
         lines.append(self._build_one_line("", "Open with Finder", cur == self.LINE_FINDER, width))
 
-        # Row 10: Tloop
+        # Row 11: Tloop
         lines.append(self._build_one_line("", "Add Loop Task", cur == self.LINE_TLOOP, width))
-
-        # Edit input line at bottom
-        if self._edit_mode:
-            lines.append([("class:detail-sep", "─" * width)])
-            if self._edit_mode == "alias":
-                label, value = " Alias: ", self._alias_buffer.text if self._alias_buffer else ""
-            elif self._edit_mode == "description":
-                label, value = " Desc: ", self._desc_buffer.text if self._desc_buffer else ""
-            else:
-                label, value = " Tag: ", self._tag_buffer.text if self._tag_buffer else ""
-            lines.append([
-                ("class:status-label", label),
-                ("class:status-value", value),
-            ])
 
         return lines
 
@@ -352,25 +336,10 @@ class DetailPanel(UIControl):
                 return FormattedText(rendered[i])
             return FormattedText([("class:normal", "")])
 
-        show_cursor = False
-        cursor_position = None
-        if self._edit_mode:
-            if self._edit_mode == "alias":
-                label, buf = " Alias: ", self._alias_buffer
-            elif self._edit_mode == "description":
-                label, buf = " Desc: ", self._desc_buffer
-            else:
-                label, buf = " Tag: ", self._tag_buffer
-            if buf is not None:
-                col = _display_width(label) + _display_width(buf.text)
-                cursor_position = Point(x=col, y=len(rendered) - 1)
-                show_cursor = True
-
         return UIContent(
             get_line=get_line,
             line_count=len(rendered),
-            show_cursor=show_cursor,
-            cursor_position=cursor_position,
+            show_cursor=False,
         )
 
     def _formatted_text(self, width: int = 80) -> FormattedText:

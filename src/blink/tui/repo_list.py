@@ -17,6 +17,9 @@ class RepoListControl(UIControl):
         self.repos: List[Repo] = []
         self.selected_index: int = 0
 
+    def is_focusable(self) -> bool:
+        return True
+
     def set_repos(self, repos: List[Repo]) -> None:
         self.repos = repos
         self.selected_index = 0
