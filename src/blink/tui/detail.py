@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 import unicodedata
 import webbrowser
 from typing import Callable, List, Optional
@@ -45,7 +47,8 @@ class DetailPanel(UIControl):
     LINE_CURSOR = 7
     LINE_VSCODE = 8
     LINE_FINDER = 9
-    MAX_LINE = 9
+    LINE_TLOOP = 10
+    MAX_LINE = 10
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
                  on_back: Callable[[], None], on_alias_change: Callable[[str], None],
@@ -122,6 +125,8 @@ class DetailPanel(UIControl):
             open_in_editor(self._repo.path, "v", self._editors)
         elif line == self.LINE_FINDER:
             open_in_editor(self._repo.path, "o", self._editors)
+        elif line == self.LINE_TLOOP:
+            self._run_tloop()
         return True
 
     # ── line-specific actions ────────────────────────────────────────────────
@@ -148,6 +153,15 @@ class DetailPanel(UIControl):
         target = https or url
         webbrowser.open(target)
         self._on_status_message(f"已在浏览器打开: {target}")
+
+    def _run_tloop(self) -> None:
+        if not shutil.which("tloop"):
+            self._on_status_message("未安装 tloop")
+            return
+        subprocess.Popen(
+            ["tloop", "edit", self._repo.path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
 
     def _start_alias_edit(self) -> None:
         self._edit_mode = "alias"
@@ -293,6 +307,9 @@ class DetailPanel(UIControl):
 
         # Row 9: Finder
         lines.append(self._build_one_line("", "Open with Finder", cur == self.LINE_FINDER, width))
+
+        # Row 10: Tloop
+        lines.append(self._build_one_line("", "Loop Task", cur == self.LINE_TLOOP, width))
 
         # Edit input line at bottom
         if self._edit_mode:

@@ -119,10 +119,11 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 │     Open with Cursor                             │
 │     Open with Visual Studio Code                 │
 │     Open with Finder                             │
+│     Loop Task                                    │
 └─────────────────────────────────────────────────┘
 ```
 
-- **详情面板**（detail panel）— 10 行可选中，每行按 Enter 执行对应操作
+- **详情面板**（detail panel）— 11 行可选中，每行按 Enter 执行对应操作
   - 行 0（Name）— Enter 复制项目名称，状态栏提示
   - 行 1（Alias）— Enter 进入别名编辑态
   - 行 2（Path）— Enter 复制路径，状态栏提示
@@ -130,6 +131,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
   - 行 4（Git）— Enter 将 SSH 地址转为 HTTPS 并在浏览器打开
   - 行 5（Tags）— Enter 进入标签编辑态
   - 行 6-9（Open with Antigravity/Cursor/VSCode/Finder）— Enter 执行打开
+  - 行 10（Loop Task）— Enter 执行 `tloop edit`，未安装时状态栏提示"未安装 tloop"
 - `↑`/`↓` 切换选中行（无需 Shift）
 - `Esc` / `Ctrl+C` 返回列表视图
 - 编辑态（Alias/Description/Tags）下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入，编辑时面板底部渲染编辑输入行并显示光标
