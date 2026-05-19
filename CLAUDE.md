@@ -106,32 +106,32 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 
 ```
 ┌─────────────────────────────────────────────────┐
-│   ▸ Name      repo-name           ← 选中行     │
-│     Alias     (none)                              │
-│     Path      /path/to/repo                       │
-│     Desc      description                         │
-│─────────────────────────────────────────────────│
-│     Git       https://github.com/org/repo         │
-│     Tags      [python] [api]                      │
-│     Pinned    No                                  │
-│─────────────────────────────────────────────────│
-│     Open with IDE                                 │
+│   ▸ Open with IDE                    ← 选中行   │
 │     Open with Finder                              │
-│     Add Loop Task                                 │
+│     Add Todo Loop Task                            │
+│─────────────────────────────────────────────────│
+│     Name      repo-name                           │
+│     Path      /path/to/repo                       │
+│     Git       https://github.com/org/repo         │
+│─────────────────────────────────────────────────│
+│     Pinned    No                                  │
+│     Alias     (none)                              │
+│     Tags      [python] [api]                      │
+│     Desc      description                         │
 └─────────────────────────────────────────────────┘
 ```
 
 - **详情面板**（detail panel）— 10 行可选中，每行按 Enter 执行对应操作
-  - 行 0（Name）— Enter 复制项目名称，状态栏提示
-  - 行 1（Alias）— Enter 进入别名编辑态
-  - 行 2（Path）— Enter 复制路径，状态栏提示
-  - 行 3（Description）— Enter 进入描述编辑态
-  - 行 4（Git）— Enter 将 SSH 地址转为 HTTPS 并在浏览器打开
-  - 行 5（Tags）— Enter 进入标签编辑态
+  - 行 0（Open with IDE）— Enter 用首选 IDE 打开，首次使用时弹出选择
+  - 行 1（Open with Finder）— Enter 执行打开
+  - 行 2（Add Todo Loop Task）— Enter 执行 `tloop edit`，未安装时状态栏提示"未安装 tloop"
+  - 行 3（Name）— Enter 复制项目名称，状态栏提示
+  - 行 4（Path）— Enter 复制路径，状态栏提示
+  - 行 5（Git）— Enter 将 SSH 地址转为 HTTPS 并在浏览器打开
   - 行 6（Pinned）— Enter 切换置顶状态，状态栏提示"已置顶"/"已取消置顶"
-  - 行 7（Open with IDE）— Enter 用首选 IDE 打开，首次使用时弹出选择
-  - 行 8（Open with Finder）— Enter 执行打开
-  - 行 9（Add Loop Task）— Enter 执行 `tloop edit`，未安装时状态栏提示"未安装 tloop"
+  - 行 7（Alias）— Enter 进入别名编辑态
+  - 行 8（Tags）— Enter 进入标签编辑态
+  - 行 9（Description）— Enter 进入描述编辑态
 - 进入详情视图时自动增加该项目的查看次数（`view_count`）
 - `↑`/`↓` 切换选中行（无需 Shift）
 - `Esc` / `Ctrl+C` 返回列表视图

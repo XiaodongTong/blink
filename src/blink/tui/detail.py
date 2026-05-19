@@ -37,16 +37,16 @@ def _remote_to_https(url: str) -> str | None:
 
 
 class DetailPanel(UIControl):
-    LINE_NAME = 0
-    LINE_ALIAS = 1
-    LINE_PATH = 2
-    LINE_DESC = 3
-    LINE_GIT = 4
-    LINE_TAGS = 5
+    LINE_IDE = 0
+    LINE_FINDER = 1
+    LINE_TLOOP = 2
+    LINE_NAME = 3
+    LINE_PATH = 4
+    LINE_GIT = 5
     LINE_PINNED = 6
-    LINE_IDE = 7
-    LINE_FINDER = 8
-    LINE_TLOOP = 9
+    LINE_ALIAS = 7
+    LINE_TAGS = 8
+    LINE_DESC = 9
     MAX_LINE = 9
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
@@ -278,43 +278,43 @@ class DetailPanel(UIControl):
 
         lines: List[List[tuple[str, str]]] = []
 
-        # Row 0: Name
-        lines.append(self._build_one_line("Name      ", self._repo.name, cur == self.LINE_NAME, width))
+        # Row 0: IDE
+        lines.append(self._build_one_line("", "Open with IDE", cur == self.LINE_IDE, width))
 
-        # Row 1: Alias
-        lines.append(self._build_one_line("Alias     ", self._repo.alias or "(none)", cur == self.LINE_ALIAS, width))
+        # Row 1: Finder
+        lines.append(self._build_one_line("", "Open with Finder", cur == self.LINE_FINDER, width))
 
-        # Row 2: Path
-        lines.append(self._build_one_line("Path      ", self._repo.path, cur == self.LINE_PATH, width))
-
-        # Row 3: Description
-        lines.append(self._build_one_line("Desc      ", self._repo.description or "(none)", cur == self.LINE_DESC, width))
+        # Row 2: Tloop
+        lines.append(self._build_one_line("", "Add Todo Loop Task", cur == self.LINE_TLOOP, width))
 
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
-        # Row 4: Git
+        # Row 3: Name
+        lines.append(self._build_one_line("Name      ", self._repo.name, cur == self.LINE_NAME, width))
+
+        # Row 4: Path
+        lines.append(self._build_one_line("Path      ", self._repo.path, cur == self.LINE_PATH, width))
+
+        # Row 5: Git
         lines.append(self._build_one_line("Git       ", self._git_display_url(), cur == self.LINE_GIT, width))
 
-        # Row 5: Tags
-        tag_str = " ".join(f"[{t}]" for t in self._repo.tags) if self._repo.tags else "(none)"
-        lines.append(self._build_one_line("Tags      ", tag_str, cur == self.LINE_TAGS, width))
+        # Separator
+        lines.append([("class:detail-sep", "─" * width)])
 
         # Row 6: Pinned
         pin_str = "Yes" if self._repo.pinned else "No"
         lines.append(self._build_one_line("Pinned    ", pin_str, cur == self.LINE_PINNED, width))
 
-        # Separator
-        lines.append([("class:detail-sep", "─" * width)])
+        # Row 7: Alias
+        lines.append(self._build_one_line("Alias     ", self._repo.alias or "(none)", cur == self.LINE_ALIAS, width))
 
-        # Row 7: IDE
-        lines.append(self._build_one_line("", "Open with IDE", cur == self.LINE_IDE, width))
+        # Row 8: Tags
+        tag_str = " ".join(f"[{t}]" for t in self._repo.tags) if self._repo.tags else "(none)"
+        lines.append(self._build_one_line("Tags      ", tag_str, cur == self.LINE_TAGS, width))
 
-        # Row 8: Finder
-        lines.append(self._build_one_line("", "Open with Finder", cur == self.LINE_FINDER, width))
-
-        # Row 9: Tloop
-        lines.append(self._build_one_line("", "Add Loop Task", cur == self.LINE_TLOOP, width))
+        # Row 9: Description
+        lines.append(self._build_one_line("Desc      ", self._repo.description or "(none)", cur == self.LINE_DESC, width))
 
         return lines
 

@@ -385,7 +385,14 @@ def test_handle_enter_pinned_toggles():
 
 
 def test_detail_panel_line_constants():
+    assert DetailPanel.LINE_IDE == 0
+    assert DetailPanel.LINE_FINDER == 1
+    assert DetailPanel.LINE_TLOOP == 2
+    assert DetailPanel.LINE_NAME == 3
+    assert DetailPanel.LINE_PATH == 4
+    assert DetailPanel.LINE_GIT == 5
     assert DetailPanel.LINE_PINNED == 6
-    assert DetailPanel.LINE_IDE == 7
-    assert DetailPanel.LINE_TLOOP == 9
+    assert DetailPanel.LINE_ALIAS == 7
+    assert DetailPanel.LINE_TAGS == 8
+    assert DetailPanel.LINE_DESC == 9
     assert DetailPanel.MAX_LINE == 9

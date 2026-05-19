@@ -23,7 +23,7 @@ from blink.scanner import Scanner, ScanResult
 from blink.tui.repo_list import RepoListControl, RepoListWindow
 from blink.tui.search import SearchBar
 from blink.tui.actions import EditorInfo, IDE_CHOICES, copy_path, detect_editors, open_in_editor
-from blink.tui.detail import DetailPanel, _display_width
+from blink.tui.detail import DetailPanel
 
 
 class _EditStatusControl(UIControl):
@@ -139,11 +139,11 @@ class BlinkApp:
             return None
         mode = panel.edit_mode
         if mode == "alias" and panel.alias_buffer:
-            return _display_width(" Alias: ") + _display_width(panel.alias_buffer.text)
+            return len(" Alias: ") + len(panel.alias_buffer.text)
         if mode == "description" and panel.desc_buffer:
-            return _display_width(" Desc: ") + _display_width(panel.desc_buffer.text)
+            return len(" Desc: ") + len(panel.desc_buffer.text)
         if mode == "tags" and panel.tag_buffer:
-            return _display_width(" Tag: ") + _display_width(panel.tag_buffer.text)
+            return len(" Tag: ") + len(panel.tag_buffer.text)
         return None
 
     # ── layouts ─────────────────────────────────────────────────────────────
@@ -572,16 +572,19 @@ class BlinkApp:
                 return FormattedText([
                     ("class:status-label", " Alias: "),
                     ("class:status-value", self._detail_panel.alias_buffer.text),
+                    ("", " "),
                 ])
             if mode == "description" and self._detail_panel.desc_buffer:
                 return FormattedText([
                     ("class:status-label", " Desc: "),
                     ("class:status-value", self._detail_panel.desc_buffer.text),
+                    ("", " "),
                 ])
             if mode == "tags" and self._detail_panel.tag_buffer:
                 return FormattedText([
                     ("class:status-label", " Tag: "),
                     ("class:status-value", self._detail_panel.tag_buffer.text),
+                    ("", " "),
                 ])
         count = len(self._repo_control.repos)
         if self._search_filtering and self._search_bar.text:
