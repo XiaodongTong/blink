@@ -42,5 +42,6 @@ include = ["src/blink", "tests"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.hatch.preset]
-dist = "clean"
+[tool.hatch.envs.default]
+run-events = ["build"]
+clean = true
