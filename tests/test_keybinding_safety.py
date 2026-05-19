@@ -193,13 +193,29 @@ def test_shift_keys_blocked_during_search(app_with_store):
     app, store, rid = app_with_store
     app._search_active = True
     kb = app._build_key_bindings()
-    shift_keys = {"V", "U", "A", "O", "Y", "R", "s-up", "s-down"}
+    shift_keys = {"V", "U", "A", "O", "Y", "R", "s-up"}
     for reg in kb.bindings:
         for key in reg.keys:
             key_str = key.value if hasattr(key, 'value') else str(key)
             if key_str in shift_keys:
                 assert reg.filter is not None, f"Shift key '{key_str}' missing search filter"
                 assert not reg.filter(), f"Shift key '{key_str}' should be blocked during search"
+
+
+def test_down_confirms_search(app_with_store):
+    """Down arrow confirms search (same as Enter) when search is active."""
+    app, store, rid = app_with_store
+    app._search_active = True
+    app._search_filtering = False
+    kb = app._build_key_bindings()
+    found = False
+    for reg in kb.bindings:
+        for key in reg.keys:
+            key_str = key.value if hasattr(key, 'value') else str(key)
+            if key_str == "down" and reg.filter is not None and reg.filter():
+                found = True
+                break
+    assert found, "down should have an active binding during search"
 
 
 def test_e_t_routed_via_printable_characters(app_with_store):

@@ -299,6 +299,16 @@ class BlinkApp:
                 self._show_list_view()
                 return
 
+        # ── Arrow keys — confirm search on down ────────────────────────────
+        @kb.add("down", filter=Condition(lambda: self._search_active))
+        @kb.add("s-down", filter=Condition(lambda: self._search_active))
+        def _(event):
+            self._search_active = False
+            if self._search_bar.text:
+                self._search_filtering = True
+            self._app.invalidate()
+            return
+
         # ── Arrow keys — list view navigation ───────────────────────────────
         @kb.add("down", filter=Condition(lambda: not self._search_active and self._detail_panel is None))
         @kb.add("s-down", filter=Condition(lambda: not self._search_active and self._detail_panel is None))

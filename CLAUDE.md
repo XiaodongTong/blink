@@ -93,7 +93,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 
 搜索有三个状态：
 1. **inactive** — 默认状态，搜索区域完全隐藏
-2. **active** — 按 `/` 进入，搜索输入框展开（带亮色边框），实时过滤。仅可打印字符、Backspace、Enter、Esc/Ctrl+C 生效
+2. **active** — 按 `/` 进入，搜索输入框展开（带亮色边框），实时过滤。仅可打印字符、Backspace、Enter/↓、Esc/Ctrl+C 生效。↓ 与 Enter 效果相同，确认搜索并进入过滤态
 3. **filtering** — Enter 确认后进入，输入框隐藏，顶部显示搜索词（只读）。再按 `/` 恢复输入框继续编辑
 
 ### 退出机制
