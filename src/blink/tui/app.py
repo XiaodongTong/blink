@@ -256,18 +256,18 @@ class BlinkApp:
         kb = KeyBindings()
 
         # ── IDE selection mode (highest priority) ───────────────────────────
-        @kb.add("up", filter=Condition(lambda: self._ide_selecting))
+        @kb.add("left", filter=Condition(lambda: self._ide_selecting))
         def _(event):
             self._ide_select_cursor = max(0, self._ide_select_cursor - 1)
             self._app.invalidate()
 
-        @kb.add("down", filter=Condition(lambda: self._ide_selecting))
+        @kb.add("right", filter=Condition(lambda: self._ide_selecting))
         def _(event):
             opts = self._ide_options()
             self._ide_select_cursor = min(len(opts) - 1, self._ide_select_cursor + 1)
             self._app.invalidate()
 
-        @kb.add("enter", filter=Condition(lambda: self._ide_selecting))
+        @kb.add("enter", eager=True, filter=Condition(lambda: self._ide_selecting))
         def _(event):
             opts = self._ide_options()
             if opts and 0 <= self._ide_select_cursor < len(opts):
@@ -278,17 +278,19 @@ class BlinkApp:
                 self._ide_pending_repo = None
                 if repo:
                     open_in_editor(repo.path, key, self._editors)
-                self._app.invalidate()
+                    self._set_scan_status(f"正在打开 {name}...")
+                else:
+                    self._app.invalidate()
             return
 
-        @kb.add("escape", filter=Condition(lambda: self._ide_selecting))
+        @kb.add("escape", eager=True, filter=Condition(lambda: self._ide_selecting))
         def _(event):
             self._ide_selecting = False
             self._ide_pending_repo = None
             self._app.invalidate()
             return
 
-        @kb.add("c-c", filter=Condition(lambda: self._ide_selecting))
+        @kb.add("c-c", eager=True, filter=Condition(lambda: self._ide_selecting))
         def _(event):
             self._ide_selecting = False
             self._ide_pending_repo = None
@@ -298,6 +300,8 @@ class BlinkApp:
         # ── Ctrl+C ──────────────────────────────────────────────────────────
         @kb.add("c-c")
         def _(event):
+            if self._ide_selecting:
+                return
             # Priority: edit mode → search active → detail view → double-quit
             if self._detail_panel is not None and self._detail_panel.is_editing:
                 if self._detail_panel.edit_mode == "alias":
@@ -336,6 +340,8 @@ class BlinkApp:
         # ── Escape ───────────────────────────────────────────────────────────
         @kb.add("escape")
         def _(event):
+            if self._ide_selecting:
+                return
             if self._detail_panel is not None and self._detail_panel.is_editing:
                 if self._detail_panel.edit_mode == "alias":
                     self._detail_panel._edit_mode = None
@@ -453,6 +459,8 @@ class BlinkApp:
         # ── Enter ────────────────────────────────────────────────────────────
         @kb.add("enter")
         def _(event):
+            if self._ide_selecting:
+                return
             if self._search_active:
                 self._search_active = False
                 if self._search_bar.text:
@@ -560,11 +568,13 @@ class BlinkApp:
             parts: list[tuple[str, str]] = [("class:status-label", " Select IDE:  ")]
             for i, (key, name) in enumerate(opts):
                 if i > 0:
-                    parts.append(("class:status-dim", "    "))
+                    parts.append(("class:status-dim", "  "))
                 if i == self._ide_select_cursor:
                     parts.append(("class:status-accent", f"▸ {name}"))
                 else:
                     parts.append(("class:status-dim", f"  {name}"))
+            parts.append(("class:status-dim", "    "))
+            parts.append(("class:footer-dim", "←→:选择  Enter:确认  Esc:取消"))
             return FormattedText(parts)
         if self._detail_panel is not None and self._detail_panel.is_editing:
             mode = self._detail_panel.edit_mode
@@ -627,7 +637,7 @@ class BlinkApp:
             ])
         if self._ide_selecting:
             return self._styled_footer_hints([
-                ("↑↓", "选择"), ("Enter", "确认"), ("Esc", "取消"),
+                ("←→", "选择"), ("Enter", "确认"), ("Esc", "取消"),
             ])
         highlighted = time.monotonic() < self._footer_highlight_until
         style_key = "class:footer-key" if highlighted else "class:footer-dim-key"

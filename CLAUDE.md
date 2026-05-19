@@ -122,7 +122,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 ```
 
 - **详情面板**（detail panel）— 10 行可选中，每行按 Enter 执行对应操作
-  - 行 0（Open with IDE）— Enter 用首选 IDE 打开，首次使用时弹出选择
+  - 行 0（Open with IDE）— Enter 用首选 IDE 打开，首次使用时在状态栏弹出选择（`←`/`→` 切换，`Enter` 确认，`Esc` 取消）
   - 行 1（Open with Finder）— Enter 执行打开
   - 行 2（Add Todo Loop Task）— Enter 执行 `tloop edit`，未安装时状态栏提示"未安装 tloop"
   - 行 3（Name）— Enter 复制项目名称，状态栏提示
@@ -156,7 +156,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 - Layout switching replaces `app.layout` entirely (list layout vs detail layout), stored in `_list_layout` for reuse. Detail view stores `_detail_window` reference and calls `layout.focus()` on it. List view stores `_repo_list_window` reference; after closing search or returning from detail view, focus moves to the repo list window.
 - Search area completely hidden by default via `ConditionalContainer` with `_search_filtering and not _search_active` for the prefix and `_search_active` for the bordered input. Search input has no background color; bright border (`fg:#58a6ff`) surrounds it via `Window(char="─")` lines above and below. When search is confirmed or canceled, focus returns to the repo list window to prevent hidden buffer from receiving keystrokes.
 - Key bindings use `Condition` filters for view-dependent behavior (e.g. shift-gated `I`/`O`/`P`/`R` for list view)
-- IDE selection mode (`_ide_selecting`) is a temporary overlay state: when `Shift+I` is pressed and no preferred IDE is set in config (`preferred_ide`), the status bar shows IDE options (VSCode/Cursor/Antigravity). `↑`/`↓` navigates, `Enter` confirms and saves preference to `~/.blink/config.json`, `Esc`/`Ctrl+C` cancels. IDE selection handlers are registered first in key bindings so they take priority over navigation when active.
+- IDE selection mode (`_ide_selecting`) is a temporary overlay state: when `Shift+I` (list view) or `Enter` on IDE row (detail view) is pressed and no preferred IDE is set in config (`preferred_ide`), the status bar shows IDE options (VSCode/Cursor/Antigravity) horizontally with `←→:选择  Enter:确认  Esc:取消` hints. `←`/`→` navigates, `Enter` confirms and saves preference to `~/.blink/config.json`, `Esc`/`Ctrl+C` cancels. IDE selection handlers use `eager=True` and are registered first in key bindings for guaranteed priority over navigation and general Enter handlers. Both list and detail views display hints via `_status_text()`.
 - Footer highlight timer uses `threading.Timer` for 2-second decay
 - Style class names avoid prompt_toolkit built-in names (e.g. `repo-selected` instead of `selected`) to prevent style conflicts
 - Tests create real git repos via subprocess in `tmp_path` fixtures
