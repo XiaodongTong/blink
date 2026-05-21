@@ -27,3 +27,4 @@ Thumbs.db
 .cybervisor/
 cybervisor.yaml
 .claude/
+uv.lock

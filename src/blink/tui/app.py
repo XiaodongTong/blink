@@ -302,58 +302,25 @@ class BlinkApp:
         def _(event):
             if self._ide_selecting:
                 return
-            # Priority: edit mode → search active → detail view → double-quit
-            if self._detail_panel is not None and self._detail_panel.is_editing:
-                if self._detail_panel.edit_mode == "alias":
-                    self._detail_panel._edit_mode = None
-                    self._detail_panel._alias_buffer = None
-                elif self._detail_panel.edit_mode == "description":
-                    self._detail_panel._edit_mode = None
-                    self._detail_panel._desc_buffer = None
-                elif self._detail_panel.edit_mode == "tags":
-                    self._detail_panel._edit_mode = None
-                    self._detail_panel._tag_buffer = None
-                self._app.layout.focus(self._detail_window)
-                self._app.invalidate()
-                return
-            if self._search_active:
-                self._search_bar.clear()
+            # Priority: edit mode → detail view → search → double-quit
+            if self._detail_panel is not None:
+                if self._detail_panel.is_editing:
+                    if self._detail_panel.edit_mode == "alias":
+                        self._detail_panel._edit_mode = None
+                        self._detail_panel._alias_buffer = None
+                    elif self._detail_panel.edit_mode == "description":
+                        self._detail_panel._edit_mode = None
+                        self._detail_panel._desc_buffer = None
+                    elif self._detail_panel.edit_mode == "tags":
+                        self._detail_panel._edit_mode = None
+                        self._detail_panel._tag_buffer = None
+                    self._app.layout.focus(self._detail_window)
+                    self._app.invalidate()
+                    return
                 self._search_active = False
                 self._search_filtering = False
-                self._load_repos()
-                self._app.layout.focus(self._repo_list_window)
-                self._app.invalidate()
-                return
-            if self._detail_panel is not None:
+                self._search_bar.clear()
                 self._show_list_view()
-                return
-            # List view: double Ctrl+C to quit
-            now = time.monotonic()
-            if self._ctrl_c_quit_hint and (now - self._last_ctrl_c) < 2.0:
-                event.app.exit()
-                return
-            self._last_ctrl_c = now
-            self._ctrl_c_quit_hint = True
-            self._app.invalidate()
-            threading.Timer(2.0, self._reset_ctrl_c_hint).start()
-
-        # ── Escape ───────────────────────────────────────────────────────────
-        @kb.add("escape")
-        def _(event):
-            if self._ide_selecting:
-                return
-            if self._detail_panel is not None and self._detail_panel.is_editing:
-                if self._detail_panel.edit_mode == "alias":
-                    self._detail_panel._edit_mode = None
-                    self._detail_panel._alias_buffer = None
-                elif self._detail_panel.edit_mode == "description":
-                    self._detail_panel._edit_mode = None
-                    self._detail_panel._desc_buffer = None
-                elif self._detail_panel.edit_mode == "tags":
-                    self._detail_panel._edit_mode = None
-                    self._detail_panel._tag_buffer = None
-                self._app.layout.focus(self._detail_window)
-                self._app.invalidate()
                 return
             if self._search_active:
                 self._search_bar.clear()
@@ -370,8 +337,54 @@ class BlinkApp:
                 self._app.layout.focus(self._repo_list_window)
                 self._app.invalidate()
                 return
+            # List view: double Ctrl+C to quit
+            now = time.monotonic()
+            if self._ctrl_c_quit_hint and (now - self._last_ctrl_c) < 2.0:
+                event.app.exit()
+                return
+            self._last_ctrl_c = now
+            self._ctrl_c_quit_hint = True
+            self._app.invalidate()
+            threading.Timer(2.0, self._reset_ctrl_c_hint).start()
+
+        # ── Escape ───────────────────────────────────────────────────────────
+        @kb.add("escape")
+        def _(event):
+            if self._ide_selecting:
+                return
             if self._detail_panel is not None:
+                if self._detail_panel.is_editing:
+                    if self._detail_panel.edit_mode == "alias":
+                        self._detail_panel._edit_mode = None
+                        self._detail_panel._alias_buffer = None
+                    elif self._detail_panel.edit_mode == "description":
+                        self._detail_panel._edit_mode = None
+                        self._detail_panel._desc_buffer = None
+                    elif self._detail_panel.edit_mode == "tags":
+                        self._detail_panel._edit_mode = None
+                        self._detail_panel._tag_buffer = None
+                    self._app.layout.focus(self._detail_window)
+                    self._app.invalidate()
+                    return
+                self._search_active = False
+                self._search_filtering = False
+                self._search_bar.clear()
                 self._show_list_view()
+                return
+            if self._search_active:
+                self._search_bar.clear()
+                self._search_active = False
+                self._search_filtering = False
+                self._load_repos()
+                self._app.layout.focus(self._repo_list_window)
+                self._app.invalidate()
+                return
+            if self._search_filtering:
+                self._search_bar.clear()
+                self._search_filtering = False
+                self._load_repos()
+                self._app.layout.focus(self._repo_list_window)
+                self._app.invalidate()
                 return
 
         # ── Arrow keys — confirm search on down ────────────────────────────
