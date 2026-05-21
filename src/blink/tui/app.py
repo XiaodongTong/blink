@@ -345,7 +345,7 @@ class BlinkApp:
             self._last_ctrl_c = now
             self._ctrl_c_quit_hint = True
             self._app.invalidate()
-            threading.Timer(2.0, self._reset_ctrl_c_hint).start()
+            self._start_timer(2.0, self._reset_ctrl_c_hint)
 
         # ── Escape ───────────────────────────────────────────────────────────
         @kb.add("escape")
@@ -461,7 +461,7 @@ class BlinkApp:
                 copy_path(repo.path)
                 self._scan_status = f"Copied: {repo.path}"
                 self._app.invalidate()
-                threading.Timer(5.0, self._clear_scan_status).start()
+                self._start_timer(5.0, self._clear_scan_status)
 
         @kb.add("R", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
         def _(event):
@@ -680,6 +680,11 @@ class BlinkApp:
         self._ctrl_c_quit_hint = False
         self._app.invalidate()
 
+    def _start_timer(self, interval: float, func: object) -> None:
+        t = threading.Timer(interval, func)
+        t.daemon = True
+        t.start()
+
     def _reset_footer_highlight(self) -> None:
         self._footer_highlight_until = 0.0
         self._app.invalidate()
@@ -687,7 +692,7 @@ class BlinkApp:
     def _trigger_footer_highlight(self) -> None:
         self._footer_highlight_until = time.monotonic() + 2.0
         self._app.invalidate()
-        threading.Timer(2.0, self._reset_footer_highlight).start()
+        self._start_timer(2.0, self._reset_footer_highlight)
 
     # ── view switching ──────────────────────────────────────────────────────
 
@@ -766,7 +771,7 @@ class BlinkApp:
     def _set_scan_status(self, msg: str) -> None:
         self._scan_status = msg
         self._app.invalidate()
-        threading.Timer(3.0, self._clear_scan_status).start()
+        self._start_timer(3.0, self._clear_scan_status)
 
     def _clear_scan_status(self) -> None:
         self._scan_status = ""
