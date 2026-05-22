@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, List, Optional, Set, Tuple
 
-from blink.models import Remote, Repo
+from blink.models import Remote, Repo, RepoStatus
 
 GIT_INTERNAL_DIRS = frozenset({
     "objects", "refs", "logs", "hooks", "info", "modules",
@@ -170,3 +170,97 @@ class Scanner:
         if _results_list is not None:
             _results_list.extend(results)
         return results
+
+
+def parse_status_v2(output: str) -> RepoStatus:
+    branch = ""
+    ahead = 0
+    behind = 0
+    dirty_count = 0
+    for line in output.splitlines():
+        if line.startswith("# branch.head "):
+            val = line[len("# branch.head "):]
+            if val == "(detached)":
+                branch = "HEAD"
+            else:
+                branch = val
+        elif line.startswith("# branch.ab "):
+            rest = line[len("# branch.ab "):]
+            parts = rest.split()
+            for p in parts:
+                if p.startswith("+"):
+                    ahead = int(p[1:])
+                elif p.startswith("-"):
+                    behind = int(p[1:])
+        elif line and line[0] in ("1", "2", "u", "?"):
+            dirty_count += 1
+    return RepoStatus(branch=branch, dirty_count=dirty_count, ahead=ahead, behind=behind)
+
+
+def fetch_status(repo_path: str) -> RepoStatus:
+    result = subprocess.run(
+        ["git", "--no-optional-locks", "status", "--porcelain=v2", "--branch"],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"git status failed for {repo_path}: {result.stderr}")
+    return parse_status_v2(result.stdout)
+
+
+@dataclass
+class StatusFetchItem:
+    repo_id: int
+    repo_path: str
+
+
+class StatusFetcher:
+    def __init__(self, max_workers: Optional[int] = None) -> None:
+        validate_git()
+        cpu = os.cpu_count() or 4
+        self._max_workers = max_workers or min(cpu * 2, 16)
+
+    def run_fetch(
+        self,
+        repos: List[Tuple[int, str]],
+        blocking: bool = True,
+        on_status: Optional[Callable[[int, RepoStatus], None]] = None,
+        on_error: Optional[Callable[[int], None]] = None,
+        on_done: Optional[Callable[[], None]] = None,
+    ) -> None:
+        if blocking:
+            self._blocking_fetch(repos, on_status, on_error, on_done)
+        else:
+            import threading
+            t = threading.Thread(
+                target=self._blocking_fetch,
+                args=(repos, on_status, on_error, on_done),
+                daemon=True,
+            )
+            t.start()
+
+    def _blocking_fetch(
+        self,
+        repos: List[Tuple[int, str]],
+        on_status: Optional[Callable[[int, RepoStatus], None]] = None,
+        on_error: Optional[Callable[[int], None]] = None,
+        on_done: Optional[Callable[[], None]] = None,
+    ) -> None:
+        with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+            futures = {}
+            for repo_id, repo_path in repos:
+                futures[executor.submit(fetch_status, repo_path)] = repo_id
+            for future in as_completed(futures):
+                repo_id = futures[future]
+                try:
+                    status = future.result()
+                    status.fetched_at = Repo.now_iso()
+                    if on_status:
+                        on_status(repo_id, status)
+                except Exception:
+                    if on_error:
+                        on_error(repo_id)
+        if on_done:
+            on_done()

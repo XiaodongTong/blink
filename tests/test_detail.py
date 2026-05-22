@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from prompt_toolkit.formatted_text import to_plain_text
 
-from blink.models import Remote, Repo
+from blink.models import Remote, Repo, RepoStatus
 from blink.store import Store
 from blink.tui.detail import DetailPanel
 
@@ -391,8 +391,50 @@ def test_detail_panel_line_constants():
     assert DetailPanel.LINE_NAME == 3
     assert DetailPanel.LINE_PATH == 4
     assert DetailPanel.LINE_GIT == 5
-    assert DetailPanel.LINE_PINNED == 6
-    assert DetailPanel.LINE_ALIAS == 7
-    assert DetailPanel.LINE_TAGS == 8
-    assert DetailPanel.LINE_DESC == 9
-    assert DetailPanel.MAX_LINE == 9
+    assert DetailPanel.LINE_STATUS == 6
+    assert DetailPanel.LINE_PINNED == 7
+    assert DetailPanel.LINE_ALIAS == 8
+    assert DetailPanel.LINE_TAGS == 9
+    assert DetailPanel.LINE_DESC == 10
+    assert DetailPanel.MAX_LINE == 10
+
+
+# ── status row ─────────────────────────────────────────────────────────────
+
+
+def test_detail_panel_shows_status_row():
+    repo = _make_repo(status=RepoStatus(branch="main", dirty_count=2, ahead=1))
+    panel = _make_detail_panel(repo)
+    t = _to_plain(panel._formatted_text())
+    assert "Status" in t
+    assert "main" in t
+    assert "+2" in t
+    assert "↑1" in t
+
+
+def test_detail_panel_shows_loading_status():
+    panel = _make_detail_panel()
+    t = _to_plain(panel._formatted_text())
+    assert "Status" in t
+    assert "···" in t
+
+
+def test_detail_panel_status_between_git_and_pinned():
+    panel = _make_detail_panel()
+    t = _to_plain(panel._formatted_text())
+    git_pos = t.index("Git")
+    status_pos = t.index("Status")
+    pinned_pos = t.index("Pinned")
+    assert git_pos < status_pos < pinned_pos
+
+
+def test_handle_enter_status_copies(monkeypatch):
+    copied = []
+    monkeypatch.setattr("blink.tui.detail.copy_path", lambda t: copied.append(t) or None)
+    repo = _make_repo(status=RepoStatus(branch="main", dirty_count=1))
+    panel = _make_detail_panel(repo)
+    panel._cursor_index = DetailPanel.LINE_STATUS
+    panel.handle_enter()
+    assert len(copied) == 1
+    assert "main" in copied[0]
+    assert "+1" in copied[0]

@@ -5,7 +5,8 @@
 ## 功能
 
 - 自动发现配置目录下的所有 git 仓库
-- 两行式列表展示：项目名 + 标签，路径（灰色）
+- 两行式列表展示：项目名 + 标签，路径（左）+ Git 状态徽标（右）
+- Git 状态徽标显示分支、变更、领先/落后：`main ●`（干净）、`feature ○ +3`（有变更）、`fix ● ↓2`（落后远程）；加载中显示 `···`，获取失败显示 `⚠`
 - 置顶常用项目（★ 标记），置顶项目始终排在前面
 - 按查看次数自动排序，常用项目靠前
 - 按名称、别名、路径、描述、远程 URL 或标签实时搜索
@@ -51,7 +52,7 @@ blink --rescan # 强制重新扫描后启动
 
 ### 详情面板
 
-按 `Enter` 进入详情面板，显示 Open with IDE、Open with Finder、Add Todo Loop Task、名称、路径、Git 地址、置顶状态、别名、标签、描述等 10 行，按功能分三区：操作区（Open with IDE/Open with Finder/Add Todo Loop Task）→ 信息区（Name/Path/Git）→ 配置区（Pinned/Alias/Tags/Desc）。`↑`/`↓` 切换选中行（高亮背景 `#264f78`），按 Enter 执行当前行操作：Open with IDE 行用首选 IDE 打开（首次使用时在状态栏横向弹出选择：`←`/`→` 选择 IDE，Enter 确认，选择会保存到配置文件），Open with Finder 行执行打开，Add Todo Loop Task 行执行 `tloop edit`（未安装时状态栏提示"未安装 tloop"），Name/Path 行复制内容并在状态栏提示，Git 行将 SSH 协议地址转换为 HTTPS 地址并在浏览器打开，Pinned 行切换置顶状态（状态栏提示"已置顶"/"已取消置顶"），Alias/Tags/Description 行进入编辑态。编辑态下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入，编辑时面板底部渲染编辑输入行并显示光标。详情面板无 footer 快捷键栏。按 `Ctrl+C` 或 `Esc` 返回列表。进入详情视图时自动累计查看次数，影响列表排序。
+按 `Enter` 进入详情面板，显示 Open with IDE、Open with Finder、Add Todo Loop Task、名称、路径、Git 地址、Git 状态、置顶状态、别名、标签、描述等 11 行，按功能分三区：操作区（Open with IDE/Open with Finder/Add Todo Loop Task）→ 信息区（Name/Path/Git/Status）→ 配置区（Pinned/Alias/Tags/Desc）。`↑`/`↓` 切换选中行（高亮背景 `#264f78`），按 Enter 执行当前行操作：Open with IDE 行用首选 IDE 打开（首次使用时在状态栏横向弹出选择：`←`/`→` 选择 IDE，Enter 确认，选择会保存到配置文件），Open with Finder 行执行打开，Add Todo Loop Task 行执行 `tloop edit`（未安装时状态栏提示"未安装 tloop"），Name/Path 行复制内容并在状态栏提示，Git 行将 SSH 协议地址转换为 HTTPS 地址并在浏览器打开，Status 行复制 Git 状态摘要到剪贴板，Pinned 行切换置顶状态（状态栏提示"已置顶"/"已取消置顶"），Alias/Tags/Description 行进入编辑态。编辑态下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入，编辑时面板底部渲染编辑输入行并显示光标。详情面板无 footer 快捷键栏。按 `Ctrl+C` 或 `Esc` 返回列表。进入详情视图时自动累计查看次数，影响列表排序。
 
 ### 搜索
 

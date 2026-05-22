@@ -16,10 +16,10 @@ from prompt_toolkit.layout.controls import FormattedTextControl, UIContent, UICo
 from prompt_toolkit.layout.dimension import D
 from prompt_toolkit.styles import Style
 
-from blink.models import Repo
+from blink.models import Repo, RepoStatus
 from blink.config import Config
 from blink.store import Store
-from blink.scanner import Scanner, ScanResult
+from blink.scanner import Scanner, ScanResult, StatusFetcher
 from blink.tui.repo_list import RepoListControl, RepoListWindow
 from blink.tui.search import SearchBar
 from blink.tui.actions import EditorInfo, IDE_CHOICES, copy_path, detect_editors, open_in_editor
@@ -66,6 +66,8 @@ class BlinkApp:
         self._editors: Dict[str, EditorInfo] = detect_editors()
         self._scanning = False
         self._scan_status = ""
+        self._status_fetcher = StatusFetcher()
+        self._fetching_status = False
 
         self._repo_control = RepoListControl()
         self._search_bar = SearchBar(
@@ -105,6 +107,7 @@ class BlinkApp:
         )
 
         self._load_repos()
+        self._start_background_status_fetch()
 
     # ── edit mode helpers ────────────────────────────────────────────────────
 
@@ -248,6 +251,11 @@ class BlinkApp:
             # Tags in detail
             "detail-tag": "fg:#3fb950",
             "detail-tag-bracket": "fg:#238636",
+            # Status badge
+            "status-clean": "fg:#3fb950",
+            "status-dirty": "fg:#f85149",
+            "status-ahead-behind": "fg:#d29922",
+            "status-loading": "fg:#484f58",
         })
 
     # ── key bindings ─────────────────────────────────────────────────────────
@@ -621,6 +629,11 @@ class BlinkApp:
                 ("class:status-accent", " ⟳ "),
                 ("class:status-label", "Scanning..."),
             ])
+        if self._fetching_status:
+            return FormattedText([
+                ("class:status-accent", " ⟳ "),
+                ("class:status-label", "Loading status…"),
+            ])
         if self._scan_status:
             return FormattedText([
                 ("class:status-accent", f" {self._scan_status}"),
@@ -742,7 +755,7 @@ class BlinkApp:
 
     def _load_repos(self) -> None:
         repos = self._store.search_repos(self._search_bar.text)
-        self._repo_control.set_repos(repos)
+        self._repo_control.set_repos(repos, reset_selection=False)
 
     def _start_background_scan(self) -> None:
         self._scanning = True
@@ -760,6 +773,7 @@ class BlinkApp:
             self._scanning = False
             self._scan_status = f"Scan complete — {len(results)} repos found"
             self._app.invalidate()
+            self._start_background_status_fetch()
 
         def run() -> None:
             results = self._scanner.run_scan(blocking=True, on_result=on_result)
@@ -776,6 +790,39 @@ class BlinkApp:
     def _clear_scan_status(self) -> None:
         self._scan_status = ""
         self._app.invalidate()
+
+    def _start_background_status_fetch(self) -> None:
+        repos = self._store.get_all_repos()
+        if not repos:
+            return
+        repo_items = [(r.id, r.path) for r in repos if r.id is not None]
+        if not repo_items:
+            return
+
+        self._fetching_status = True
+        self._repo_control.error_repo_ids.clear()
+        self._app.invalidate()
+
+        def on_status(repo_id: int, status: RepoStatus) -> None:
+            self._store.upsert_status(repo_id, status)
+            self._load_repos()
+            self._app.invalidate()
+
+        def on_error(repo_id: int) -> None:
+            self._repo_control.error_repo_ids.add(repo_id)
+            self._app.invalidate()
+
+        def on_done() -> None:
+            self._fetching_status = False
+            self._app.invalidate()
+
+        self._status_fetcher.run_fetch(
+            repos=repo_items,
+            blocking=False,
+            on_status=on_status,
+            on_error=on_error,
+            on_done=on_done,
+        )
 
     def run(self) -> None:
         self._app.run()

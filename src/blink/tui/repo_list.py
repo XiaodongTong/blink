@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from prompt_toolkit.data_structures import Point
 from prompt_toolkit.formatted_text import AnyFormattedText, FormattedText
@@ -9,20 +9,24 @@ from prompt_toolkit.layout.controls import UIContent, UIControl
 from prompt_toolkit.layout.dimension import D
 from prompt_toolkit.layout.layout import Window
 
-from blink.models import Repo
+from blink.models import Repo, RepoStatus, display_width
 
 
 class RepoListControl(UIControl):
     def __init__(self) -> None:
         self.repos: List[Repo] = []
         self.selected_index: int = 0
+        self.error_repo_ids: set[int] = set()
 
     def is_focusable(self) -> bool:
         return True
 
-    def set_repos(self, repos: List[Repo]) -> None:
+    def set_repos(self, repos: List[Repo], reset_selection: bool = True) -> None:
         self.repos = repos
-        self.selected_index = 0
+        if reset_selection:
+            self.selected_index = 0
+        elif self.selected_index >= len(repos):
+            self.selected_index = max(0, len(repos) - 1)
 
     def selected_repo(self) -> Repo | None:
         if 0 <= self.selected_index < len(self.repos):
@@ -42,6 +46,29 @@ class RepoListControl(UIControl):
 
     def preferred_height(self, width: int, max_available_height: int, wrap_lines: bool, get_line_prefix) -> int | None:
         return max(len(self.repos) * 2, 1)
+
+    def _format_status_badge(self, status: Optional[RepoStatus], is_error: bool = False) -> list[tuple[str, str]]:
+        if is_error:
+            return [("class:status-loading", " ⚠")]
+        if status is None:
+            return [("class:status-loading", " ···")]
+        parts: list[tuple[str, str]] = []
+        branch = status.branch or "HEAD"
+        parts.append(("class:status-clean", f" {branch}"))
+        if status.dirty_count > 0:
+            parts.append(("class:status-dirty", f" ○ +{status.dirty_count}"))
+        else:
+            parts.append(("class:status-clean", " ●"))
+        if status.ahead > 0 and status.behind > 0:
+            parts.append(("class:status-ahead-behind", f" ↑{status.ahead} ↓{status.behind}"))
+        elif status.ahead > 0:
+            parts.append(("class:status-ahead-behind", f" ↑{status.ahead}"))
+        elif status.behind > 0:
+            parts.append(("class:status-ahead-behind", f" ↓{status.behind}"))
+        return parts
+
+    def _badge_display_width(self, badge: list[tuple[str, str]]) -> int:
+        return sum(display_width(t) for _, t in badge)
 
     def _render_repo(self, repo: Repo, selected: bool, width: int = 0) -> List[AnyFormattedText]:
         if selected:
@@ -77,14 +104,23 @@ class RepoListControl(UIControl):
 
         line2: list[tuple[str, str]] = [(path_s, f"     {repo.path}")]
 
-        if selected and width > 0:
-            pad_s = "class:selected-dim"
-            line1_len = sum(len(t) for _, t in line1)
-            if line1_len < width:
-                line1.append((pad_s, " " * (width - line1_len)))
-            line2_len = sum(len(t) for _, t in line2)
-            if line2_len < width:
-                line2.append((pad_s, " " * (width - line2_len)))
+        is_error = repo.id is not None and repo.id in self.error_repo_ids
+        badge = self._format_status_badge(repo.status, is_error)
+
+        if width > 0:
+            pad_s = "class:selected-dim" if selected else "class:path"
+            path_text = f"     {repo.path}"
+            badge_w = self._badge_display_width(badge)
+            path_w = display_width(path_text)
+            available = width - path_w - badge_w
+            if available > 0:
+                line2.append((pad_s, " " * available))
+            line2.extend(badge)
+
+            if selected:
+                line1_len = sum(len(t) for _, t in line1)
+                if line1_len < width:
+                    line1.append(("class:selected-dim", " " * (width - line1_len)))
 
         return [line1, line2]
 

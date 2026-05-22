@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from blink.models import Repo
+from prompt_toolkit.formatted_text import to_plain_text
+
+from blink.models import Repo, RepoStatus
 from blink.tui.repo_list import RepoListControl
 
 
@@ -117,3 +119,79 @@ def test_unpinned_repo_no_star():
     content = control.create_content(80, 40)
     line0 = content.get_line(0)
     assert "★" not in str(line0)
+
+
+# ── status badge ─────────────────────────────────────────────────────────
+
+
+def test_badge_shows_loading_when_no_status():
+    control = RepoListControl()
+    repo = Repo(name="test", path="/tmp/test")
+    control.set_repos([repo])
+    content = control.create_content(80, 40)
+    line1 = content.get_line(1)
+    assert "···" in str(line1)
+
+
+def test_badge_shows_clean_status():
+    control = RepoListControl()
+    repo = Repo(name="test", path="/tmp/test", status=RepoStatus(branch="main"))
+    control.set_repos([repo])
+    content = control.create_content(80, 40)
+    line1 = content.get_line(1)
+    line1_str = str(line1)
+    assert "main" in line1_str
+    assert "●" in line1_str
+
+
+def test_badge_shows_dirty_status():
+    control = RepoListControl()
+    repo = Repo(name="test", path="/tmp/test", status=RepoStatus(branch="feature", dirty_count=3))
+    control.set_repos([repo])
+    content = control.create_content(80, 40)
+    line1 = content.get_line(1)
+    line1_str = str(line1)
+    assert "feature" in line1_str
+    assert "○" in line1_str
+    assert "+3" in line1_str
+
+
+def test_badge_shows_ahead_behind():
+    control = RepoListControl()
+    repo = Repo(name="test", path="/tmp/test", status=RepoStatus(branch="main", ahead=1, behind=3))
+    control.set_repos([repo])
+    content = control.create_content(80, 40)
+    line1 = content.get_line(1)
+    line1_str = str(line1)
+    assert "↑1" in line1_str
+    assert "↓3" in line1_str
+
+
+def test_badge_shows_error():
+    control = RepoListControl()
+    repo = Repo(name="test", id=42, path="/tmp/test")
+    control.error_repo_ids.add(42)
+    control.set_repos([repo])
+    content = control.create_content(80, 40)
+    line1 = content.get_line(1)
+    assert "⚠" in str(line1)
+
+
+def test_badge_right_aligned_in_width():
+    control = RepoListControl()
+    repo = Repo(name="test", path="/tmp/test", status=RepoStatus(branch="main"))
+    control.set_repos([repo])
+    content = control.create_content(80, 40)
+    line1 = content.get_line(1)
+    line1_str = to_plain_text(line1)
+    assert len(line1_str) == 80
+
+
+def test_format_status_badge_error_overrides_status():
+    control = RepoListControl()
+    repo = Repo(name="test", id=1, path="/tmp/test", status=RepoStatus(branch="main"))
+    control.error_repo_ids.add(1)
+    badge = control._format_status_badge(repo.status, is_error=True)
+    badge_str = "".join(t for _, t in badge)
+    assert "⚠" in badge_str
+    assert "main" not in badge_str

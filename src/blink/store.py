@@ -4,9 +4,9 @@ import sqlite3
 from pathlib import Path
 from typing import List, Optional
 
-from blink.models import Remote, Repo
+from blink.models import Remote, Repo, RepoStatus
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _DDL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -46,6 +46,15 @@ CREATE TABLE IF NOT EXISTS repo_tags (
     FOREIGN KEY (repo_id) REFERENCES repos(id) ON DELETE CASCADE,
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS repo_status (
+    repo_id INTEGER PRIMARY KEY REFERENCES repos(id) ON DELETE CASCADE,
+    branch TEXT NOT NULL DEFAULT '',
+    dirty_count INTEGER NOT NULL DEFAULT 0,
+    ahead INTEGER NOT NULL DEFAULT 0,
+    behind INTEGER NOT NULL DEFAULT 0,
+    fetched_at TEXT NOT NULL DEFAULT ''
+);
 """
 
 
@@ -76,6 +85,18 @@ class Store:
         if from_version < 2:
             conn.execute("ALTER TABLE repos ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")
             conn.execute("ALTER TABLE repos ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0")
+            conn.commit()
+        if from_version < 3:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS repo_status (
+                    repo_id INTEGER PRIMARY KEY REFERENCES repos(id) ON DELETE CASCADE,
+                    branch TEXT NOT NULL DEFAULT '',
+                    dirty_count INTEGER NOT NULL DEFAULT 0,
+                    ahead INTEGER NOT NULL DEFAULT 0,
+                    behind INTEGER NOT NULL DEFAULT 0,
+                    fetched_at TEXT NOT NULL DEFAULT ''
+                )
+            """)
             conn.commit()
         conn.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
         conn.commit()
@@ -110,8 +131,12 @@ class Store:
     def get_all_repos(self) -> List[Repo]:
         conn = self._connect()
         rows = conn.execute(
-            "SELECT id, name, alias, description, path, last_synced, created_at, "
-            "pinned, view_count FROM repos ORDER BY pinned DESC, view_count DESC, name"
+            "SELECT r.id, r.name, r.alias, r.description, r.path, r.last_synced, r.created_at, "
+            "r.pinned, r.view_count, "
+            "st.branch as status_branch, st.dirty_count as status_dirty_count, "
+            "st.ahead as status_ahead, st.behind as status_behind, st.fetched_at as status_fetched_at "
+            "FROM repos r LEFT JOIN repo_status st ON r.id = st.repo_id "
+            "ORDER BY r.pinned DESC, r.view_count DESC, r.name"
         ).fetchall()
         repos = []
         for r in rows:
@@ -120,6 +145,7 @@ class Store:
                 description=r["description"], path=r["path"],
                 last_synced=r["last_synced"], created_at=r["created_at"],
                 pinned=r["pinned"], view_count=r["view_count"],
+                status=self._status_from_row(r),
             )
             repo.remotes = self._get_remotes_for(conn, repo.id)
             repo.tags = self.get_tags_for_repo(repo.id)
@@ -133,10 +159,13 @@ class Store:
         pattern = f"%{query}%"
         rows = conn.execute(
             "SELECT DISTINCT r.id, r.name, r.alias, r.description, r.path, r.last_synced, r.created_at, "
-            "r.pinned, r.view_count "
+            "r.pinned, r.view_count, "
+            "st.branch as status_branch, st.dirty_count as status_dirty_count, "
+            "st.ahead as status_ahead, st.behind as status_behind, st.fetched_at as status_fetched_at "
             "FROM repos r LEFT JOIN remotes rm ON r.id = rm.repo_id "
             "LEFT JOIN repo_tags rt ON r.id = rt.repo_id "
             "LEFT JOIN tags t ON rt.tag_id = t.id "
+            "LEFT JOIN repo_status st ON r.id = st.repo_id "
             "WHERE r.name LIKE ? OR r.alias LIKE ? OR r.description LIKE ? "
             "OR r.path LIKE ? OR rm.url LIKE ? OR t.name LIKE ? "
             "ORDER BY r.pinned DESC, r.view_count DESC, r.name",
@@ -149,6 +178,7 @@ class Store:
                 description=r["description"], path=r["path"],
                 last_synced=r["last_synced"], created_at=r["created_at"],
                 pinned=r["pinned"], view_count=r["view_count"],
+                status=self._status_from_row(r),
             )
             repo.remotes = self._get_remotes_for(conn, repo.id)
             repo.tags = self.get_tags_for_repo(repo.id)
@@ -256,6 +286,40 @@ class Store:
             "SELECT id, repo_id, name, url FROM remotes WHERE repo_id = ?", (repo_id,)
         ).fetchall()
         return [Remote(id=r["id"], repo_id=r["repo_id"], name=r["name"], url=r["url"]) for r in rows]
+
+    def upsert_status(self, repo_id: int, status: RepoStatus) -> None:
+        conn = self._connect()
+        conn.execute(
+            "INSERT INTO repo_status (repo_id, branch, dirty_count, ahead, behind, fetched_at) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(repo_id) DO UPDATE SET branch=excluded.branch, dirty_count=excluded.dirty_count, "
+            "ahead=excluded.ahead, behind=excluded.behind, fetched_at=excluded.fetched_at",
+            (repo_id, status.branch, status.dirty_count, status.ahead, status.behind, status.fetched_at),
+        )
+        conn.commit()
+
+    def get_status_for_repo(self, repo_id: int) -> Optional[RepoStatus]:
+        conn = self._connect()
+        row = conn.execute(
+            "SELECT branch, dirty_count, ahead, behind, fetched_at FROM repo_status WHERE repo_id = ?",
+            (repo_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return RepoStatus(
+            branch=row["branch"], dirty_count=row["dirty_count"],
+            ahead=row["ahead"], behind=row["behind"], fetched_at=row["fetched_at"],
+        )
+
+    def _status_from_row(self, row: sqlite3.Row) -> Optional[RepoStatus]:
+        branch = row["status_branch"]
+        if branch is None:
+            return None
+        return RepoStatus(
+            branch=branch, dirty_count=row["status_dirty_count"],
+            ahead=row["status_ahead"], behind=row["status_behind"],
+            fetched_at=row["status_fetched_at"],
+        )
 
     def close(self) -> None:
         if self._conn is not None:

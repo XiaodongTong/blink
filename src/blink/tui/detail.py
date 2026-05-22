@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
-import unicodedata
 import webbrowser
 from typing import Callable, List, Optional
 
@@ -12,17 +11,9 @@ from prompt_toolkit.data_structures import Point
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.layout.controls import UIContent, UIControl
 
-from blink.models import Repo
+from blink.models import Repo, RepoStatus, display_width
 from blink.store import Store
 from blink.tui.actions import EditorInfo, copy_path, open_in_editor
-
-
-def _display_width(text: str) -> int:
-    w = 0
-    for ch in text:
-        eaw = unicodedata.east_asian_width(ch)
-        w += 2 if eaw in ('F', 'W') else 1
-    return w
 
 
 def _remote_to_https(url: str) -> str | None:
@@ -43,11 +34,12 @@ class DetailPanel(UIControl):
     LINE_NAME = 3
     LINE_PATH = 4
     LINE_GIT = 5
-    LINE_PINNED = 6
-    LINE_ALIAS = 7
-    LINE_TAGS = 8
-    LINE_DESC = 9
-    MAX_LINE = 9
+    LINE_STATUS = 6
+    LINE_PINNED = 7
+    LINE_ALIAS = 8
+    LINE_TAGS = 9
+    LINE_DESC = 10
+    MAX_LINE = 10
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
                  on_back: Callable[[], None], on_alias_change: Callable[[str], None],
@@ -118,6 +110,8 @@ class DetailPanel(UIControl):
             self._start_desc_edit()
         elif line == self.LINE_GIT:
             self._open_git_url()
+        elif line == self.LINE_STATUS:
+            self._copy_status()
         elif line == self.LINE_TAGS:
             self._start_tags_edit()
         elif line == self.LINE_PINNED:
@@ -177,6 +171,27 @@ class DetailPanel(UIControl):
     def _start_tags_edit(self) -> None:
         self._edit_mode = "tags"
         self._tag_buffer = Buffer()
+
+    def _status_display(self) -> str:
+        status = self._repo.status
+        if status is None:
+            return "···"
+        branch = status.branch or "HEAD"
+        parts = [branch]
+        if status.dirty_count > 0:
+            parts.append(f"○ +{status.dirty_count}")
+        else:
+            parts.append("●")
+        if status.ahead > 0:
+            parts.append(f"↑{status.ahead}")
+        if status.behind > 0:
+            parts.append(f"↓{status.behind}")
+        return " ".join(parts)
+
+    def _copy_status(self) -> None:
+        text = self._status_display()
+        copy_path(text)
+        self._on_status_message(f"状态已复制: {text}")
 
     def _toggle_pin(self) -> None:
         if self._repo.id is not None:
@@ -302,18 +317,21 @@ class DetailPanel(UIControl):
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
-        # Row 6: Pinned
+        # Row 6: Status
+        lines.append(self._build_one_line("Status    ", self._status_display(), cur == self.LINE_STATUS, width))
+
+        # Row 7: Pinned
         pin_str = "Yes" if self._repo.pinned else "No"
         lines.append(self._build_one_line("Pinned    ", pin_str, cur == self.LINE_PINNED, width))
 
-        # Row 7: Alias
+        # Row 8: Alias
         lines.append(self._build_one_line("Alias     ", self._repo.alias or "(none)", cur == self.LINE_ALIAS, width))
 
-        # Row 8: Tags
+        # Row 9: Tags
         tag_str = " ".join(f"[{t}]" for t in self._repo.tags) if self._repo.tags else "(none)"
         lines.append(self._build_one_line("Tags      ", tag_str, cur == self.LINE_TAGS, width))
 
-        # Row 9: Description
+        # Row 10: Description
         lines.append(self._build_one_line("Desc      ", self._repo.description or "(none)", cur == self.LINE_DESC, width))
 
         return lines

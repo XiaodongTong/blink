@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from blink.models import Remote, Repo
+from blink.models import Remote, Repo, RepoStatus
 from blink.store import Store
 
 
@@ -138,7 +138,7 @@ def test_schema_version_set() -> None:
     store = _make_store()
     conn = store._connect()
     row = conn.execute("SELECT version FROM schema_version").fetchone()
-    assert row["version"] == 2
+    assert row["version"] == 3
     store.close()
 
 
@@ -349,10 +349,108 @@ def test_migration_adds_columns() -> None:
     """)
     conn.execute("INSERT INTO repos (name, path) VALUES ('old', '/old')")
     conn.commit()
-    # Run migration via init_db
     store.init_db()
     repo = store.get_repo_by_path("/old")
     assert repo is not None
     assert repo.pinned == 0
     assert repo.view_count == 0
+    store.close()
+
+
+# ── repo_status ──────────────────────────────────────────────────────────
+
+
+def test_upsert_and_get_status() -> None:
+    store = _make_store()
+    rid = store.upsert_repo(Repo(name="x", path="/x"))
+    status = RepoStatus(branch="main", dirty_count=2, ahead=1, behind=3, fetched_at="2026-01-01T00:00:00")
+    store.upsert_status(rid, status)
+    got = store.get_status_for_repo(rid)
+    assert got is not None
+    assert got.branch == "main"
+    assert got.dirty_count == 2
+    assert got.ahead == 1
+    assert got.behind == 3
+    assert got.fetched_at == "2026-01-01T00:00:00"
+    store.close()
+
+
+def test_upsert_status_updates_existing() -> None:
+    store = _make_store()
+    rid = store.upsert_repo(Repo(name="x", path="/x"))
+    store.upsert_status(rid, RepoStatus(branch="main", dirty_count=1))
+    store.upsert_status(rid, RepoStatus(branch="feature", dirty_count=3))
+    got = store.get_status_for_repo(rid)
+    assert got is not None
+    assert got.branch == "feature"
+    assert got.dirty_count == 3
+    store.close()
+
+
+def test_get_status_nonexistent_repo() -> None:
+    store = _make_store()
+    assert store.get_status_for_repo(999) is None
+    store.close()
+
+
+def test_get_all_repos_joins_status() -> None:
+    store = _make_store()
+    rid = store.upsert_repo(Repo(name="x", path="/x"))
+    store.upsert_status(rid, RepoStatus(branch="main", dirty_count=0, ahead=2))
+    repos = store.get_all_repos()
+    assert len(repos) == 1
+    assert repos[0].status is not None
+    assert repos[0].status.branch == "main"
+    assert repos[0].status.ahead == 2
+    store.close()
+
+
+def test_get_all_repos_no_status() -> None:
+    store = _make_store()
+    store.upsert_repo(Repo(name="x", path="/x"))
+    repos = store.get_all_repos()
+    assert len(repos) == 1
+    assert repos[0].status is None
+    store.close()
+
+
+def test_search_repos_joins_status() -> None:
+    store = _make_store()
+    rid = store.upsert_repo(Repo(name="alpha", path="/a"))
+    store.upsert_status(rid, RepoStatus(branch="dev", dirty_count=5))
+    results = store.search_repos("alpha")
+    assert len(results) == 1
+    assert results[0].status is not None
+    assert results[0].status.branch == "dev"
+    assert results[0].status.dirty_count == 5
+    store.close()
+
+
+def test_migration_v2_to_v3() -> None:
+    store = Store(":memory:")
+    conn = store._connect()
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);
+        INSERT INTO schema_version (version) VALUES (2);
+        CREATE TABLE IF NOT EXISTS repos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            alias TEXT NOT NULL DEFAULT '',
+            description TEXT NOT NULL DEFAULT '',
+            path TEXT NOT NULL UNIQUE,
+            last_synced TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            pinned INTEGER NOT NULL DEFAULT 0,
+            view_count INTEGER NOT NULL DEFAULT 0
+        );
+    """)
+    conn.execute("INSERT INTO repos (name, path) VALUES ('existing', '/existing')")
+    conn.commit()
+    store.init_db()
+    # repo_status table should now exist
+    tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    names = {r["name"] for r in tables}
+    assert "repo_status" in names
+    row = conn.execute("SELECT version FROM schema_version").fetchone()
+    assert row["version"] == 3
     store.close()
