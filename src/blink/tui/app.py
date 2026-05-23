@@ -25,6 +25,8 @@ from blink.tui.search import SearchBar
 from blink.tui.actions import EditorInfo, IDE_CHOICES, copy_path, detect_editors, open_in_editor
 from blink.tui.detail import DetailPanel
 
+_COMMIT_SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
 
 class _EditStatusControl(UIControl):
     """Status bar control that shows a cursor during edit mode."""
@@ -95,6 +97,10 @@ class BlinkApp:
         self._ide_selecting: bool = False
         self._ide_select_cursor: int = 0
         self._ide_pending_repo: Optional[Repo] = None
+
+        self._committing: bool = False
+        self._commit_spinner_index: int = 0
+        self._commit_spinner_timer: Optional[threading.Timer] = None
 
         self._list_layout = self._build_list_layout()
 
@@ -609,6 +615,12 @@ class BlinkApp:
             parts.append(("class:status-dim", "    "))
             parts.append(("class:footer-dim", "←→:选择  Enter:确认  Esc:取消"))
             return FormattedText(parts)
+        if self._committing:
+            frame = _COMMIT_SPINNER_FRAMES[self._commit_spinner_index]
+            return FormattedText([
+                ("class:status-accent", f" {frame} "),
+                ("class:status-label", "正在提交..."),
+            ])
         if self._detail_panel is not None and self._detail_panel.is_editing:
             mode = self._detail_panel.edit_mode
             if mode == "alias" and self._detail_panel.alias_buffer:
@@ -719,6 +731,22 @@ class BlinkApp:
         self._app.invalidate()
         self._start_timer(2.0, self._reset_footer_highlight)
 
+    def _tick_commit_spinner(self) -> None:
+        if not self._committing:
+            return
+        self._commit_spinner_index = (self._commit_spinner_index + 1) % len(_COMMIT_SPINNER_FRAMES)
+        self._app.invalidate()
+        self._commit_spinner_timer = threading.Timer(0.12, self._tick_commit_spinner)
+        self._commit_spinner_timer.daemon = True
+        self._commit_spinner_timer.start()
+
+    def _stop_commit_spinner(self) -> None:
+        if self._commit_spinner_timer:
+            self._commit_spinner_timer.cancel()
+            self._commit_spinner_timer = None
+        self._committing = False
+        self._commit_spinner_index = 0
+
     # ── view switching ──────────────────────────────────────────────────────
 
     def _show_detail_view(self, repo: Repo) -> None:
@@ -735,6 +763,7 @@ class BlinkApp:
             on_status_message=self._set_scan_status,
             on_pin_change=lambda: self._refresh_repo_pin(repo),
             on_open_ide=lambda: self._trigger_open_ide(repo),
+            on_commit=lambda: self._run_commit(repo),
         )
         self._mode = "detail"
         layout = self._build_detail_layout()
@@ -801,28 +830,35 @@ class BlinkApp:
 
     def _run_commit(self, repo: Repo) -> None:
         import shutil
+        if self._committing:
+            return
         if not shutil.which("tloop"):
             self._scan_status = "未安装 tloop"
             self._app.invalidate()
             self._start_timer(3.0, self._clear_scan_status)
             return
         import subprocess
+        self._committing = True
+        self._commit_spinner_index = 0
+        self._tick_commit_spinner()
         proc = subprocess.Popen(
             ["tloop", "commit", repo.path],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
-        self._scan_status = "正在提交..."
-        self._app.invalidate()
 
-        def on_done():
-            self._refresh_repo_status(repo)
-            self._scan_status = ""
+        def on_done(success: bool):
+            self._stop_commit_spinner()
+            if success:
+                self._refresh_repo_status(repo)
+                self._scan_status = "✓ 提交完成"
+            else:
+                self._scan_status = "✗ 提交失败"
             self._app.invalidate()
+            self._start_timer(3.0, self._clear_scan_status)
 
         def wait_and_refresh():
             proc.wait()
-            self._app.invalidate()
-            self._start_timer(0.5, on_done)
+            self._start_timer(0.5, lambda: on_done(proc.returncode == 0))
 
         t = threading.Thread(target=wait_and_refresh, daemon=True)
         t.start()

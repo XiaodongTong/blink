@@ -47,7 +47,8 @@ class DetailPanel(UIControl):
                  on_tags_change: Callable[[], None],
                  on_status_message: Callable[[str], None] = lambda msg: None,
                  on_pin_change: Callable[[], None] = lambda: None,
-                 on_open_ide: Callable[[], None] = lambda: None) -> None:
+                 on_open_ide: Callable[[], None] = lambda: None,
+                 on_commit: Callable[[], None] = lambda: None) -> None:
         self._repo = repo
         self._store = store
         self._editors = editors
@@ -57,6 +58,7 @@ class DetailPanel(UIControl):
         self._on_status_message = on_status_message
         self._on_pin_change = on_pin_change
         self._on_open_ide = on_open_ide
+        self._on_commit = on_commit
 
         self._cursor_index = 0
         self._edit_mode: str | None = None  # None | "alias" | "description" | "tags"
@@ -162,13 +164,7 @@ class DetailPanel(UIControl):
         )
 
     def _run_commit(self) -> None:
-        if not shutil.which("tloop"):
-            self._on_status_message("未安装 tloop")
-            return
-        subprocess.Popen(
-            ["tloop", "commit", self._repo.path],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
+        self._on_commit()
 
     def _start_alias_edit(self) -> None:
         self._edit_mode = "alias"

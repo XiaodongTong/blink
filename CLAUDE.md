@@ -90,7 +90,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 | `Shift+O` | 用系统默认方式打开 | ✓ |
 | `Shift+P` | 复制仓库路径到剪贴板 | ✓ |
 | `Shift+R` | 重新扫描文件系统 | ✓ |
-| `Shift+C` | 提交代码 | ✓ |
+| `Shift+C` | 提交代码（状态栏显示旋转动画，完成后提示"✓ 提交完成"） | ✓ |
 | `Ctrl+C` ×2 | 退出程序（2秒内按两次） | ✗ |
 
 - 列表视图下裸按键（`v`/`u`/`a`/`o`/`p`/`r`/`j`/`k`/`q`）不触发任何操作
@@ -135,7 +135,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
   - 行 0（Open with IDE）— Enter 用首选 IDE 打开，首次使用时在状态栏弹出选择（`←`/`→` 切换，`Enter` 确认，`Esc` 取消）
   - 行 1（Open with Finder）— Enter 执行打开
   - 行 2（Add Todo Loop Task）— Enter 执行 `tloop edit`，未安装时状态栏提示"未安装 tloop"
-  - 行 3（Commit Changes）— Enter 执行 `tloop commit`，未安装时状态栏提示"未安装 tloop"
+  - 行 3（Commit Changes）— Enter 执行 `tloop commit`，状态栏显示 braille 旋转动画"正在提交..."，完成后刷新状态并提示"✓ 提交完成"；未安装时状态栏提示"未安装 tloop"
   - 行 4（Name）— Enter 复制项目名称，状态栏提示
   - 行 5（Path）— Enter 复制路径，状态栏提示
   - 行 6（Git）— Enter 将 SSH 地址转为 HTTPS 并在浏览器打开
@@ -170,6 +170,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 - Search area completely hidden by default via `ConditionalContainer` with `_search_filtering and not _search_active` for the prefix and `_search_active` for the bordered input. Search input has no background color; bright border (`fg:#58a6ff`) surrounds it via `Window(char="─")` lines above and below. When search is confirmed or canceled, focus returns to the repo list window to prevent hidden buffer from receiving keystrokes.
 - Key bindings use `Condition` filters for view-dependent behavior (e.g. shift-gated `I`/`O`/`P`/`R` for list view)
 - IDE selection mode (`_ide_selecting`) is a temporary overlay state: when `Shift+I` (list view) or `Enter` on IDE row (detail view) is pressed and no preferred IDE is set in config (`preferred_ide`), the status bar shows IDE options (VSCode/Cursor/Antigravity) horizontally with `←→:选择  Enter:确认  Esc:取消` hints. `←`/`→` navigates, `Enter` confirms and saves preference to `~/.blink/config.json`, `Esc`/`Ctrl+C` cancels. IDE selection handlers use `eager=True` and are registered first in key bindings for guaranteed priority over navigation and general Enter handlers. Both list and detail views display hints via `_status_text()`.
+- Commit action (`_run_commit`) runs `tloop commit` in a subprocess with a braille spinner animation (`_COMMIT_SPINNER_FRAMES`) in the status bar. The spinner ticks every 120ms via `_tick_commit_spinner()` using `threading.Timer`. `_committing` flag prevents concurrent commits. On completion, spinner stops, repo status refreshes, and status bar shows "✓ 提交完成" for 3 seconds. Detail panel delegates commit to app via `on_commit` callback.
 - Footer highlight timer uses `threading.Timer` for 2-second decay
 - Style class names avoid prompt_toolkit built-in names (e.g. `repo-selected` instead of `selected`) to prevent style conflicts
 - Tests create real git repos via subprocess in `tmp_path` fixtures
