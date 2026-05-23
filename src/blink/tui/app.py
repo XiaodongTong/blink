@@ -245,27 +245,19 @@ class BlinkApp:
         self._set_scan_status(f"Opened: {https}")
 
     def _run_add_task(self) -> None:
-        import shutil
-        import subprocess
         repo = self._get_active_repo()
         if not repo:
             return
-        if not shutil.which("tloop"):
-            self._set_scan_status("未安装 tloop")
-            return
-        proc = subprocess.Popen(
-            ["tloop", "edit", repo.path],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
 
-        def wait_and_notify():
-            proc.wait()
-            if proc.returncode == 0:
-                self._start_timer(0.1, lambda: self._set_scan_status("✓ 任务已添加"))
-            else:
-                self._start_timer(0.1, lambda: self._set_scan_status("✗ 任务添加失败"))
+        def do_add_task():
+            try:
+                from blink.loop.cmd_edit import _add_task
+                _add_task(repo.path)
+                self._start_timer(0.1, lambda: self._set_scan_status("✓ Task 已更新"))
+            except Exception:
+                self._start_timer(0.1, lambda: self._set_scan_status("✗ Task 添加失败"))
 
-        t = threading.Thread(target=wait_and_notify, daemon=True)
+        t = threading.Thread(target=do_add_task, daemon=True)
         t.start()
 
     # ── layouts ─────────────────────────────────────────────────────────────
@@ -1030,38 +1022,38 @@ class BlinkApp:
         self._start_timer(3.0, self._clear_scan_status)
 
     def _run_commit(self, repo: Repo) -> None:
-        import shutil
         if self._committing:
             return
-        if not shutil.which("tloop"):
-            self._scan_status = "未安装 tloop"
-            self._app.invalidate()
-            self._start_timer(3.0, self._clear_scan_status)
-            return
-        import subprocess
         self._committing = True
         self._commit_spinner_index = 0
         self._tick_commit_spinner()
-        proc = subprocess.Popen(
-            ["tloop", "commit", repo.path],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
 
-        def on_done(success: bool):
+        def do_commit():
+            try:
+                from blink.loop.git_ops import is_git_repo, is_git_clean, ensure_clean_git
+                if not is_git_repo(repo.path):
+                    return False, "✗ 不是 Git 仓库"
+                if is_git_clean(repo.path):
+                    return True, "✓ 工作树已干净"
+                success = ensure_clean_git(repo.path, "manual commit", model="haiku")
+                if success:
+                    return True, "✓ 提交完成"
+                return False, "✗ 提交失败"
+            except FileNotFoundError:
+                return False, "✗ claude CLI 未安装"
+            except Exception as exc:
+                return False, f"✗ 提交失败: {exc}"
+
+        def on_done():
+            success, message = do_commit()
             self._stop_commit_spinner()
             if success:
                 self._refresh_repo_status(repo)
-                self._scan_status = "✓ 提交完成"
-            else:
-                self._scan_status = "✗ 提交失败"
+            self._scan_status = message
             self._app.invalidate()
             self._start_timer(3.0, self._clear_scan_status)
 
-        def wait_and_refresh():
-            proc.wait()
-            self._start_timer(0.5, lambda: on_done(proc.returncode == 0))
-
-        t = threading.Thread(target=wait_and_refresh, daemon=True)
+        t = threading.Thread(target=on_done, daemon=True)
         t.start()
 
     def _refresh_repo_status(self, repo: Repo) -> None:

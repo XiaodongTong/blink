@@ -49,7 +49,7 @@ class DetailPanel(UIControl):
     _ACTION_ITEMS = [
         ("IDE     ", "Open with IDE"),
         ("Path    ", "Copy repo path"),
-        ("Commit  ", "Commit changes"),
+        ("Commit  ", "Auto Commit Changes"),
         ("Finder  ", "Open in Finder"),
         ("Git     ", "Open in browser"),
         ("Task    ", "Add todo task"),

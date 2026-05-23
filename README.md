@@ -27,9 +27,16 @@ pip install blink-repo
 ## 使用
 
 ```bash
-blink          # 启动 TUI
-blink --rescan # 强制重新扫描后启动
+blink              # 启动 TUI
+blink --rescan     # 强制重新扫描后启动
+blink run          # 执行 tasks.yaml 中定义的任务
+blink run --status # 查看任务状态
+blink edit [path]  # 编辑任务文件，可选添加指定目录的任务
+blink commit -p .  # 自动提交当前目录的变更
+blink log [N]      # 查看任务日志
 ```
+
+> 自动提交功能（`blink commit` 和 TUI Shift+C）需要已安装 [Claude CLI](https://docs.anthropic.com/en/docs/claude-code)（`claude` 命令）。
 
 ### 首次运行
 
@@ -61,9 +68,9 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 | `Shift+O` | 用系统默认方式打开（Finder） |
 | `Shift+P` | 复制仓库路径到剪贴板 |
 | `Shift+R` | 重新扫描文件系统 |
-| `Shift+C` | 提交代码（`tloop commit`） |
+| `Shift+C` | 自动提交代码（AI 生成 commit message） |
 | `Shift+G` | 在浏览器中打开远程仓库 |
-| `Shift+T` | 添加 Todo 任务（`tloop edit`） |
+| `Shift+T` | 添加 Todo 任务（追加到 `~/.blink/loop/tasks.yaml`） |
 | `Shift+U` | 拉取最新代码（`git pull`） |
 | `Ctrl+C` ×2 | 退出程序（2 秒内按两次） |
 
@@ -73,10 +80,10 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 
 - **IDE** — 用 IDE 打开仓库
 - **Path** — 复制仓库路径到剪贴板
-- **Commit** — 提交代码（`tloop commit`）
+- **Commit** — 自动提交代码（AI 生成 commit message）
 - **Finder** — 在 Finder 中打开
 - **Git** — 在浏览器中打开远程仓库
-- **Task** — 添加 Todo 任务（`tloop edit`）
+- **Task** — 添加 Todo 任务（追加到 `~/.blink/loop/tasks.yaml`）
 - **Pinned** — 切换置顶状态
 - **Alias** — 编辑别名（Enter 保存，Esc 取消）
 - **Tags** — 管理标签（输入+Enter 添加，数字键按序号删除）
@@ -124,6 +131,7 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 
 - `config.json` — 用户配置
 - `blink.db` — SQLite 数据库，存储仓库和远程信息
+- `loop/` — 任务运行相关数据（`tasks.yaml`、`state.json`、`logs/`、`archive/`）
 
 ## 开发
 
@@ -132,6 +140,7 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 - Python 3.9+
 - [uv](https://docs.astral.sh/uv/)
 - [git](https://git-scm.com/)
+- [Claude CLI](https://docs.anthropic.com/en/docs/claude-code)（可选，用于自动提交和任务执行）
 
 ### 初始化
 
@@ -143,8 +152,10 @@ uv sync
 ### 运行
 
 ```bash
-uv run blink          # 启动 TUI
-uv run blink --rescan # 强制重新扫描
+uv run blink              # 启动 TUI
+uv run blink --rescan     # 强制重新扫描
+uv run blink run --status # 查看任务状态
+uv run blink commit -p .  # 自动提交变更
 ```
 
 ### 测试

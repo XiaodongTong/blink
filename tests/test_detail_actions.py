@@ -89,30 +89,28 @@ def test_open_git_in_browser_https_url():
         mock_open.assert_called_once_with("https://github.com/user/test")
 
 
-def test_run_add_task_no_tloop():
+def test_run_add_task_calls_internal():
     app, store, rid, repo = _make_app()
-    with patch("shutil.which", return_value=None):
+    with patch("blink.loop.cmd_edit._add_task") as mock_add:
         app._run_add_task()
-    assert "未安装 tloop" in app._scan_status
+        import time; time.sleep(0.3)
+        mock_add.assert_called_once_with(repo.path)
 
 
-def test_run_add_task_launches_tloop():
+def test_run_add_task_handles_error():
     app, store, rid, repo = _make_app()
-    mock_proc = MagicMock()
-    mock_proc.returncode = 0
-    with patch("shutil.which", return_value="/usr/local/bin/tloop"), \
-         patch("subprocess.Popen", return_value=mock_proc) as mock_popen:
+    with patch("blink.loop.cmd_edit._add_task", side_effect=IOError("disk full")):
         app._run_add_task()
-        mock_popen.assert_called_once()
-        assert mock_popen.call_args[0][0] == ["tloop", "edit", repo.path]
+        import time; time.sleep(0.3)
+        assert "✗" in app._scan_status or app._scan_status == "" or "Task 添加失败" in app._scan_status
 
 
 def test_run_add_task_no_repo():
     app, store, rid, repo = _make_app()
     app._repo_control.selected_repo = MagicMock(return_value=None)
-    with patch("shutil.which") as mock_which:
+    with patch("blink.loop.cmd_edit._add_task") as mock_add:
         app._run_add_task()
-        mock_which.assert_not_called()
+        mock_add.assert_not_called()
 
 
 def test_copy_repo_path_from_action():

@@ -410,7 +410,7 @@ def test_detail_panel_renders_action_rows():
     assert "Open with IDE" in t
     assert "Open in Finder" in t
     assert "Add todo task" in t
-    assert "Commit changes" in t
+    assert "Auto Commit Changes" in t
     assert "Open in browser" in t
     assert "Copy repo path" in t
 

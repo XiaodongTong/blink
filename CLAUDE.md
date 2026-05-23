@@ -16,6 +16,10 @@ Blink is a lightweight terminal TUI tool for scanning, searching, and managing l
 uv sync                    # Install dependencies
 uv run blink               # Launch the TUI
 uv run blink --rescan      # Force full rescan before TUI
+uv run blink run --status  # Show task status
+uv run blink edit [path]   # Edit tasks.yaml / add task
+uv run blink commit -p .   # Auto-commit changes
+uv run blink log [N]       # View task logs
 uv run pytest              # Run all tests
 uv run pytest tests/test_scanner.py  # Run a single test file
 uv run pytest -k test_scan_paths_finds_git_repos  # Run a single test
@@ -26,7 +30,7 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 
 ## Architecture
 
-**Entry point**: `src/blink/cli.py` — click command that wires together Config, Store, Scanner, and BlinkApp.
+**Entry point**: `src/blink/cli.py` — click group with `invoke_without_command=True`. When no subcommand is given, launches TUI. Four subcommands (`run`, `edit`, `commit`, `log`) delegate to `blink.loop` handler functions via argparse.Namespace shim objects.
 
 **Core modules** (all in `src/blink/`):
 
@@ -35,16 +39,30 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 - `scanner.py` — `Scanner` class that walks filesystem to find `.git` dirs, then fetches remotes/description via git subprocess. `StatusFetcher` class fetches git status (branch, dirty count, ahead/behind) in parallel via `git status --porcelain=v2 --branch`. `parse_status_v2()` parses porcelain v2 output. `parse_pull_output()` parses `git pull` output into (success, message). `check_pull_prereqs(repo)` validates repo eligibility for pull. Both fetcher classes use `ThreadPoolExecutor` for parallel processing and support blocking and background (threaded) modes.
 - `store.py` — SQLite persistence layer (WAL mode). Tables: `repos`, `remotes`, `repo_status`, `schema_version`. Upsert-based writes. Full-text search across name/alias/description/path/remote URL. Schema migration v1→v2 adds `pinned` and `view_count` columns; v2→v3 adds `repo_status` table. `get_all_repos()`/`search_repos()` LEFT JOIN `repo_status` to populate `Repo.status`. Repos sorted by `pinned DESC, view_count DESC, name ASC`.
 
+**Loop package** (`src/blink/loop/`):
+
+- `config.py` — Constants for loop data directory (`~/.blink/loop/`), ANSI colors, YAML header. `ensure_tloop_home()` initializes directory structure. `load_config()` parses `tasks.yaml`.
+- `state.py` — JSON state file management (`state.json`). Task status tracking and archiving of completed tasks.
+- `git_ops.py` — Git safety checks (`is_git_repo`, `is_git_clean`, `has_staged_changes`), auto-commit via Claude (`ensure_clean_git`), branch creation (`create_task_branch`).
+- `claude_runner.py` — `run_claude()` wraps `claude --dangerously-skip-permissions --print` with retry and verification loops.
+- `review.py` — Post-task code review via self-critique. `review_changes()` diffs against base commit and sends to Claude.
+- `task.py` — `run_task()` executes a single task: auto-commit, branch creation, runner selection (cybervisor/claude), state updates.
+- `cmd_run.py` — `handle()` for `blink run` subcommand: runs tasks from `tasks.yaml`.
+- `cmd_edit.py` — `handle()` for `blink edit`: editor selection, task file editing. `_add_task(path)` appends task entry. TUI calls `_add_task()` directly.
+- `cmd_commit.py` — `handle()` for `blink commit`: auto-commits dirty working tree via Claude.
+- `cmd_log.py` — `handle()` for `blink log`: lists and displays task log files.
+- `runner/` — `Runner` ABC with `ClaudeRunner` (round-loop execution) and `CybervisorRunner` backends.
+
 **TUI** (`src/blink/tui/`):
 
-- `app.py` — Main `BlinkApp` class. Composes two-column `VSplit` layout (left repo list ~40% width, right detail panel ~60%). Manages three-state focus pane (`_focus_pane`: `"list"` / `"detail"` / `"edit"`). All key bindings, search state machine, exit mechanism, edit-mode input routing, background scan orchestration, and background status fetching live here. Callbacks for detail panel actions: `_open_git_in_browser()` (webbrowser.open), `_run_add_task()` (tloop edit), `_copy_repo_path()`, `_open_finder()`. Key bindings Shift+I/O/P/C/G/T/R/U wired with search/edit/IDE-selecting filters. Styles defined in `_build_style()` using GitHub dark theme colors. Narrow terminal (<80 cols) hides right panel via `ConditionalContainer`.
+- `app.py` — Main `BlinkApp` class. Composes two-column `VSplit` layout (left repo list ~40% width, right detail panel ~60%). Manages three-state focus pane (`_focus_pane`: `"list"` / `"detail"` / `"edit"`). All key bindings, search state machine, exit mechanism, edit-mode input routing, background scan orchestration, and background status fetching live here. Callbacks for detail panel actions: `_open_git_in_browser()` (webbrowser.open), `_run_add_task()` (calls `blink.loop.cmd_edit._add_task()` directly), `_copy_repo_path()`, `_open_finder()`. Key bindings Shift+I/O/P/C/G/T/R/U wired with search/edit/IDE-selecting filters. Styles defined in `_build_style()` using GitHub dark theme colors. Narrow terminal (<80 cols) hides right panel via `ConditionalContainer`.
 - `repo_list.py` — Custom `UIControl`/`Window` for the two-line repo list. Each repo renders as: line 1 = indicator + `★` (if pinned) + name/alias + tags, line 2 = path + right-aligned status badge (`branch ● +N ↑N ↓N`). Supports Nerd Font icons when `config.nerd_fonts` is True. Selected items pad lines to full width for consistent background fill. Badge uses CJK-aware width calculation via `display_width()`.
 - `search.py` — `SearchBar` wrapping a `prompt_toolkit.Buffer`. Visibility controlled by `ConditionalContainer` in app layout.
 - `actions.py` — Editor detection and launch (VSCode, Cursor, Antigravity, system open), clipboard via `pbcopy`. `IDE_CHOICES` defines the three IDE options for the unified IDE selection flow.
 - `detail.py` — `DetailPanel` class rendering repo info in three sections: Metadata (Name/Path/Git/Status, read-only), Actions (IDE/Path/Commit/Finder/Git/Task, cursor-navigable indices 0–5), and Local Markers (Pinned/Alias/Tags/Desc, cursor-navigable indices 6–9). 10 cursor-navigable rows (MAX_LINE=9). Supports `set_repo(repo)` for real-time sync, inline alias/desc edit, tag management, pin toggle, and action callbacks. `_remote_to_https()` at module level converts SSH URLs to HTTPS for browser opening.
 - `icons.py` — Nerd Font icon constants with ASCII fallbacks. `get_icon(nerd_fonts, nf_char, ascii_char)` selects the appropriate character.
 
-**Data flow**: Scanner finds git dirs → creates `ScanResult(repo, remotes)` → Store upserts into SQLite → TUI loads from Store for display/search. StatusFetcher fetches git status → Store upserts into `repo_status` → TUI reloads repos (with status via LEFT JOIN) for badge display. List navigation triggers `_sync_detail_panel()` which calls `detail_panel.set_repo(repo)` for real-time right-panel updates.
+**Data flow**: Scanner finds git dirs → creates `ScanResult(repo, remotes)` → Store upserts into SQLite → TUI loads from Store for display/search. StatusFetcher fetches git status → Store upserts into `repo_status` → TUI reloads repos (with status via LEFT JOIN) for badge display. List navigation triggers `_sync_detail_panel()` which calls `detail_panel.set_repo(repo)` for real-time right-panel updates. TUI Shift+C calls `blink.loop.git_ops.ensure_clean_git()` in background thread; Shift+T calls `blink.loop.cmd_edit._add_task()`. CLI subcommands delegate to `blink.loop.cmd_*` handlers. All loop data stored under `~/.blink/loop/`.
 
 ## UI Terminology
 
@@ -64,7 +82,7 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 │                      │ ─────────────────────────────────────────── │
 │                      │   ▸ IDE       Open with IDE   [Shift+I]     │
 │                      │     Path      Copy repo path  [Shift+P]     │
-│                      │     Commit    Commit changes  [Shift+C]     │
+│                      │     Commit    Auto Commit Changes  [Shift+C] │
 │                      │     Finder    Open in Finder  [Shift+O]     │
 │                      │     Git       Open in browser [Shift+G]     │
 │                      │     Task      Add todo task   [Shift+T]     │
@@ -115,9 +133,9 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 | `Shift+O` | 用系统默认方式打开 | list, detail |
 | `Shift+P` | 复制仓库路径到剪贴板 | list, detail |
 | `Shift+R` | 重新扫描文件系统 | list, detail |
-| `Shift+C` | 提交代码 | list, detail |
+| `Shift+C` | 自动提交代码（AI commit） | list, detail |
 | `Shift+G` | 在浏览器中打开远程仓库 | list, detail |
-| `Shift+T` | 添加 Todo 任务（tloop edit） | list, detail |
+| `Shift+T` | 添加 Todo 任务（追加到 `~/.blink/loop/tasks.yaml`） | list, detail |
 | `Shift+U` | 拉取最新代码 | list, detail |
 | `Ctrl+C` ×2 | 退出程序（2秒内按两次）| any |
 
@@ -160,3 +178,7 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 - Style class names avoid prompt_toolkit built-in names (e.g. `repo-selected` instead of `selected`) to prevent style conflicts
 - Tests create real git repos via subprocess in `tmp_path` fixtures
 - Narrow terminal degradation (<80 cols) hides right panel via `ConditionalContainer` with `_is_wide_enough()` check
+- CLI uses `click.group(invoke_without_command=True)` — `--rescan` stays on the group, subcommands (`run`/`edit`/`commit`/`log`) use lazy imports to avoid loading loop modules for TUI-only use
+- TUI commit action (`_run_commit`) calls `blink.loop.git_ops.ensure_clean_git()` directly in a background thread — no subprocess, no PATH dependency on `tloop`
+- TUI task action (`_run_add_task`) calls `blink.loop.cmd_edit._add_task()` directly — appends to `~/.blink/loop/tasks.yaml`
+- Loop data directory is `~/.blink/loop/` (not `~/.tloop/`). Contains `tasks.yaml`, `state.json`, `settings.json`, `logs/`, `archive/`
