@@ -31,15 +31,16 @@ class DetailPanel(UIControl):
     LINE_IDE = 0
     LINE_FINDER = 1
     LINE_TLOOP = 2
-    LINE_NAME = 3
-    LINE_PATH = 4
-    LINE_GIT = 5
-    LINE_STATUS = 6
-    LINE_PINNED = 7
-    LINE_ALIAS = 8
-    LINE_TAGS = 9
-    LINE_DESC = 10
-    MAX_LINE = 10
+    LINE_COMMIT = 3
+    LINE_NAME = 4
+    LINE_PATH = 5
+    LINE_GIT = 6
+    LINE_STATUS = 7
+    LINE_PINNED = 8
+    LINE_ALIAS = 9
+    LINE_TAGS = 10
+    LINE_DESC = 11
+    MAX_LINE = 11
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
                  on_back: Callable[[], None], on_alias_change: Callable[[str], None],
@@ -122,6 +123,8 @@ class DetailPanel(UIControl):
             open_in_editor(self._repo.path, "o", self._editors)
         elif line == self.LINE_TLOOP:
             self._run_tloop()
+        elif line == self.LINE_COMMIT:
+            self._run_commit()
         return True
 
     # ── line-specific actions ────────────────────────────────────────────────
@@ -155,6 +158,15 @@ class DetailPanel(UIControl):
             return
         subprocess.Popen(
             ["tloop", "edit", self._repo.path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+
+    def _run_commit(self) -> None:
+        if not shutil.which("tloop"):
+            self._on_status_message("未安装 tloop")
+            return
+        subprocess.Popen(
+            ["tloop", "commit", self._repo.path],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
 
@@ -322,22 +334,25 @@ class DetailPanel(UIControl):
         # Row 2: Tloop
         lines.append(self._build_one_line("", "Add Todo Loop Task", cur == self.LINE_TLOOP, width))
 
+        # Row 3: Commit
+        lines.append(self._build_one_line("", "Commit", cur == self.LINE_COMMIT, width))
+
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
-        # Row 3: Name
+        # Row 4: Name
         lines.append(self._build_one_line("Name      ", self._repo.name, cur == self.LINE_NAME, width))
 
-        # Row 4: Path
+        # Row 5: Path
         lines.append(self._build_one_line("Path      ", self._repo.path, cur == self.LINE_PATH, width))
 
-        # Row 5: Git
+        # Row 6: Git
         lines.append(self._build_one_line("Git       ", self._git_display_url(), cur == self.LINE_GIT, width))
 
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
-        # Row 6: Status
+        # Row 7: Status
         is_status_sel = cur == self.LINE_STATUS
         status_fragments: List[tuple[str, str]] = [
             ("class:detail-indicator" if is_status_sel else "class:dim",
@@ -351,18 +366,18 @@ class DetailPanel(UIControl):
                 status_fragments.append(("class:detail-selected", " " * (width - line_len)))
         lines.append(status_fragments)
 
-        # Row 7: Pinned
+        # Row 8: Pinned
         pin_str = "Yes" if self._repo.pinned else "No"
         lines.append(self._build_one_line("Pinned    ", pin_str, cur == self.LINE_PINNED, width))
 
-        # Row 8: Alias
+        # Row 9: Alias
         lines.append(self._build_one_line("Alias     ", self._repo.alias or "(none)", cur == self.LINE_ALIAS, width))
 
-        # Row 9: Tags
+        # Row 10: Tags
         tag_str = " ".join(f"[{t}]" for t in self._repo.tags) if self._repo.tags else "(none)"
         lines.append(self._build_one_line("Tags      ", tag_str, cur == self.LINE_TAGS, width))
 
-        # Row 10: Description
+        # Row 11: Description
         lines.append(self._build_one_line("Desc      ", self._repo.description or "(none)", cur == self.LINE_DESC, width))
 
         return lines

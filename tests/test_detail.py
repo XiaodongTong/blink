@@ -388,15 +388,16 @@ def test_detail_panel_line_constants():
     assert DetailPanel.LINE_IDE == 0
     assert DetailPanel.LINE_FINDER == 1
     assert DetailPanel.LINE_TLOOP == 2
-    assert DetailPanel.LINE_NAME == 3
-    assert DetailPanel.LINE_PATH == 4
-    assert DetailPanel.LINE_GIT == 5
-    assert DetailPanel.LINE_STATUS == 6
-    assert DetailPanel.LINE_PINNED == 7
-    assert DetailPanel.LINE_ALIAS == 8
-    assert DetailPanel.LINE_TAGS == 9
-    assert DetailPanel.LINE_DESC == 10
-    assert DetailPanel.MAX_LINE == 10
+    assert DetailPanel.LINE_COMMIT == 3
+    assert DetailPanel.LINE_NAME == 4
+    assert DetailPanel.LINE_PATH == 5
+    assert DetailPanel.LINE_GIT == 6
+    assert DetailPanel.LINE_STATUS == 7
+    assert DetailPanel.LINE_PINNED == 8
+    assert DetailPanel.LINE_ALIAS == 9
+    assert DetailPanel.LINE_TAGS == 10
+    assert DetailPanel.LINE_DESC == 11
+    assert DetailPanel.MAX_LINE == 11
 
 
 # ── status row ─────────────────────────────────────────────────────────────

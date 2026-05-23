@@ -482,6 +482,13 @@ class BlinkApp:
             if not self._scanning and not self._in_edit_mode():
                 self._start_background_scan()
 
+        @kb.add("C", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        def _(event):
+            self._trigger_footer_highlight()
+            repo = self._repo_control.selected_repo()
+            if repo:
+                self._run_commit(repo)
+
         # ── Enter ────────────────────────────────────────────────────────────
         @kb.add("enter")
         def _(event):
@@ -675,7 +682,7 @@ class BlinkApp:
         style_dim = "class:footer-highlight" if highlighted else "class:footer-dim"
         hints = [
             ("Enter", "detail"), ("/", "search"),
-            ("Shift+I", "ide"), ("Shift+O", "open"), ("Shift+P", "path"), ("Shift+R", "rescan"),
+            ("Shift+I", "ide"), ("Shift+O", "open"), ("Shift+P", "path"), ("Shift+R", "rescan"), ("Shift+C", "commit"),
         ]
         parts: list[tuple[str, str]] = [("class:footer-dim", " ")]
         for i, (key, desc) in enumerate(hints):
@@ -791,6 +798,49 @@ class BlinkApp:
         self._scan_status = msg
         self._app.invalidate()
         self._start_timer(3.0, self._clear_scan_status)
+
+    def _run_commit(self, repo: Repo) -> None:
+        import shutil
+        if not shutil.which("tloop"):
+            self._scan_status = "未安装 tloop"
+            self._app.invalidate()
+            self._start_timer(3.0, self._clear_scan_status)
+            return
+        import subprocess
+        proc = subprocess.Popen(
+            ["tloop", "commit", repo.path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        self._scan_status = "正在提交..."
+        self._app.invalidate()
+
+        def on_done():
+            self._refresh_repo_status(repo)
+            self._scan_status = ""
+            self._app.invalidate()
+
+        def wait_and_refresh():
+            proc.wait()
+            self._app.invalidate()
+            self._start_timer(0.5, on_done)
+
+        t = threading.Thread(target=wait_and_refresh, daemon=True)
+        t.start()
+
+    def _refresh_repo_status(self, repo: Repo) -> None:
+        if repo.id is None:
+            return
+        fetcher = StatusFetcher()
+        fetcher.run_fetch(
+            repos=[(repo.id, repo.path)],
+            blocking=True,
+            on_status=lambda rid, status: self._store.upsert_status(rid, status),
+            on_error=lambda rid: None,
+            on_done=lambda: None,
+        )
+        self._load_repos()
+        self._scan_status = ""
+        self._app.invalidate()
 
     def _clear_scan_status(self) -> None:
         self._scan_status = ""
