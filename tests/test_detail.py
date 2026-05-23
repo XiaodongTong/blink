@@ -389,15 +389,16 @@ def test_detail_panel_line_constants():
     assert DetailPanel.LINE_FINDER == 1
     assert DetailPanel.LINE_TLOOP == 2
     assert DetailPanel.LINE_COMMIT == 3
-    assert DetailPanel.LINE_NAME == 4
-    assert DetailPanel.LINE_PATH == 5
-    assert DetailPanel.LINE_GIT == 6
-    assert DetailPanel.LINE_STATUS == 7
-    assert DetailPanel.LINE_PINNED == 8
-    assert DetailPanel.LINE_ALIAS == 9
-    assert DetailPanel.LINE_TAGS == 10
-    assert DetailPanel.LINE_DESC == 11
-    assert DetailPanel.MAX_LINE == 11
+    assert DetailPanel.LINE_PULL == 4
+    assert DetailPanel.LINE_NAME == 5
+    assert DetailPanel.LINE_PATH == 6
+    assert DetailPanel.LINE_GIT == 7
+    assert DetailPanel.LINE_STATUS == 8
+    assert DetailPanel.LINE_PINNED == 9
+    assert DetailPanel.LINE_ALIAS == 10
+    assert DetailPanel.LINE_TAGS == 11
+    assert DetailPanel.LINE_DESC == 12
+    assert DetailPanel.MAX_LINE == 12
 
 
 # ── status row ─────────────────────────────────────────────────────────────
@@ -439,3 +440,21 @@ def test_handle_enter_status_copies(monkeypatch):
     assert len(copied) == 1
     assert "main" in copied[0]
     assert "+1" in copied[0]
+
+
+# ── pull row ───────────────────────────────────────────────────────────────
+
+
+def test_detail_panel_renders_pull_row():
+    panel = _make_detail_panel()
+    t = _to_plain(panel._formatted_text())
+    assert "Pull Latest" in t
+
+
+def test_handle_enter_pull_calls_callback():
+    pulled = []
+    panel = _make_detail_panel()
+    panel._on_pull = lambda: pulled.append(True)
+    panel._cursor_index = DetailPanel.LINE_PULL
+    panel.handle_enter()
+    assert pulled == [True]

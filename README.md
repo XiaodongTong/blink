@@ -48,11 +48,43 @@ blink --rescan # 强制重新扫描后启动
 | `Shift+O` | 用系统默认方式打开（Finder） | ✓ |
 | `Shift+P` | 复制仓库路径到剪贴板 | ✓ |
 | `Shift+R` | 重新扫描文件系统 | ✓ |
+| `Shift+U` | 拉取最新代码（`git pull`） | ✓ |
 | `Ctrl+C` ×2 | 退出程序（2 秒内按两次，超时需重新双击） | ✗ |
 
 ### 详情面板
 
-按 `Enter` 进入详情面板，显示 Open with IDE、Open with Finder、Add Todo Loop Task、名称、路径、Git 地址、Git 状态、置顶状态、别名、标签、描述等 11 行，按功能分三区：操作区（Open with IDE/Open with Finder/Add Todo Loop Task）→ 信息区（Name/Path/Git/Status）→ 配置区（Pinned/Alias/Tags/Desc）。`↑`/`↓` 切换选中行（高亮背景 `#264f78`），按 Enter 执行当前行操作：Open with IDE 行用首选 IDE 打开（首次使用时在状态栏横向弹出选择：`←`/`→` 选择 IDE，Enter 确认，选择会保存到配置文件），Open with Finder 行执行打开，Add Todo Loop Task 行执行 `tloop edit`（未安装时状态栏提示"未安装 tloop"），Commit Changes 行执行 `tloop commit`（状态栏显示旋转动画，完成后提示"✓ 提交完成"），Name/Path 行复制内容并在状态栏提示，Git 行将 SSH 协议地址转换为 HTTPS 地址并在浏览器打开，Status 行复制 Git 状态摘要到剪贴板，Pinned 行切换置顶状态（状态栏提示"已置顶"/"已取消置顶"），Alias/Tags/Description 行进入编辑态。编辑态下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消，支持中文等非 ASCII 输入，编辑时面板底部渲染编辑输入行并显示光标。详情面板无 footer 快捷键栏。按 `Ctrl+C` 或 `Esc` 返回列表。进入详情视图时自动累计查看次数，影响列表排序。
+按 `Enter` 进入详情面板。面板共包含 13 行信息与操作，按功能分为三个区域：操作区、信息区和配置区。
+
+#### 基础交互
+
+- **导航**：使用 `↑` / `↓` 切换选中行（高亮背景 `#264f78`）。
+- **执行**：按 `Enter` 执行当前行对应的操作。
+- **返回**：按 `Ctrl+C` 或 `Esc` 返回列表。
+- **其他**：详情面板无 footer 快捷键栏。进入详情视图时自动累计查看次数，影响列表排序。
+
+#### 区域详解
+
+**操作区**
+- **Open with IDE**：用首选 IDE 打开。首次使用时会在状态栏横向弹出选择：使用 `←` / `→` 选择 IDE，`Enter` 确认，选择会保存到配置文件。
+- **Open with Finder**：在 Finder 中打开对应目录。
+- **Add Todo Loop Task**：执行 `tloop edit`（若未安装，状态栏提示"未安装 tloop"）。
+- **Commit Changes**：执行 `tloop commit`（状态栏显示旋转动画，完成后提示"✓ 提交完成"）。
+- **Pull Latest**：执行 `git pull`。状态栏显示旋转动画"正在拉取..."，完成后刷新状态徽标并提示结果：
+  - 无 remote 时：提示"No remote configured"。
+  - Detached HEAD 时：提示"Detached HEAD"。
+  - 30 秒超时：提示"Pull timed out"。
+
+**信息区**
+- **Name / Path**：复制对应内容，并在状态栏提示复制成功。
+- **Git**：将 SSH 协议地址转换为 HTTPS 地址并在浏览器中打开。
+- **Status**：复制 Git 状态摘要到剪贴板。
+
+**配置区**
+- **Pinned**：切换置顶状态（状态栏提示"已置顶"或"已取消置顶"）。
+- **Alias / Tags / Description**：按 `Enter` 进入编辑态。
+  - **编辑态交互**：`↑` / `↓` 键被屏蔽；按 `Enter` 保存，`Esc` 或 `Ctrl+C` 取消。
+  - **输入支持**：支持中文等非 ASCII 输入。
+  - **UI 表现**：编辑时面板底部渲染编辑输入行并显示光标。
 
 ### 搜索
 

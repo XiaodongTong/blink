@@ -19,7 +19,7 @@ from prompt_toolkit.styles import Style
 from blink.models import Repo, RepoStatus
 from blink.config import Config
 from blink.store import Store
-from blink.scanner import Scanner, ScanResult, StatusFetcher
+from blink.scanner import Scanner, ScanResult, StatusFetcher, check_pull_prereqs, parse_pull_output
 from blink.tui.repo_list import RepoListControl, RepoListWindow
 from blink.tui.search import SearchBar
 from blink.tui.actions import EditorInfo, IDE_CHOICES, copy_path, detect_editors, open_in_editor
@@ -101,6 +101,10 @@ class BlinkApp:
         self._committing: bool = False
         self._commit_spinner_index: int = 0
         self._commit_spinner_timer: Optional[threading.Timer] = None
+
+        self._pulling: bool = False
+        self._pull_spinner_index: int = 0
+        self._pull_spinner_timer: Optional[threading.Timer] = None
 
         self._list_layout = self._build_list_layout()
 
@@ -495,6 +499,13 @@ class BlinkApp:
             if repo:
                 self._run_commit(repo)
 
+        @kb.add("U", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        def _(event):
+            self._trigger_footer_highlight()
+            repo = self._repo_control.selected_repo()
+            if repo:
+                self._run_pull(repo)
+
         # ── Enter ────────────────────────────────────────────────────────────
         @kb.add("enter")
         def _(event):
@@ -615,6 +626,12 @@ class BlinkApp:
             parts.append(("class:status-dim", "    "))
             parts.append(("class:footer-dim", "←→:选择  Enter:确认  Esc:取消"))
             return FormattedText(parts)
+        if self._pulling:
+            frame = _COMMIT_SPINNER_FRAMES[self._pull_spinner_index]
+            return FormattedText([
+                ("class:status-accent", f" {frame} "),
+                ("class:status-label", "正在拉取..."),
+            ])
         if self._committing:
             frame = _COMMIT_SPINNER_FRAMES[self._commit_spinner_index]
             return FormattedText([
@@ -694,7 +711,7 @@ class BlinkApp:
         style_dim = "class:footer-highlight" if highlighted else "class:footer-dim"
         hints = [
             ("Enter", "detail"), ("/", "search"),
-            ("Shift+I", "ide"), ("Shift+O", "open"), ("Shift+P", "path"), ("Shift+R", "rescan"), ("Shift+C", "commit"),
+            ("Shift+I", "ide"), ("Shift+O", "open"), ("Shift+P", "path"), ("Shift+R", "rescan"), ("Shift+C", "commit"), ("Shift+U", "pull"),
         ]
         parts: list[tuple[str, str]] = [("class:footer-dim", " ")]
         for i, (key, desc) in enumerate(hints):
@@ -747,6 +764,64 @@ class BlinkApp:
         self._committing = False
         self._commit_spinner_index = 0
 
+    def _run_pull(self, repo: Repo) -> None:
+        import subprocess as sp
+        if self._pulling:
+            return
+        ok, msg = check_pull_prereqs(repo)
+        if not ok:
+            self._scan_status = msg
+            self._app.invalidate()
+            self._start_timer(3.0, self._clear_scan_status)
+            return
+        self._pulling = True
+        self._pull_spinner_index = 0
+        self._tick_pull_spinner()
+
+        def do_pull() -> None:
+            try:
+                result = sp.run(
+                    ["git", "pull"],
+                    cwd=repo.path,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                success, message = parse_pull_output(result.stdout, result.returncode, result.stderr)
+            except sp.TimeoutExpired:
+                success, message = False, "✗ Pull timed out"
+            except Exception as exc:
+                success, message = False, f"✗ Pull failed: {exc}"
+
+            def on_done():
+                self._stop_pull_spinner()
+                if success:
+                    self._refresh_repo_status(repo)
+                self._scan_status = message
+                self._app.invalidate()
+                self._start_timer(3.0, self._clear_scan_status)
+
+            self._start_timer(0.1, on_done)
+
+        t = threading.Thread(target=do_pull, daemon=True)
+        t.start()
+
+    def _tick_pull_spinner(self) -> None:
+        if not self._pulling:
+            return
+        self._pull_spinner_index = (self._pull_spinner_index + 1) % len(_COMMIT_SPINNER_FRAMES)
+        self._app.invalidate()
+        self._pull_spinner_timer = threading.Timer(0.12, self._tick_pull_spinner)
+        self._pull_spinner_timer.daemon = True
+        self._pull_spinner_timer.start()
+
+    def _stop_pull_spinner(self) -> None:
+        if self._pull_spinner_timer:
+            self._pull_spinner_timer.cancel()
+            self._pull_spinner_timer = None
+        self._pulling = False
+        self._pull_spinner_index = 0
+
     # ── view switching ──────────────────────────────────────────────────────
 
     def _show_detail_view(self, repo: Repo) -> None:
@@ -764,6 +839,7 @@ class BlinkApp:
             on_pin_change=lambda: self._refresh_repo_pin(repo),
             on_open_ide=lambda: self._trigger_open_ide(repo),
             on_commit=lambda: self._run_commit(repo),
+            on_pull=lambda: self._run_pull(repo),
         )
         self._mode = "detail"
         layout = self._build_detail_layout()

@@ -32,7 +32,7 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 
 - `models.py` — `Repo` (includes `pinned`, `view_count`, and `status` fields), `Remote`, and `RepoStatus` dataclasses. Also provides `display_width()` utility for CJK-aware character width calculation.
 - `config.py` — JSON config loader (`~/.blink/config.json`), with defaults for scan paths, excludes, editor
-- `scanner.py` — `Scanner` class that walks filesystem to find `.git` dirs, then fetches remotes/description via git subprocess. `StatusFetcher` class fetches git status (branch, dirty count, ahead/behind) in parallel via `git status --porcelain=v2 --branch`. `parse_status_v2()` parses porcelain v2 output. Both use `ThreadPoolExecutor` for parallel processing and support blocking and background (threaded) modes.
+- `scanner.py` — `Scanner` class that walks filesystem to find `.git` dirs, then fetches remotes/description via git subprocess. `StatusFetcher` class fetches git status (branch, dirty count, ahead/behind) in parallel via `git status --porcelain=v2 --branch`. `parse_status_v2()` parses porcelain v2 output. `parse_pull_output()` parses `git pull` output into (success, message). `check_pull_prereqs(repo)` validates repo eligibility for pull. Both fetcher classes use `ThreadPoolExecutor` for parallel processing and support blocking and background (threaded) modes.
 - `store.py` — SQLite persistence layer (WAL mode). Tables: `repos`, `remotes`, `repo_status`, `schema_version`. Upsert-based writes. Full-text search across name/alias/description/path/remote URL. Schema migration v1→v2 adds `pinned` and `view_count` columns; v2→v3 adds `repo_status` table. `get_all_repos()`/`search_repos()` LEFT JOIN `repo_status` to populate `Repo.status`. Repos sorted by `pinned DESC, view_count DESC, name ASC`.
 
 **TUI** (`src/blink/tui/`):
@@ -41,7 +41,7 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 - `repo_list.py` — Custom `UIControl`/`Window` for the two-line repo list. Each repo renders as: line 1 = indicator + `★` (if pinned) + name/alias + tags, line 2 = path + right-aligned status badge (`branch ● +N ↑N ↓N`). Selected items pad lines to full width for consistent background fill. Badge uses CJK-aware width calculation via `display_width()`.
 - `search.py` — `SearchBar` wrapping a `prompt_toolkit.Buffer`. Visibility controlled by `ConditionalContainer` in app layout.
 - `actions.py` — Editor detection and launch (VSCode, Cursor, Antigravity, system open), clipboard via `pbcopy`. `IDE_CHOICES` defines the three IDE options for the unified IDE selection flow.
-- `detail.py` — `DetailPanel` class rendering full repo info (alias, name, path, description, remotes, status, tags, pinned, actions). 11 selectable lines (including Status row at index 6). Supports inline alias edit, tag management popovers, pin toggle, and status copy.
+- `detail.py` — `DetailPanel` class rendering full repo info (alias, name, path, description, remotes, status, tags, pinned, actions). 13 selectable lines (including Pull Latest at index 4 and Status row at index 8). Supports inline alias edit, tag management popovers, pin toggle, and status copy.
 
 **Data flow**: Scanner finds git dirs → creates `ScanResult(repo, remotes)` → Store upserts into SQLite → TUI loads from Store for display/search. StatusFetcher fetches git status → Store upserts into `repo_status` → TUI reloads repos (with status via LEFT JOIN) for badge display.
 
@@ -91,6 +91,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 | `Shift+P` | 复制仓库路径到剪贴板 | ✓ |
 | `Shift+R` | 重新扫描文件系统 | ✓ |
 | `Shift+C` | 提交代码（状态栏显示旋转动画，完成后提示"✓ 提交完成"） | ✓ |
+| `Shift+U` | 拉取最新代码（状态栏显示旋转动画"正在拉取..."，完成后刷新状态徽标） | ✓ |
 | `Ctrl+C` ×2 | 退出程序（2秒内按两次） | ✗ |
 
 - 列表视图下裸按键（`v`/`u`/`a`/`o`/`p`/`r`/`j`/`k`/`q`）不触发任何操作
@@ -118,6 +119,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 │     Open with Finder                              │
 │     Add Todo Loop Task                            │
 │     Commit Changes                               │
+│     Pull Latest                                  │
 │─────────────────────────────────────────────────│
 │     Name      repo-name                           │
 │     Path      /path/to/repo                       │
@@ -131,19 +133,20 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 └─────────────────────────────────────────────────┘
 ```
 
-- **详情面板**（detail panel）— 12 行可选中，每行按 Enter 执行对应操作
+- **详情面板**（detail panel）— 13 行可选中，每行按 Enter 执行对应操作
   - 行 0（Open with IDE）— Enter 用首选 IDE 打开，首次使用时在状态栏弹出选择（`←`/`→` 切换，`Enter` 确认，`Esc` 取消）
   - 行 1（Open with Finder）— Enter 执行打开
   - 行 2（Add Todo Loop Task）— Enter 执行 `tloop edit`，未安装时状态栏提示"未安装 tloop"
   - 行 3（Commit Changes）— Enter 执行 `tloop commit`，状态栏显示 braille 旋转动画"正在提交..."，完成后刷新状态并提示"✓ 提交完成"；未安装时状态栏提示"未安装 tloop"
-  - 行 4（Name）— Enter 复制项目名称，状态栏提示
-  - 行 5（Path）— Enter 复制路径，状态栏提示
-  - 行 6（Git）— Enter 将 SSH 地址转为 HTTPS 并在浏览器打开
-  - 行 7（Status）— Enter 复制状态摘要到剪贴板
-  - 行 8（Pinned）— Enter 切换置顶状态，状态栏提示"已置顶"/"已取消置顶"
-  - 行 9（Alias）— Enter 进入别名编辑态
-  - 行 10（Tags）— Enter 进入标签编辑态
-  - 行 11（Description）— Enter 进入描述编辑态
+  - 行 4（Pull Latest）— Enter 执行 `git pull`，状态栏显示 braille 旋转动画"正在拉取..."，完成后刷新状态徽标并提示结果（"✓ Pull complete" / "✓ Already up to date" / "✗ Pull failed: ..." / "✗ Pull timed out"）；无 remote 时提示"No remote configured"；detached HEAD 时提示"Detached HEAD"
+  - 行 5（Name）— Enter 复制项目名称，状态栏提示
+  - 行 6（Path）— Enter 复制路径，状态栏提示
+  - 行 7（Git）— Enter 将 SSH 地址转为 HTTPS 并在浏览器打开
+  - 行 8（Status）— Enter 复制状态摘要到剪贴板
+  - 行 9（Pinned）— Enter 切换置顶状态，状态栏提示"已置顶"/"已取消置顶"
+  - 行 10（Alias）— Enter 进入别名编辑态
+  - 行 11（Tags）— Enter 进入标签编辑态
+  - 行 12（Description）— Enter 进入描述编辑态
 - 进入详情视图时自动增加该项目的查看次数（`view_count`）
 - `↑`/`↓` 切换选中行（无需 Shift）
 - `Esc` / `Ctrl+C` 返回列表视图
@@ -165,12 +168,13 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 - StatusFetcher's `run_fetch(repos, blocking, on_status, on_error, on_done)` follows the same threaded pattern. On per-repo failure, calls `on_error(repo_id)` instead of upserting, preserving cached status. The TUI shows `⚠` for error repos via `RepoListControl.error_repo_ids`. Status fetch is triggered on startup (after `_load_repos()`) and on Shift+R rescan completion.
 - TUI uses `app.invalidate()` to trigger re-renders after state changes
 - Config falls back to defaults if the file is missing or corrupted, and rewrites it
-- Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view. Git row displays SSH→HTTPS converted URL; Enter opens in browser via `webbrowser.open()`. Status row renders colored status fragments via `_format_status_value()` using the same color scheme as the list view badge (`status-clean`, `status-dirty`, `status-ahead-behind`, `status-loading`), with `-sel` suffixed variants that include `bg:#264f78` when selected to preserve the highlight background. Enter copies to clipboard. Pinned row toggles `repo.pinned` via `store.toggle_pin()` and triggers `on_pin_change` callback. Edit mode renders the input text and cursor only in the status bar (`_EditStatusControl`); detail panel rows always show original values. `DetailPanel.is_focusable()` returns `True` so the window can receive focus in non-edit mode. Detail panel has 12 selectable lines (MAX_LINE=11) with Status at index 7.
+- Detail panel manages its own `_cursor_index` and `_edit_mode` state; arrow keys and Enter are delegated to the panel when in detail view. Git row displays SSH→HTTPS converted URL; Enter opens in browser via `webbrowser.open()`. Status row renders colored status fragments via `_format_status_value()` using the same color scheme as the list view badge (`status-clean`, `status-dirty`, `status-ahead-behind`, `status-loading`), with `-sel` suffixed variants that include `bg:#264f78` when selected to preserve the highlight background. Enter copies to clipboard. Pinned row toggles `repo.pinned` via `store.toggle_pin()` and triggers `on_pin_change` callback. Edit mode renders the input text and cursor only in the status bar (`_EditStatusControl`); detail panel rows always show original values. `DetailPanel.is_focusable()` returns `True` so the window can receive focus in non-edit mode. Detail panel has 13 selectable lines (MAX_LINE=12) with Pull Latest at index 4 and Status at index 8.
 - Layout switching replaces `app.layout` entirely (list layout vs detail layout), stored in `_list_layout` for reuse. Detail view stores `_detail_window` reference and calls `layout.focus()` on it. List view stores `_repo_list_window` reference; after closing search or returning from detail view, focus moves to the repo list window.
 - Search area completely hidden by default via `ConditionalContainer` with `_search_filtering and not _search_active` for the prefix and `_search_active` for the bordered input. Search input has no background color; bright border (`fg:#58a6ff`) surrounds it via `Window(char="─")` lines above and below. When search is confirmed or canceled, focus returns to the repo list window to prevent hidden buffer from receiving keystrokes.
 - Key bindings use `Condition` filters for view-dependent behavior (e.g. shift-gated `I`/`O`/`P`/`R` for list view)
 - IDE selection mode (`_ide_selecting`) is a temporary overlay state: when `Shift+I` (list view) or `Enter` on IDE row (detail view) is pressed and no preferred IDE is set in config (`preferred_ide`), the status bar shows IDE options (VSCode/Cursor/Antigravity) horizontally with `←→:选择  Enter:确认  Esc:取消` hints. `←`/`→` navigates, `Enter` confirms and saves preference to `~/.blink/config.json`, `Esc`/`Ctrl+C` cancels. IDE selection handlers use `eager=True` and are registered first in key bindings for guaranteed priority over navigation and general Enter handlers. Both list and detail views display hints via `_status_text()`.
 - Commit action (`_run_commit`) runs `tloop commit` in a subprocess with a braille spinner animation (`_COMMIT_SPINNER_FRAMES`) in the status bar. The spinner ticks every 120ms via `_tick_commit_spinner()` using `threading.Timer`. `_committing` flag prevents concurrent commits. On completion, spinner stops, repo status refreshes, and status bar shows "✓ 提交完成" for 3 seconds. Detail panel delegates commit to app via `on_commit` callback.
+- Pull action (`_run_pull`) runs `git pull` in a background thread (30s timeout) with the same braille spinner pattern. `check_pull_prereqs(repo)` checks for remotes and detached HEAD before execution. `parse_pull_output(stdout, returncode, stderr)` parses git output into (success, message). `_pulling` flag prevents concurrent pulls; independent from `_committing` flag. Pull spinner has priority over commit spinner in `_status_text()`. On completion, status refreshes and result message displays for 3 seconds. Detail panel delegates pull to app via `on_pull` callback.
 - Footer highlight timer uses `threading.Timer` for 2-second decay
 - Style class names avoid prompt_toolkit built-in names (e.g. `repo-selected` instead of `selected`) to prevent style conflicts
 - Tests create real git repos via subprocess in `tmp_path` fixtures

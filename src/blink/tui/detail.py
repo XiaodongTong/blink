@@ -11,7 +11,7 @@ from prompt_toolkit.data_structures import Point
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.layout.controls import UIContent, UIControl
 
-from blink.models import Repo, RepoStatus, display_width
+from blink.models import Repo, RepoStatus
 from blink.store import Store
 from blink.tui.actions import EditorInfo, copy_path, open_in_editor
 
@@ -32,15 +32,16 @@ class DetailPanel(UIControl):
     LINE_FINDER = 1
     LINE_TLOOP = 2
     LINE_COMMIT = 3
-    LINE_NAME = 4
-    LINE_PATH = 5
-    LINE_GIT = 6
-    LINE_STATUS = 7
-    LINE_PINNED = 8
-    LINE_ALIAS = 9
-    LINE_TAGS = 10
-    LINE_DESC = 11
-    MAX_LINE = 11
+    LINE_PULL = 4
+    LINE_NAME = 5
+    LINE_PATH = 6
+    LINE_GIT = 7
+    LINE_STATUS = 8
+    LINE_PINNED = 9
+    LINE_ALIAS = 10
+    LINE_TAGS = 11
+    LINE_DESC = 12
+    MAX_LINE = 12
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
                  on_back: Callable[[], None], on_alias_change: Callable[[str], None],
@@ -48,7 +49,8 @@ class DetailPanel(UIControl):
                  on_status_message: Callable[[str], None] = lambda msg: None,
                  on_pin_change: Callable[[], None] = lambda: None,
                  on_open_ide: Callable[[], None] = lambda: None,
-                 on_commit: Callable[[], None] = lambda: None) -> None:
+                 on_commit: Callable[[], None] = lambda: None,
+                 on_pull: Callable[[], None] = lambda: None) -> None:
         self._repo = repo
         self._store = store
         self._editors = editors
@@ -59,6 +61,7 @@ class DetailPanel(UIControl):
         self._on_pin_change = on_pin_change
         self._on_open_ide = on_open_ide
         self._on_commit = on_commit
+        self._on_pull = on_pull
 
         self._cursor_index = 0
         self._edit_mode: str | None = None  # None | "alias" | "description" | "tags"
@@ -127,6 +130,8 @@ class DetailPanel(UIControl):
             self._run_tloop()
         elif line == self.LINE_COMMIT:
             self._run_commit()
+        elif line == self.LINE_PULL:
+            self._on_pull()
         return True
 
     # ── line-specific actions ────────────────────────────────────────────────
@@ -333,22 +338,25 @@ class DetailPanel(UIControl):
         # Row 3: Commit
         lines.append(self._build_one_line("", "Commit Changes", cur == self.LINE_COMMIT, width))
 
+        # Row 4: Pull
+        lines.append(self._build_one_line("", "Pull Latest", cur == self.LINE_PULL, width))
+
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
-
-        # Row 4: Name
+        # Row 5: Name
         lines.append(self._build_one_line("Name      ", self._repo.name, cur == self.LINE_NAME, width))
-
-        # Row 5: Path
+        # Row 6: Path
         lines.append(self._build_one_line("Path      ", self._repo.path, cur == self.LINE_PATH, width))
 
-        # Row 6: Git
+        # Row 7: Git
         lines.append(self._build_one_line("Git       ", self._git_display_url(), cur == self.LINE_GIT, width))
+
+        
 
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
-        # Row 7: Status
+        # Row 8: Status
         is_status_sel = cur == self.LINE_STATUS
         status_fragments: List[tuple[str, str]] = [
             ("class:detail-indicator" if is_status_sel else "class:dim",
@@ -362,18 +370,18 @@ class DetailPanel(UIControl):
                 status_fragments.append(("class:detail-selected", " " * (width - line_len)))
         lines.append(status_fragments)
 
-        # Row 8: Pinned
+        # Row 9: Pinned
         pin_str = "Yes" if self._repo.pinned else "No"
         lines.append(self._build_one_line("Pinned    ", pin_str, cur == self.LINE_PINNED, width))
 
-        # Row 9: Alias
+        # Row 10: Alias
         lines.append(self._build_one_line("Alias     ", self._repo.alias or "(none)", cur == self.LINE_ALIAS, width))
 
-        # Row 10: Tags
+        # Row 11: Tags
         tag_str = " ".join(f"[{t}]" for t in self._repo.tags) if self._repo.tags else "(none)"
         lines.append(self._build_one_line("Tags      ", tag_str, cur == self.LINE_TAGS, width))
 
-        # Row 11: Description
+        # Row 12: Description
         lines.append(self._build_one_line("Desc      ", self._repo.description or "(none)", cur == self.LINE_DESC, width))
 
         return lines

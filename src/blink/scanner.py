@@ -172,6 +172,35 @@ class Scanner:
         return results
 
 
+def parse_pull_output(stdout: str, returncode: int, stderr: str) -> tuple[bool, str]:
+    """Parse `git pull` output into (success, message)."""
+    if returncode != 0:
+        err = stderr.strip().splitlines()[0] if stderr.strip() else "Pull failed"
+        return (False, f"✗ Pull failed: {err}")
+    if "Already up to date." in stdout:
+        return (True, "✓ Already up to date")
+    if "Fast-forward" in stdout:
+        lines = stdout.strip().splitlines()
+        summary = ""
+        for line in lines:
+            if "files changed" in line or "file changed" in line:
+                summary = f" — {line.strip()}"
+                break
+        return (True, f"✓ Pull complete{summary}")
+    if stdout.strip():
+        return (True, "✓ Pull complete")
+    return (True, "✓ Pull complete")
+
+
+def check_pull_prereqs(repo: Repo) -> tuple[bool, str]:
+    """Check whether a repo is eligible for `git pull`."""
+    if not repo.remotes:
+        return (False, "No remote configured")
+    if repo.status is not None and repo.status.branch == "HEAD":
+        return (False, "Detached HEAD")
+    return (True, "")
+
+
 def parse_status_v2(output: str) -> RepoStatus:
     branch = ""
     ahead = 0
