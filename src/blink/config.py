@@ -14,6 +14,7 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "editor": "code",
     "preferred_ide": None,
     "auto_sync_days": 0,
+    "nerd_fonts": False,
 }
 
 
@@ -67,6 +68,10 @@ class Config:
     @property
     def auto_sync_days(self) -> int:
         return int(self._data.get("auto_sync_days", _DEFAULT_CONFIG["auto_sync_days"]))
+
+    @property
+    def nerd_fonts(self) -> bool:
+        return bool(self._data.get("nerd_fonts", _DEFAULT_CONFIG["nerd_fonts"]))
 
     def db_path(self) -> Path:
         return self._path.parent / "blink.db"

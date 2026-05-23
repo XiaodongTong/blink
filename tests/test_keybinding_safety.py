@@ -1,8 +1,8 @@
-"""Tests for the keybinding safety refactoring: Shift-gating, Ctrl+C exit, search isolation."""
+"""Tests for the keybinding safety: Shift-gating, Ctrl+C exit, search isolation, focus management."""
 from __future__ import annotations
 
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from prompt_toolkit.keys import Keys
 
@@ -11,7 +11,6 @@ from blink.config import Config
 from blink.store import Store
 from blink.scanner import Scanner
 from blink.tui.app import BlinkApp
-from blink.tui.detail import DetailPanel
 
 
 def _make_app():
@@ -25,6 +24,7 @@ def _make_app():
     app._scanner = scanner
     app._config = MagicMock(spec=Config)
     app._config.preferred_ide = None
+    app._config.nerd_fonts = False
     app._editors = {}
     app._scanning = False
     app._scan_status = ""
@@ -38,14 +38,12 @@ def _make_app():
     app._footer_control = MagicMock()
     app._detail_panel = None
     app._repo_list_window = MagicMock()
-    app._list_layout = MagicMock()
-    app._mode = "list"
+    app._detail_window = MagicMock()
+    app._edit_status_window = MagicMock()
+    app._focus_pane = "list"
     app._search_active = False
     app._search_filtering = False
     app._footer_highlight_until = 0.0
-    app._editing_alias = False
-    app._editing_tag = False
-    app._editing_repo = None
     app._last_ctrl_c = 0.0
     app._ctrl_c_quit_hint = False
     app._app = MagicMock()
@@ -54,6 +52,9 @@ def _make_app():
     app._ide_pending_repo = None
     app._committing = False
     app._commit_spinner_index = 0
+    app._pulling = False
+    app._pull_spinner_index = 0
+    app._pull_spinner_timer = None
     return app, store, rid
 
 
@@ -69,18 +70,17 @@ def _find_binding(kb, key):
     return None
 
 
-# --- Phase 1: Exit mechanism ---
+# --- Exit mechanism ---
 
 
 def test_q_not_directly_bound(app_with_store):
-    """q should not have a dedicated handler (only printable routing with edit-mode filter)."""
     app, store, rid = app_with_store
     kb = app._build_key_bindings()
     for reg in kb.bindings:
         for k in reg.keys:
             if str(k) == "q" and reg.filter is None:
+                import pytest
                 pytest.fail("q should not have an unfiltered binding")
-    # q may exist in printable routing (eager + edit-mode filter) — that's acceptable
 
 
 def test_ctrl_c_first_press_sets_hint(app_with_store):
@@ -109,7 +109,7 @@ def test_ctrl_c_timeout_resets(app_with_store):
     app, store, rid = app_with_store
     event = MagicMock()
     app._ctrl_c_quit_hint = True
-    app._last_ctrl_c = time.monotonic() - 3.0  # 3 seconds ago
+    app._last_ctrl_c = time.monotonic() - 3.0
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "c-c")
     handler(event)
@@ -129,17 +129,17 @@ def test_ctrl_c_cancels_search_active(app_with_store):
     app._search_bar.clear.assert_called()
 
 
-def test_ctrl_c_detail_view_returns_to_list(app_with_store):
+def test_ctrl_c_cancels_edit_mode(app_with_store):
     app, store, rid = app_with_store
     event = MagicMock()
     panel = MagicMock()
-    panel.is_editing = False
-    panel.edit_mode = None
+    panel.is_editing = True
+    panel.edit_mode = "alias"
     app._detail_panel = panel
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "c-c")
     handler(event)
-    assert app._detail_panel is None
+    assert panel._edit_mode is None
 
 
 def test_esc_does_not_exit(app_with_store):
@@ -163,11 +163,10 @@ def test_esc_clears_search_filtering(app_with_store):
     assert app._search_filtering is False
 
 
-# --- Phase 2: Shift gating ---
+# --- Shift gating ---
 
 
 def test_j_k_not_directly_bound(app_with_store):
-    """j/k should not have dedicated handlers (only printable routing with edit-mode filter)."""
     app, store, rid = app_with_store
     kb = app._build_key_bindings()
     for reg in kb.bindings:
@@ -175,16 +174,6 @@ def test_j_k_not_directly_bound(app_with_store):
             if str(k) in ("j", "k") and reg.filter is None:
                 import pytest
                 pytest.fail(f"{k} should not have an unfiltered binding")
-
-
-def test_detail_bare_keys_filtered(app_with_store):
-    """v/u/a/o/y bare keys should have filter requiring detail_panel."""
-    app, store, rid = app_with_store
-    kb = app._build_key_bindings()
-    for reg in kb.bindings:
-        for key in reg.keys:
-            if str(key) in ("v", "u", "a", "o", "y"):
-                assert reg.filter is not None, f"Bare key '{key}' should have a filter"
 
 
 def test_shift_keys_present(app_with_store):
@@ -199,7 +188,6 @@ def test_shift_keys_present(app_with_store):
 
 
 def test_shift_keys_blocked_during_search(app_with_store):
-    """Shift-gated keys must be blocked during search active state (AC-2)."""
     app, store, rid = app_with_store
     app._search_active = True
     kb = app._build_key_bindings()
@@ -213,7 +201,6 @@ def test_shift_keys_blocked_during_search(app_with_store):
 
 
 def test_down_confirms_search(app_with_store):
-    """Down arrow confirms search (same as Enter) when search is active."""
     app, store, rid = app_with_store
     app._search_active = True
     app._search_filtering = False
@@ -228,29 +215,7 @@ def test_down_confirms_search(app_with_store):
     assert found, "down should have an active binding during search"
 
 
-def test_e_t_routed_via_printable_characters(app_with_store):
-    """e and t are now routed via the printable character loop (not dedicated handlers)."""
-    app, store, rid = app_with_store
-    kb = app._build_key_bindings()
-    # In the new design, e and t are part of the printable-char loop (range 33-127).
-    # They should NOT have dedicated kb.add() calls, only the loop-level ones.
-    # We verify this by checking that e/t only appear as 'char' bindings, not as
-    # top-level string key bindings (which would indicate a dedicated handler).
-    for reg in kb.bindings:
-        for key in reg.keys:
-            key_str = str(key)
-            if key_str in ("e", "t"):
-                # These should only be caught by the printable-char loop,
-                # which uses the handler that routes via _route_printable
-                # Verify it's not a dedicated enter/backspace handler
-                import inspect
-                src = inspect.getsource(reg.handler)
-                assert "_route_printable" in src or "route_printable" in src, \
-                    f"Key '{key_str}' should be routed via printable-char handler"
-
-
 def test_detail_footer_removed(app_with_store):
-    """Detail view should not have a footer window."""
     app, store, rid = app_with_store
     assert not hasattr(app, "_detail_footer_text")
 
@@ -269,20 +234,14 @@ def test_footer_text_contains_shift_hints(app_with_store):
     assert "Shift" in footer_str
 
 
-def test_detail_view_has_no_footer(app_with_store):
-    """Detail view layout should not include a footer window."""
+def test_footer_text_contains_tab_hint(app_with_store):
     app, store, rid = app_with_store
-    # Build the detail layout and verify it has no footer window
-    app._detail_panel = MagicMock()
-    layout = app._build_detail_layout()
-    # The detail layout is HSplit([Window (detail), Window (border), Window (status)])
-    # i.e. exactly 3 windows, no footer
-    root = layout.container
-    children = root.children
-    assert len(children) == 3
+    footer = app._footer_text()
+    footer_str = str(footer)
+    assert "Tab" in footer_str
 
 
-# --- Phase 3: Search isolation ---
+# --- Search isolation ---
 
 
 def test_search_default_hidden(app_with_store):
@@ -303,7 +262,6 @@ def test_search_prefix_text_active():
     app, _, _ = _make_app()
     app._search_active = True
     result = app._search_prefix_text()
-    # Active state hides the prefix; the bordered input is shown instead
     text = "".join(t[1] for t in result)
     assert "/" in text
 
@@ -367,3 +325,29 @@ def test_search_active_footer():
     footer_str = "".join(t[1] for t in footer)
     assert "confirm" in footer_str.lower()
     assert "cancel" in footer_str.lower()
+
+
+# --- Focus management ---
+
+
+def test_focus_starts_on_list():
+    app, _, _ = _make_app()
+    assert app._focus_pane == "list"
+
+
+def test_search_available_from_both_panes(app_with_store):
+    app, store, rid = app_with_store
+    kb = app._build_key_bindings()
+    # "/" binding should work when not in detail panel too (focus_pane == "list")
+    app._focus_pane = "list"
+    app._search_active = False
+    found = False
+    for reg in kb.bindings:
+        for key in reg.keys:
+            if str(key) == "/" and reg.filter is not None:
+                try:
+                    if reg.filter():
+                        found = True
+                except Exception:
+                    pass
+    assert found, "/ should be available in list pane"

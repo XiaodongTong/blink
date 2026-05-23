@@ -10,13 +10,15 @@ from prompt_toolkit.layout.dimension import D
 from prompt_toolkit.layout.layout import Window
 
 from blink.models import Repo, RepoStatus, display_width
+from blink.tui.icons import get_icon, BRANCH_NF, BRANCH_ASCII, PIN_NF, PIN_ASCII
 
 
 class RepoListControl(UIControl):
-    def __init__(self) -> None:
+    def __init__(self, nerd_fonts: bool = False) -> None:
         self.repos: List[Repo] = []
         self.selected_index: int = 0
         self.error_repo_ids: set[int] = set()
+        self.nerd_fonts: bool = nerd_fonts
 
     def is_focusable(self) -> bool:
         return True
@@ -56,7 +58,9 @@ class RepoListControl(UIControl):
             return [("class:status-loading" + sel, " ···")]
         parts: list[tuple[str, str]] = []
         branch = status.branch or "HEAD"
-        parts.append(("class:status-clean" + sel, f" {branch}"))
+        branch_icon = get_icon(self.nerd_fonts, BRANCH_NF, BRANCH_ASCII)
+        branch_prefix = f" {branch_icon}" if branch_icon else " "
+        parts.append(("class:status-clean" + sel, f"{branch_prefix}{branch}"))
         if status.dirty_count > 0:
             parts.append(("class:status-dirty" + sel, f" ○ +{status.dirty_count}"))
         else:
@@ -83,16 +87,17 @@ class RepoListControl(UIControl):
             pin_s = "class:indicator"
         else:
             ind_s = "class:dim"
-            name_s = "class:normal"
+            name_s = "class:repo-name"
             alias_s = "class:alias"
-            path_s = "class:path"
+            path_s = "class:repo-path-dim"
             tag_s = "class:tag"
             tag_b = "class:tag-bracket"
             pin_s = "class:tag"
 
         line1: list[tuple[str, str]] = [(ind_s, " ▸ " if selected else "   ")]
         if repo.pinned:
-            line1.append((pin_s, "★"))
+            pin_char = get_icon(self.nerd_fonts, PIN_NF, PIN_ASCII)
+            line1.append((pin_s, pin_char))
         if repo.alias:
             line1.append((name_s, repo.name))
             line1.append((alias_s, f" ({repo.alias})"))
@@ -110,7 +115,7 @@ class RepoListControl(UIControl):
         badge = self._format_status_badge(repo.status, is_error, selected=selected)
 
         if width > 0:
-            pad_s = "class:selected-dim" if selected else "class:path"
+            pad_s = "class:selected-dim" if selected else "class:repo-path-dim"
             path_text = f"     {repo.path}"
             badge_w = self._badge_display_width(badge)
             path_w = display_width(path_text)

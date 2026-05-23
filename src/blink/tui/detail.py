@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import re
-import shutil
-import subprocess
 import webbrowser
 from typing import Callable, List, Optional
 
@@ -17,7 +15,6 @@ from blink.tui.actions import EditorInfo, copy_path, open_in_editor
 
 
 def _remote_to_https(url: str) -> str | None:
-    """Convert git remote URL to browser-openable HTTPS URL."""
     if url.startswith("https://"):
         return url.removesuffix(".git")
     m = re.match(r'(?:ssh://)?git@([^:/]+)[:/](.+?)(?:\.git)?$', url)
@@ -28,20 +25,20 @@ def _remote_to_https(url: str) -> str | None:
 
 
 class DetailPanel(UIControl):
-    LINE_IDE = 0
-    LINE_FINDER = 1
-    LINE_TLOOP = 2
-    LINE_COMMIT = 3
-    LINE_PULL = 4
-    LINE_NAME = 5
-    LINE_PATH = 6
-    LINE_GIT = 7
-    LINE_STATUS = 8
-    LINE_PINNED = 9
-    LINE_ALIAS = 10
-    LINE_TAGS = 11
-    LINE_DESC = 12
-    MAX_LINE = 12
+    # Cursor-navigable rows (Local Markers only)
+    LINE_PINNED = 0
+    LINE_ALIAS = 1
+    LINE_TAGS = 2
+    LINE_DESC = 3
+    MAX_LINE = 3
+
+    _SHORTCUT_HINTS = [
+        ("Shift+I", "IDE open"),
+        ("Shift+O", "Finder"),
+        ("Shift+P", "Copy path"),
+        ("Shift+C", "Commit"),
+        ("Shift+U", "Pull"),
+    ]
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
                  on_back: Callable[[], None], on_alias_change: Callable[[str], None],
@@ -50,7 +47,8 @@ class DetailPanel(UIControl):
                  on_pin_change: Callable[[], None] = lambda: None,
                  on_open_ide: Callable[[], None] = lambda: None,
                  on_commit: Callable[[], None] = lambda: None,
-                 on_pull: Callable[[], None] = lambda: None) -> None:
+                 on_pull: Callable[[], None] = lambda: None,
+                 on_action: Callable[[], None] = lambda: None) -> None:
         self._repo = repo
         self._store = store
         self._editors = editors
@@ -62,15 +60,21 @@ class DetailPanel(UIControl):
         self._on_open_ide = on_open_ide
         self._on_commit = on_commit
         self._on_pull = on_pull
+        self._on_action = on_action
 
         self._cursor_index = 0
-        self._edit_mode: str | None = None  # None | "alias" | "description" | "tags"
+        self._edit_mode: str | None = None
         self._alias_buffer: Optional[Buffer] = None
         self._desc_buffer: Optional[Buffer] = None
         self._tag_buffer: Optional[Buffer] = None
 
-        self._editing_alias_before = False
-        self._editing_desc_before = False
+    def set_repo(self, repo: Repo) -> None:
+        self._repo = repo
+        self._cursor_index = 0
+        self._edit_mode = None
+        self._alias_buffer = None
+        self._desc_buffer = None
+        self._tag_buffer = None
 
     def is_focusable(self) -> bool:
         return True
@@ -108,68 +112,25 @@ class DetailPanel(UIControl):
         line = self._cursor_index
         if line == self.LINE_ALIAS:
             self._start_alias_edit()
-        elif line == self.LINE_NAME:
-            self._copy_name()
-        elif line == self.LINE_PATH:
-            self._copy_path()
+            self._on_action()
         elif line == self.LINE_DESC:
             self._start_desc_edit()
-        elif line == self.LINE_GIT:
-            self._open_git_url()
-        elif line == self.LINE_STATUS:
-            self._copy_status()
+            self._on_action()
         elif line == self.LINE_TAGS:
             self._start_tags_edit()
+            self._on_action()
         elif line == self.LINE_PINNED:
             self._toggle_pin()
-        elif line == self.LINE_IDE:
-            self._on_open_ide()
-        elif line == self.LINE_FINDER:
-            open_in_editor(self._repo.path, "o", self._editors)
-        elif line == self.LINE_TLOOP:
-            self._run_tloop()
-        elif line == self.LINE_COMMIT:
-            self._run_commit()
-        elif line == self.LINE_PULL:
-            self._on_pull()
+            self._on_action()
         return True
 
     # ── line-specific actions ────────────────────────────────────────────────
-
-    def _copy_name(self) -> None:
-        copy_path(self._repo.name)
-        self._on_status_message(f"项目名称已复制: {self._repo.name}")
-
-    def _copy_path(self) -> None:
-        copy_path(self._repo.path)
-        self._on_status_message(f"项目路径已复制: {self._repo.path}")
 
     def _git_display_url(self) -> str:
         if not self._repo.remotes:
             return "(none)"
         https = _remote_to_https(self._repo.remotes[0].url)
         return https or self._repo.remotes[0].url
-
-    def _open_git_url(self) -> None:
-        if not self._repo.remotes:
-            return
-        url = self._repo.remotes[0].url
-        https = _remote_to_https(url)
-        target = https or url
-        webbrowser.open(target)
-        self._on_status_message(f"已在浏览器打开: {target}")
-
-    def _run_tloop(self) -> None:
-        if not shutil.which("tloop"):
-            self._on_status_message("未安装 tloop")
-            return
-        subprocess.Popen(
-            ["tloop", "edit", self._repo.path],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-
-    def _run_commit(self) -> None:
-        self._on_commit()
 
     def _start_alias_edit(self) -> None:
         self._edit_mode = "alias"
@@ -221,11 +182,6 @@ class DetailPanel(UIControl):
             parts.append(f"↓{status.behind}")
         return " ".join(parts)
 
-    def _copy_status(self) -> None:
-        text = self._status_display()
-        copy_path(text)
-        self._on_status_message(f"状态已复制: {text}")
-
     def _toggle_pin(self) -> None:
         if self._repo.id is not None:
             new_val = self._store.toggle_pin(self._repo.id)
@@ -255,7 +211,6 @@ class DetailPanel(UIControl):
         self._confirm_alias(alias)
 
     def handle_key(self, key: str) -> bool:
-        """Handle keys when in tag edit mode (Shift+1-9 for removal)."""
         if self._edit_mode == "tags" and key in ("1", "2", "3", "4", "5", "6", "7", "8", "9"):
             idx = int(key) - 1
             if idx < len(self._repo.tags) and self._repo.id is not None:
@@ -304,8 +259,14 @@ class DetailPanel(UIControl):
 
     # ── rendering ────────────────────────────────────────────────────────────
 
-    def _build_one_line(self, label: str, value: str, selected: bool, width: int = 0) -> List[tuple[str, str]]:
-        """Render a single label+value line, optionally selected with full-width background."""
+    def _build_info_line(self, label: str, value: str) -> List[tuple[str, str]]:
+        return [
+            ("class:dim", "    "),
+            ("class:label", label),
+            ("class:normal", value),
+        ]
+
+    def _build_marker_line(self, label: str, value: str, selected: bool, width: int = 0) -> List[tuple[str, str]]:
         cls = "detail-selected" if selected else "normal"
         lbl = "detail-label-sel" if selected else "label"
         pad_cls = "detail-selected"
@@ -322,69 +283,49 @@ class DetailPanel(UIControl):
 
     def _build_lines(self, width: int) -> List[List[tuple[str, str]]]:
         cur = self._cursor_index
-        edit = self._edit_mode
 
         lines: List[List[tuple[str, str]]] = []
 
-        # Row 0: IDE
-        lines.append(self._build_one_line("", "Open with IDE", cur == self.LINE_IDE, width))
+        # ── Metadata section (read-only, no cursor) ──
+        lines.append(self._build_info_line("Name      ", self._repo.name))
+        lines.append(self._build_info_line("Path      ", self._repo.path))
+        lines.append(self._build_info_line("Git       ", self._git_display_url()))
 
-        # Row 1: Finder
-        lines.append(self._build_one_line("", "Open with Finder", cur == self.LINE_FINDER, width))
-
-        # Row 2: Tloop
-        lines.append(self._build_one_line("", "Add Todo Loop Task", cur == self.LINE_TLOOP, width))
-
-        # Row 3: Commit
-        lines.append(self._build_one_line("", "Commit Changes", cur == self.LINE_COMMIT, width))
-
-        # Row 4: Pull
-        lines.append(self._build_one_line("", "Pull Latest", cur == self.LINE_PULL, width))
-
-        # Separator
-        lines.append([("class:detail-sep", "─" * width)])
-        # Row 5: Name
-        lines.append(self._build_one_line("Name      ", self._repo.name, cur == self.LINE_NAME, width))
-        # Row 6: Path
-        lines.append(self._build_one_line("Path      ", self._repo.path, cur == self.LINE_PATH, width))
-
-        # Row 7: Git
-        lines.append(self._build_one_line("Git       ", self._git_display_url(), cur == self.LINE_GIT, width))
-
-        
-
-        # Separator
-        lines.append([("class:detail-sep", "─" * width)])
-
-        # Row 8: Status
-        is_status_sel = cur == self.LINE_STATUS
+        # Status row (styled, but not cursor-navigable)
         status_fragments: List[tuple[str, str]] = [
-            ("class:detail-indicator" if is_status_sel else "class:dim",
-             "  ▸ " if is_status_sel else "    "),
-            ("class:detail-label-sel" if is_status_sel else "class:label", "Status    "),
+            ("class:dim", "    "),
+            ("class:label", "Status    "),
         ]
-        status_fragments.extend(self._format_status_value(is_status_sel))
-        if is_status_sel and width > 0:
-            line_len = sum(len(t) for _, t in status_fragments)
-            if line_len < width:
-                status_fragments.append(("class:detail-selected", " " * (width - line_len)))
+        status_fragments.extend(self._format_status_value(False))
         lines.append(status_fragments)
 
-        # Row 9: Pinned
+        # Separator
+        lines.append([("class:detail-sep", "─" * width)])
+
+        # ── Local Markers section (cursor-navigable) ──
         pin_str = "Yes" if self._repo.pinned else "No"
-        lines.append(self._build_one_line("Pinned    ", pin_str, cur == self.LINE_PINNED, width))
-
-        # Row 10: Alias
-        lines.append(self._build_one_line("Alias     ", self._repo.alias or "(none)", cur == self.LINE_ALIAS, width))
-
-        # Row 11: Tags
+        lines.append(self._build_marker_line("Pinned    ", pin_str, cur == self.LINE_PINNED, width))
+        lines.append(self._build_marker_line("Alias     ", self._repo.alias or "(none)", cur == self.LINE_ALIAS, width))
         tag_str = " ".join(f"[{t}]" for t in self._repo.tags) if self._repo.tags else "(none)"
-        lines.append(self._build_one_line("Tags      ", tag_str, cur == self.LINE_TAGS, width))
+        lines.append(self._build_marker_line("Tags      ", tag_str, cur == self.LINE_TAGS, width))
+        lines.append(self._build_marker_line("Desc      ", self._repo.description or "(none)", cur == self.LINE_DESC, width))
 
-        # Row 12: Description
-        lines.append(self._build_one_line("Desc      ", self._repo.description or "(none)", cur == self.LINE_DESC, width))
+        # Separator
+        lines.append([("class:detail-sep", "─" * width)])
+
+        # ── Shortcuts section (static) ──
+        lines.append(self._build_shortcut_hints(width))
 
         return lines
+
+    def _build_shortcut_hints(self, width: int) -> List[tuple[str, str]]:
+        parts: List[tuple[str, str]] = [("class:dim", "  ")]
+        for i, (key, desc) in enumerate(self._SHORTCUT_HINTS):
+            if i > 0:
+                parts.append(("class:dim", "  "))
+            parts.append(("class:detail-shortcut-key", key))
+            parts.append(("class:detail-shortcut-dim", f":{desc}"))
+        return parts
 
     def create_content(self, width: int, height: int) -> UIContent:
         rendered = self._build_lines(width)
@@ -401,7 +342,6 @@ class DetailPanel(UIControl):
         )
 
     def _formatted_text(self, width: int = 80) -> FormattedText:
-        """Flatten all lines into a single FormattedText (for testing)."""
         parts: List[tuple[str, str]] = []
         for line in self._build_lines(width):
             parts.extend(line)

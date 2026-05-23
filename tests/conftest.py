@@ -23,6 +23,7 @@ def app_with_store():
     app._scanner = scanner
     app._config = MagicMock(spec=Config)
     app._config.preferred_ide = None
+    app._config.nerd_fonts = False
     app._editors = {}
     app._scanning = False
     app._scan_status = ""
@@ -33,8 +34,9 @@ def app_with_store():
     app._footer_control = MagicMock()
     app._detail_panel = None
     app._repo_list_window = MagicMock()
-    app._list_layout = MagicMock()
-    app._mode = "list"
+    app._detail_window = MagicMock()
+    app._edit_status_window = MagicMock()
+    app._focus_pane = "list"
     app._search_active = False
     app._search_filtering = False
     app._footer_highlight_until = 0.0

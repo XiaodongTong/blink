@@ -231,7 +231,6 @@ def test_handle_enter_tags_adds_tag():
     panel._tag_buffer.text = "python"
     panel.handle_enter()
     assert "python" in repo.tags
-    # Enter stays in tags edit mode for more tag additions
     assert panel._edit_mode == "tags"
 
 
@@ -275,46 +274,6 @@ def test_handle_enter_confirm_description_clears_edit_mode():
     panel.handle_enter()
     assert repo.description == "new description"
     assert panel._edit_mode is None
-
-
-# ── copy actions ──────────────────────────────────────────────────────────
-
-def test_handle_enter_name_copies(monkeypatch):
-    copied = []
-    monkeypatch.setattr("blink.tui.detail.copy_path", lambda t: copied.append(t) or None)
-    panel = _make_detail_panel()
-    panel._cursor_index = DetailPanel.LINE_NAME
-    panel.handle_enter()
-    assert copied == ["test-repo"]
-
-
-def test_handle_enter_path_copies(monkeypatch):
-    copied = []
-    monkeypatch.setattr("blink.tui.detail.copy_path", lambda t: copied.append(t) or None)
-    panel = _make_detail_panel()
-    panel._cursor_index = DetailPanel.LINE_PATH
-    panel.handle_enter()
-    assert copied == ["/tmp/test-repo"]
-
-
-def test_handle_enter_git_opens_browser(monkeypatch):
-    opened = []
-    monkeypatch.setattr("blink.tui.detail.webbrowser.open", lambda u: opened.append(u) or None)
-    panel = _make_detail_panel()
-    panel._cursor_index = DetailPanel.LINE_GIT
-    panel.handle_enter()
-    assert opened == ["https://github.com/user/test"]
-
-
-def test_handle_enter_git_none(monkeypatch):
-    opened = []
-    monkeypatch.setattr("blink.tui.detail.webbrowser.open", lambda u: opened.append(u) or None)
-    repo = _make_repo()
-    repo.remotes = []
-    panel = _make_detail_panel(repo)
-    panel._cursor_index = DetailPanel.LINE_GIT
-    panel.handle_enter()
-    assert opened == []
 
 
 # ── is_editing ─────────────────────────────────────────────────────────────
@@ -385,20 +344,17 @@ def test_handle_enter_pinned_toggles():
 
 
 def test_detail_panel_line_constants():
-    assert DetailPanel.LINE_IDE == 0
-    assert DetailPanel.LINE_FINDER == 1
-    assert DetailPanel.LINE_TLOOP == 2
-    assert DetailPanel.LINE_COMMIT == 3
-    assert DetailPanel.LINE_PULL == 4
-    assert DetailPanel.LINE_NAME == 5
-    assert DetailPanel.LINE_PATH == 6
-    assert DetailPanel.LINE_GIT == 7
-    assert DetailPanel.LINE_STATUS == 8
-    assert DetailPanel.LINE_PINNED == 9
-    assert DetailPanel.LINE_ALIAS == 10
-    assert DetailPanel.LINE_TAGS == 11
-    assert DetailPanel.LINE_DESC == 12
-    assert DetailPanel.MAX_LINE == 12
+    assert DetailPanel.LINE_PINNED == 0
+    assert DetailPanel.LINE_ALIAS == 1
+    assert DetailPanel.LINE_TAGS == 2
+    assert DetailPanel.LINE_DESC == 3
+    assert DetailPanel.MAX_LINE == 3
+
+
+def test_detail_panel_no_operation_line_constants():
+    for attr in ("LINE_IDE", "LINE_FINDER", "LINE_TLOOP", "LINE_COMMIT", "LINE_PULL",
+                  "LINE_NAME", "LINE_PATH", "LINE_GIT", "LINE_STATUS"):
+        assert not hasattr(DetailPanel, attr)
 
 
 # ── status row ─────────────────────────────────────────────────────────────
@@ -421,40 +377,100 @@ def test_detail_panel_shows_loading_status():
     assert "···" in t
 
 
-def test_detail_panel_status_between_git_and_pinned():
+def test_detail_panel_status_before_pinned():
     panel = _make_detail_panel()
     t = _to_plain(panel._formatted_text())
-    git_pos = t.index("Git")
     status_pos = t.index("Status")
     pinned_pos = t.index("Pinned")
-    assert git_pos < status_pos < pinned_pos
+    assert status_pos < pinned_pos
 
 
-def test_handle_enter_status_copies(monkeypatch):
-    copied = []
-    monkeypatch.setattr("blink.tui.detail.copy_path", lambda t: copied.append(t) or None)
-    repo = _make_repo(status=RepoStatus(branch="main", dirty_count=1))
-    panel = _make_detail_panel(repo)
-    panel._cursor_index = DetailPanel.LINE_STATUS
-    panel.handle_enter()
-    assert len(copied) == 1
-    assert "main" in copied[0]
-    assert "+1" in copied[0]
+# ── shortcut hints ───────────────────────────────────────────────────────
 
 
-# ── pull row ───────────────────────────────────────────────────────────────
-
-
-def test_detail_panel_renders_pull_row():
+def test_detail_panel_renders_shortcut_hints():
     panel = _make_detail_panel()
     t = _to_plain(panel._formatted_text())
-    assert "Pull Latest" in t
+    assert "Shift+I" in t
+    assert "Shift+O" in t
+    assert "Shift+P" in t
+    assert "Shift+C" in t
+    assert "Shift+U" in t
 
 
-def test_handle_enter_pull_calls_callback():
-    pulled = []
+def test_detail_panel_no_operation_rows():
     panel = _make_detail_panel()
-    panel._on_pull = lambda: pulled.append(True)
-    panel._cursor_index = DetailPanel.LINE_PULL
+    t = _to_plain(panel._formatted_text())
+    assert "Open with IDE" not in t
+    assert "Open with Finder" not in t
+    assert "Add Todo Loop Task" not in t
+    assert "Commit Changes" not in t
+    assert "Pull Latest" not in t
+
+
+# ── set_repo ──────────────────────────────────────────────────────────────
+
+
+def test_set_repo_updates_display():
+    panel = _make_detail_panel()
+    new_repo = _make_repo(name="new-repo", path="/new/path")
+    panel.set_repo(new_repo)
+    t = _to_plain(panel._formatted_text())
+    assert "new-repo" in t
+    assert "/new/path" in t
+
+
+def test_set_repo_resets_cursor():
+    panel = _make_detail_panel()
+    panel._cursor_index = 3
+    panel.set_repo(_make_repo())
+    assert panel._cursor_index == 0
+
+
+def test_set_repo_clears_edit_mode():
+    panel = _make_detail_panel()
+    panel._start_alias_edit()
+    assert panel.is_editing
+    panel.set_repo(_make_repo())
+    assert not panel.is_editing
+    assert panel.alias_buffer is None
+
+
+# ── on_action callback ────────────────────────────────────────────────────
+
+
+def test_on_action_called_on_pin_toggle():
+    actions = []
+    store = Store(":memory:")
+    store.init_db()
+    repo = _make_repo()
+    rid = store.upsert_repo(repo)
+    repo = _make_repo(id=rid)
+    panel = DetailPanel(
+        repo=repo, store=store, editors={},
+        on_back=lambda: None,
+        on_alias_change=lambda a: None,
+        on_tags_change=lambda: None,
+        on_action=lambda: actions.append(True),
+    )
+    panel._cursor_index = DetailPanel.LINE_PINNED
     panel.handle_enter()
-    assert pulled == [True]
+    assert actions == [True]
+
+
+def test_on_action_called_on_alias_edit():
+    actions = []
+    panel = _make_detail_panel()
+    panel._on_action = lambda: actions.append(True)
+    panel._cursor_index = DetailPanel.LINE_ALIAS
+    panel.handle_enter()
+    assert actions == [True]
+
+
+def test_on_action_called_on_desc_edit():
+    actions = []
+    panel = _make_detail_panel()
+    panel._on_action = lambda: actions.append(True)
+    panel._cursor_index = DetailPanel.LINE_DESC
+    panel.handle_enter()
+    assert actions == [True]

@@ -11,7 +11,7 @@ from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
-from prompt_toolkit.layout import HSplit, Layout, Window, ConditionalContainer
+from prompt_toolkit.layout import HSplit, VSplit, Layout, Window, ConditionalContainer
 from prompt_toolkit.layout.controls import FormattedTextControl, UIContent, UIControl
 from prompt_toolkit.layout.dimension import D
 from prompt_toolkit.styles import Style
@@ -26,11 +26,10 @@ from blink.tui.actions import EditorInfo, IDE_CHOICES, copy_path, detect_editors
 from blink.tui.detail import DetailPanel
 
 _COMMIT_SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+_NARROW_THRESHOLD = 80
 
 
 class _EditStatusControl(UIControl):
-    """Status bar control that shows a cursor during edit mode."""
-
     def __init__(self, get_text, get_cursor_col):
         self._get_text = get_text
         self._get_cursor_col = get_cursor_col
@@ -71,7 +70,7 @@ class BlinkApp:
         self._status_fetcher = StatusFetcher()
         self._fetching_status = False
 
-        self._repo_control = RepoListControl()
+        self._repo_control = RepoListControl(nerd_fonts=self._config.nerd_fonts)
         self._search_bar = SearchBar(
             on_change=self._on_search_change,
             focusable=Condition(lambda: self._search_active),
@@ -83,10 +82,9 @@ class BlinkApp:
         self._repo_list_window: Optional[RepoListWindow] = None
         self._detail_panel: Optional[DetailPanel] = None
         self._detail_window: Optional[Window] = None
-        self._detail_status_window: Optional[Window] = None
-        self._list_layout: Optional[Layout] = None
+        self._edit_status_window: Optional[Window] = None
 
-        self._mode: str = "list"
+        self._focus_pane: str = "list"  # "list" / "detail" / "edit"
         self._search_active: bool = False
         self._search_filtering: bool = False
         self._footer_highlight_until: float = 0.0
@@ -106,17 +104,25 @@ class BlinkApp:
         self._pull_spinner_index: int = 0
         self._pull_spinner_timer: Optional[threading.Timer] = None
 
-        self._list_layout = self._build_list_layout()
+        self._load_repos()
+        self._init_detail_panel()
 
+        layout = self._build_layout()
         self._app = Application(
-            layout=self._list_layout,
+            layout=layout,
             key_bindings=self._build_key_bindings(),
             style=self._build_style(),
             full_screen=True,
             mouse_support=False,
         )
 
-        self._load_repos()
+        # Focus the repo list after app is created
+        if self._repo_list_window is not None:
+            try:
+                layout.focus(self._repo_list_window)
+            except Exception:
+                pass
+
         self._start_background_status_fetch()
 
     # ── edit mode helpers ────────────────────────────────────────────────────
@@ -159,13 +165,113 @@ class BlinkApp:
             return len(" Tag: ") + len(panel.tag_buffer.text)
         return None
 
+    # ── terminal width ────────────────────────────────────────────────────
+
+    def _is_wide_enough(self) -> bool:
+        try:
+            cols = self._app.output.get_size().columns
+            return cols >= _NARROW_THRESHOLD
+        except Exception:
+            return True
+
+    # ── detail panel init & sync ───────────────────────────────────────────
+
+    def _init_detail_panel(self) -> None:
+        repo = self._repo_control.selected_repo()
+        if repo is None:
+            self._detail_panel = None
+            return
+        self._detail_panel = DetailPanel(
+            repo=repo,
+            store=self._store,
+            editors=self._editors,
+            on_back=lambda: None,
+            on_alias_change=lambda alias: self._refresh_repo_alias(),
+            on_tags_change=lambda: self._refresh_repo_tags(),
+            on_status_message=self._set_scan_status,
+            on_pin_change=lambda: self._refresh_repo_pin(),
+            on_open_ide=lambda: self._trigger_open_ide(self._get_active_repo()),
+            on_commit=lambda: self._run_commit(self._get_active_repo()),
+            on_pull=lambda: self._run_pull(self._get_active_repo()),
+            on_action=lambda: self._increment_view_count(),
+        )
+
+    def _sync_detail_panel(self) -> None:
+        repo = self._repo_control.selected_repo()
+        if repo is None:
+            self._detail_panel = None
+            return
+        if self._detail_panel is None:
+            self._init_detail_panel()
+            return
+        self._detail_panel.set_repo(repo)
+
+    def _increment_view_count(self) -> None:
+        repo = self._get_active_repo()
+        if repo and repo.id is not None:
+            self._store.increment_view_count(repo.id)
+            repo.view_count += 1
+
     # ── layouts ─────────────────────────────────────────────────────────────
 
-    def _build_list_layout(self) -> Layout:
+    def _left_border_style(self) -> str:
+        return "class:border-focus" if self._focus_pane == "list" else "class:border"
+
+    def _right_border_style(self) -> str:
+        return "class:border-focus" if self._focus_pane == "detail" else "class:border"
+
+    def _build_layout(self) -> Layout:
         self._repo_list_window = RepoListWindow(self._repo_control)
+        self._detail_window = Window(
+            content=self._detail_panel,
+            style="class:detail-panel",
+            height=D(min=1),
+        )
+        self._edit_status_window = Window(
+            content=_EditStatusControl(self._status_text, self._edit_cursor_col),
+            height=D.exact(1),
+            style="class:status",
+        )
+
+        # Left panel: repo list with borders
+        left_panel = HSplit([
+            Window(height=D.exact(1), char="─", style=self._left_border_style),
+            self._repo_list_window,
+            Window(height=D.exact(1), char="─", style=self._left_border_style),
+        ], width=D(min=20, preferred=40, max=60))
+
+        # Right panel: detail with borders
+        right_panel = ConditionalContainer(
+            HSplit([
+                Window(height=D.exact(1), char="─", style=self._right_border_style),
+                self._detail_window,
+                Window(height=D.exact(1), char="─", style=self._right_border_style),
+            ]),
+            filter=Condition(lambda: self._detail_panel is not None and self._is_wide_enough()),
+        )
+
+        # Vertical separator
+        v_sep = Window(char="│", style="class:border", width=D.exact(1))
+        v_sep_cond = ConditionalContainer(
+            v_sep,
+            filter=Condition(lambda: self._detail_panel is not None and self._is_wide_enough()),
+        )
+
+        main_area = VSplit([left_panel, v_sep_cond, right_panel])
+
+        # Edit status overlay
+        edit_status = ConditionalContainer(
+            self._edit_status_window,
+            filter=Condition(lambda: self._in_edit_mode()),
+        )
+        regular_status = ConditionalContainer(
+            Window(content=self._status_control, height=D.exact(1), style="class:status"),
+            filter=Condition(lambda: not self._in_edit_mode()),
+        )
+
         return Layout(
             HSplit([
-                # Filtering state: prefix + keyword (single line)
+                # Search area
                 ConditionalContainer(
                     Window(
                         content=FormattedTextControl(text=self._search_prefix_text),
@@ -174,7 +280,6 @@ class BlinkApp:
                     ),
                     filter=Condition(lambda: self._search_filtering and not self._search_active),
                 ),
-                # Active state: bordered search input
                 ConditionalContainer(
                     HSplit([
                         Window(height=D.exact(1), char="─", style="class:search-border"),
@@ -183,29 +288,13 @@ class BlinkApp:
                     ]),
                     filter=Condition(lambda: self._search_active),
                 ),
-                Window(height=D.exact(1), char="─", style="class:border"),
-                self._repo_list_window,
-                Window(height=D.exact(1), char="─", style="class:border"),
-                Window(content=self._status_control, height=D.exact(1), style="class:status"),
+                # Main content
+                main_area,
+                # Status bar
+                edit_status,
+                regular_status,
+                # Footer
                 Window(content=self._footer_control, height=D.exact(1), style="class:footer"),
-            ])
-        )
-
-    def _build_detail_layout(self) -> Layout:
-        self._detail_window = Window(
-            content=self._detail_panel,
-            style="class:detail-panel",
-        )
-        self._detail_status_window = Window(
-            content=_EditStatusControl(self._status_text, self._edit_cursor_col),
-            height=D.exact(1),
-            style="class:status",
-        )
-        return Layout(
-            HSplit([
-                self._detail_window,
-                Window(height=D.exact(1), char="─", style="class:border"),
-                self._detail_status_window,
             ])
         )
 
@@ -213,64 +302,56 @@ class BlinkApp:
 
     def _build_style(self) -> Style:
         return Style.from_dict({
-            # Search
             "search-bar": "fg:#c9d1d9",
             "search-input": "fg:#c9d1d9",
             "search-border": "fg:#58a6ff",
             "search-prefix": "fg:#58a6ff",
-            # Repo list — normal row
             "repo-list": "",
-            "normal": "fg:#e6edf3",
+            "normal": "fg:#e6edf3 bold",
+            "repo-name": "fg:#e6edf3 bold",
             "dim": "fg:#484f58",
             "alias": "fg:#8b949e",
-            "path": "fg:#6e7681",
+            "path": "fg:#484f58",
+            "repo-path-dim": "fg:#484f58",
             "tag": "fg:#3fb950",
             "tag-bracket": "fg:#238636",
-            # Repo list — selected row
             "indicator": "fg:#58a6ff bold bg:#264f78",
             "repo-selected": "fg:#f0f6fc bg:#264f78",
             "selected-dim": "fg:#8db9e2 bg:#264f78",
             "selected-tag": "fg:#7ee787 bg:#264f78",
             "selected-tag-bracket": "fg:#3fb950 bg:#264f78",
-            # Empty state
             "empty": "fg:#484f58 italic",
-            # Borders
             "border": "fg:#30363d",
-            # Status bar
+            "border-focus": "fg:#58a6ff",
             "status": "",
             "status-label": "fg:#8b949e",
             "status-value": "fg:#c9d1d9",
             "status-accent": "fg:#58a6ff",
             "status-dim": "fg:#6e7681",
-            # Footer
             "footer": "",
             "footer-key": "bold fg:#79c0ff",
             "footer-dim": "fg:#8b949e",
             "footer-dim-key": "bold fg:#58a6ff",
             "footer-highlight": "fg:#f0f6fc",
-            # Search
             "search-keyword": "fg:#8b949e",
-            # Detail panel
             "detail-panel": "fg:#c9d1d9",
             "label": "bold fg:#58a6ff",
             "detail-label-sel": "bold fg:#58a6ff bg:#264f78",
             "detail-sep": "fg:#30363d",
-            # Selected row in detail panel
             "detail-selected": "fg:#f0f6fc bg:#264f78",
             "detail-indicator": "fg:#58a6ff bold bg:#264f78",
-            # Tags in detail
             "detail-tag": "fg:#3fb950",
             "detail-tag-bracket": "fg:#238636",
-            # Status badge
             "status-clean": "fg:#3fb950",
-            "status-dirty": "fg:#f85149",
+            "status-dirty": "fg:#f0883e",
             "status-ahead-behind": "fg:#d29922",
             "status-loading": "fg:#484f58",
-            # Status badge — selected (with highlight background)
             "status-clean-sel": "fg:#3fb950 bg:#264f78",
-            "status-dirty-sel": "fg:#f85149 bg:#264f78",
+            "status-dirty-sel": "fg:#f0883e bg:#264f78",
             "status-ahead-behind-sel": "fg:#d29922 bg:#264f78",
             "status-loading-sel": "fg:#484f58 bg:#264f78",
+            "detail-shortcut-key": "bold fg:#79c0ff",
+            "detail-shortcut-dim": "fg:#8b949e",
         })
 
     # ── key bindings ─────────────────────────────────────────────────────────
@@ -325,42 +406,17 @@ class BlinkApp:
         def _(event):
             if self._ide_selecting:
                 return
-            # Priority: edit mode → detail view → search → double-quit
-            if self._detail_panel is not None:
-                if self._detail_panel.is_editing:
-                    if self._detail_panel.edit_mode == "alias":
-                        self._detail_panel._edit_mode = None
-                        self._detail_panel._alias_buffer = None
-                    elif self._detail_panel.edit_mode == "description":
-                        self._detail_panel._edit_mode = None
-                        self._detail_panel._desc_buffer = None
-                    elif self._detail_panel.edit_mode == "tags":
-                        self._detail_panel._edit_mode = None
-                        self._detail_panel._tag_buffer = None
-                    self._app.layout.focus(self._detail_window)
-                    self._app.invalidate()
-                    return
-                self._search_active = False
-                self._search_filtering = False
-                self._search_bar.clear()
-                self._show_list_view()
+            # Priority: edit mode → search → double-quit
+            if self._in_edit_mode():
+                self._cancel_edit()
                 return
             if self._search_active:
-                self._search_bar.clear()
-                self._search_active = False
-                self._search_filtering = False
-                self._load_repos()
-                self._app.layout.focus(self._repo_list_window)
-                self._app.invalidate()
+                self._cancel_search()
                 return
             if self._search_filtering:
-                self._search_bar.clear()
-                self._search_filtering = False
-                self._load_repos()
-                self._app.layout.focus(self._repo_list_window)
-                self._app.invalidate()
+                self._cancel_search()
                 return
-            # List view: double Ctrl+C to quit
+            # Double Ctrl+C to quit
             now = time.monotonic()
             if self._ctrl_c_quit_hint and (now - self._last_ctrl_c) < 2.0:
                 event.app.exit()
@@ -375,40 +431,43 @@ class BlinkApp:
         def _(event):
             if self._ide_selecting:
                 return
-            if self._detail_panel is not None:
-                if self._detail_panel.is_editing:
-                    if self._detail_panel.edit_mode == "alias":
-                        self._detail_panel._edit_mode = None
-                        self._detail_panel._alias_buffer = None
-                    elif self._detail_panel.edit_mode == "description":
-                        self._detail_panel._edit_mode = None
-                        self._detail_panel._desc_buffer = None
-                    elif self._detail_panel.edit_mode == "tags":
-                        self._detail_panel._edit_mode = None
-                        self._detail_panel._tag_buffer = None
-                    self._app.layout.focus(self._detail_window)
-                    self._app.invalidate()
-                    return
-                self._search_active = False
-                self._search_filtering = False
-                self._search_bar.clear()
-                self._show_list_view()
+            if self._in_edit_mode():
+                self._cancel_edit()
                 return
             if self._search_active:
-                self._search_bar.clear()
-                self._search_active = False
-                self._search_filtering = False
-                self._load_repos()
-                self._app.layout.focus(self._repo_list_window)
-                self._app.invalidate()
+                self._cancel_search()
                 return
             if self._search_filtering:
-                self._search_bar.clear()
-                self._search_filtering = False
-                self._load_repos()
+                self._cancel_search()
+                return
+            # If focus is on detail, return to list
+            if self._focus_pane == "detail":
+                self._focus_pane = "list"
                 self._app.layout.focus(self._repo_list_window)
                 self._app.invalidate()
-                return
+
+        # ── Focus switching: Tab/→ → detail, ← → list ────────────────────
+        @kb.add(Keys.Tab, filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting))
+        def _(event):
+            if self._detail_panel is not None and self._focus_pane == "list":
+                self._focus_pane = "detail"
+                self._detail_panel.set_repo(self._repo_control.selected_repo())
+                self._app.layout.focus(self._detail_window)
+                self._app.invalidate()
+
+        @kb.add("right", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting and self._focus_pane == "list"))
+        def _(event):
+            if self._detail_panel is not None:
+                self._focus_pane = "detail"
+                self._detail_panel.set_repo(self._repo_control.selected_repo())
+                self._app.layout.focus(self._detail_window)
+                self._app.invalidate()
+
+        @kb.add("left", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting and self._focus_pane == "detail"))
+        def _(event):
+            self._focus_pane = "list"
+            self._app.layout.focus(self._repo_list_window)
+            self._app.invalidate()
 
         # ── Arrow keys — confirm search on down ────────────────────────────
         @kb.add("down", filter=Condition(lambda: self._search_active))
@@ -417,38 +476,41 @@ class BlinkApp:
             self._search_active = False
             if self._search_bar.text:
                 self._search_filtering = True
+            self._focus_pane = "list"
             self._app.layout.focus(self._repo_list_window)
             self._app.invalidate()
             return
 
         # ── Arrow keys — list view navigation ───────────────────────────────
-        @kb.add("down", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
-        @kb.add("s-down", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        @kb.add("down", filter=Condition(lambda: not self._search_active and self._focus_pane == "list" and not self._ide_selecting))
+        @kb.add("s-down", filter=Condition(lambda: not self._search_active and self._focus_pane == "list" and not self._ide_selecting))
         def _(event):
             self._repo_control.move_down()
+            self._sync_detail_panel()
             self._app.invalidate()
 
-        @kb.add("up", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
-        @kb.add("s-up", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        @kb.add("up", filter=Condition(lambda: not self._search_active and self._focus_pane == "list" and not self._ide_selecting))
+        @kb.add("s-up", filter=Condition(lambda: not self._search_active and self._focus_pane == "list" and not self._ide_selecting))
         def _(event):
             self._repo_control.move_up()
+            self._sync_detail_panel()
             self._app.invalidate()
 
         # ── Arrow keys — detail view line navigation ──────────────────────────
-        @kb.add("down", filter=Condition(lambda: self._detail_panel is not None and not self._search_active and not self._ide_selecting))
+        @kb.add("down", filter=Condition(lambda: self._focus_pane == "detail" and not self._search_active and not self._ide_selecting and not self._in_edit_mode()))
         def _(event):
             if self._detail_panel:
                 self._detail_panel.cursor_down()
                 self._app.invalidate()
 
-        @kb.add("up", filter=Condition(lambda: self._detail_panel is not None and not self._search_active and not self._ide_selecting))
+        @kb.add("up", filter=Condition(lambda: self._focus_pane == "detail" and not self._search_active and not self._ide_selecting and not self._in_edit_mode()))
         def _(event):
             if self._detail_panel:
                 self._detail_panel.cursor_up()
                 self._app.invalidate()
 
-        # ── Search ───────────────────────────────────────────────────────────
-        @kb.add("/", filter=Condition(lambda: not self._search_active and self._detail_panel is None))
+        # ── Search (available from both panes) ───────────────────────────────
+        @kb.add("/", filter=Condition(lambda: not self._search_active and not self._in_edit_mode()))
         def _(event):
             self._search_active = True
             self._search_filtering = False
@@ -457,52 +519,48 @@ class BlinkApp:
             self._app.invalidate()
 
         # ── Shift+I — open with preferred IDE ──────────────────────────────
-        @kb.add("I", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        @kb.add("I", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting))
         def _(event):
             self._trigger_footer_highlight()
-            if self._in_edit_mode():
-                return
             repo = self._get_active_repo()
             if repo:
                 self._trigger_open_ide(repo)
 
         # ── Shift+O — open with system default ─────────────────────────────
-        @kb.add("O", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        @kb.add("O", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting))
         def _(event):
             self._trigger_footer_highlight()
-            if self._in_edit_mode():
-                return
             repo = self._get_active_repo()
             if repo:
                 open_in_editor(repo.path, "o", self._editors)
 
-        @kb.add("P", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        @kb.add("P", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting))
         def _(event):
             self._trigger_footer_highlight()
-            repo = self._repo_control.selected_repo()
+            repo = self._get_active_repo()
             if repo:
                 copy_path(repo.path)
                 self._scan_status = f"Copied: {repo.path}"
                 self._app.invalidate()
                 self._start_timer(5.0, self._clear_scan_status)
 
-        @kb.add("R", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        @kb.add("R", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting))
         def _(event):
             self._trigger_footer_highlight()
-            if not self._scanning and not self._in_edit_mode():
+            if not self._scanning:
                 self._start_background_scan()
 
-        @kb.add("C", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        @kb.add("C", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting))
         def _(event):
             self._trigger_footer_highlight()
-            repo = self._repo_control.selected_repo()
+            repo = self._get_active_repo()
             if repo:
                 self._run_commit(repo)
 
-        @kb.add("U", filter=Condition(lambda: not self._search_active and self._detail_panel is None and not self._ide_selecting))
+        @kb.add("U", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting))
         def _(event):
             self._trigger_footer_highlight()
-            repo = self._repo_control.selected_repo()
+            repo = self._get_active_repo()
             if repo:
                 self._run_pull(repo)
 
@@ -515,21 +573,25 @@ class BlinkApp:
                 self._search_active = False
                 if self._search_bar.text:
                     self._search_filtering = True
+                self._focus_pane = "list"
                 self._app.layout.focus(self._repo_list_window)
                 self._app.invalidate()
                 return
-            if self._detail_panel is not None:
+            if self._focus_pane in ("detail", "edit") and self._detail_panel is not None:
                 self._detail_panel.handle_enter()
                 if self._detail_panel.is_editing:
-                    self._app.layout.focus(self._detail_status_window)
+                    self._focus_pane = "edit"
+                    self._app.layout.focus(self._edit_status_window)
                 else:
+                    self._focus_pane = "detail"
                     self._app.layout.focus(self._detail_window)
                 self._app.invalidate()
                 return
-            if self._mode == "list":
+            # List pane Enter = open IDE (same as Shift+I)
+            if self._focus_pane == "list":
                 repo = self._repo_control.selected_repo()
                 if repo:
-                    self._show_detail_view(repo)
+                    self._trigger_open_ide(repo)
 
         # ── Tag removal 1-9 (detail panel tag edit mode) ────────────────────
         for i in range(1, 10):
@@ -583,6 +645,26 @@ class BlinkApp:
 
         return kb
 
+    def _cancel_edit(self) -> None:
+        if self._detail_panel is not None:
+            self._detail_panel._edit_mode = None
+            self._detail_panel._alias_buffer = None
+            self._detail_panel._desc_buffer = None
+            self._detail_panel._tag_buffer = None
+            self._focus_pane = "detail"
+            self._app.layout.focus(self._detail_window)
+            self._app.invalidate()
+
+    def _cancel_search(self) -> None:
+        self._search_bar.clear()
+        self._search_active = False
+        self._search_filtering = False
+        self._load_repos()
+        self._sync_detail_panel()
+        self._focus_pane = "list"
+        self._app.layout.focus(self._repo_list_window)
+        self._app.invalidate()
+
     def _route_printable(self, char: str) -> None:
         if self._detail_panel is not None and self._detail_panel.is_editing:
             self._detail_panel.route_printable(char)
@@ -596,8 +678,6 @@ class BlinkApp:
     # ── repo helpers ─────────────────────────────────────────────────────────
 
     def _get_active_repo(self) -> Optional[Repo]:
-        if self._detail_panel is not None:
-            return self._detail_panel._repo
         return self._repo_control.selected_repo()
 
     # ── search ───────────────────────────────────────────────────────────────
@@ -710,8 +790,10 @@ class BlinkApp:
         style_key = "class:footer-key" if highlighted else "class:footer-dim-key"
         style_dim = "class:footer-highlight" if highlighted else "class:footer-dim"
         hints = [
-            ("Enter", "detail"), ("/", "search"),
-            ("Shift+I", "ide"), ("Shift+O", "open"), ("Shift+P", "path"), ("Shift+R", "rescan"), ("Shift+C", "commit"), ("Shift+U", "pull"),
+            ("Enter", "ide"), ("/", "search"),
+            ("Tab", "focus"),
+            ("Shift+I", "ide"), ("Shift+O", "open"), ("Shift+P", "path"),
+            ("Shift+R", "rescan"), ("Shift+C", "commit"), ("Shift+U", "pull"),
         ]
         parts: list[tuple[str, str]] = [("class:footer-dim", " ")]
         for i, (key, desc) in enumerate(hints):
@@ -822,52 +904,26 @@ class BlinkApp:
         self._pulling = False
         self._pull_spinner_index = 0
 
-    # ── view switching ──────────────────────────────────────────────────────
+    # ── repo refresh helpers ────────────────────────────────────────────────
 
-    def _show_detail_view(self, repo: Repo) -> None:
-        if repo.id is not None:
-            self._store.increment_view_count(repo.id)
-            repo.view_count += 1
-        self._detail_panel = DetailPanel(
-            repo=repo,
-            store=self._store,
-            editors=self._editors,
-            on_back=self._show_list_view,
-            on_alias_change=lambda alias: self._refresh_repo_alias(repo, alias),
-            on_tags_change=lambda: self._refresh_repo_tags(repo),
-            on_status_message=self._set_scan_status,
-            on_pin_change=lambda: self._refresh_repo_pin(repo),
-            on_open_ide=lambda: self._trigger_open_ide(repo),
-            on_commit=lambda: self._run_commit(repo),
-            on_pull=lambda: self._run_pull(repo),
-        )
-        self._mode = "detail"
-        layout = self._build_detail_layout()
-        self._app.layout = layout
-        layout.focus(self._detail_window)
-        self._app.invalidate()
-
-    def _show_list_view(self) -> None:
-        self._detail_panel = None
-        self._mode = "list"
-        self._app.layout = self._list_layout
-        self._app.layout.focus(self._repo_list_window)
-        self._app.invalidate()
-
-    def _refresh_repo_alias(self, repo: Repo, alias: str) -> None:
+    def _refresh_repo_alias(self) -> None:
         self._load_repos()
+        self._sync_detail_panel()
 
-    def _refresh_repo_tags(self, repo: Repo) -> None:
+    def _refresh_repo_tags(self) -> None:
         self._load_repos()
+        self._sync_detail_panel()
 
-    def _refresh_repo_pin(self, repo: Repo) -> None:
+    def _refresh_repo_pin(self) -> None:
         self._load_repos()
+        self._sync_detail_panel()
 
     # ── repo loading ────────────────────────────────────────────────────────
 
     def _on_search_change(self, text: str) -> None:
         repos = self._store.search_repos(text)
         self._repo_control.set_repos(repos)
+        self._sync_detail_panel()
         self._app.invalidate()
 
     def _load_repos(self) -> None:
@@ -885,6 +941,7 @@ class BlinkApp:
                 remote.repo_id = rid
                 self._store.upsert_remote(remote)
             self._load_repos()
+            self._sync_detail_panel()
 
         def done(results: List[ScanResult]) -> None:
             self._scanning = False
@@ -951,6 +1008,7 @@ class BlinkApp:
             on_done=lambda: None,
         )
         self._load_repos()
+        self._sync_detail_panel()
         self._scan_status = ""
         self._app.invalidate()
 
@@ -973,6 +1031,7 @@ class BlinkApp:
         def on_status(repo_id: int, status: RepoStatus) -> None:
             self._store.upsert_status(repo_id, status)
             self._load_repos()
+            self._sync_detail_panel()
             self._app.invalidate()
 
         def on_error(repo_id: int) -> None:
