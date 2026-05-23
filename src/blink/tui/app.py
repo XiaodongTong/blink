@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
+import webbrowser
 from typing import Callable, Dict, List, Optional
 
 from prompt_toolkit import Application
@@ -23,7 +24,7 @@ from blink.scanner import Scanner, ScanResult, StatusFetcher, check_pull_prereqs
 from blink.tui.repo_list import RepoListControl, RepoListWindow
 from blink.tui.search import SearchBar
 from blink.tui.actions import EditorInfo, IDE_CHOICES, copy_path, detect_editors, open_in_editor
-from blink.tui.detail import DetailPanel
+from blink.tui.detail import DetailPanel, _remote_to_https
 
 _COMMIT_SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 _NARROW_THRESHOLD = 80
@@ -194,6 +195,10 @@ class BlinkApp:
             on_commit=lambda: self._run_commit(self._get_active_repo()),
             on_pull=lambda: self._run_pull(self._get_active_repo()),
             on_action=lambda: self._increment_view_count(),
+            on_copy_path=lambda: self._copy_repo_path(),
+            on_open_finder=lambda: self._open_finder(),
+            on_open_git=lambda: self._open_git_in_browser(),
+            on_add_task=lambda: self._run_add_task(),
         )
 
     def _sync_detail_panel(self) -> None:
@@ -211,6 +216,57 @@ class BlinkApp:
         if repo and repo.id is not None:
             self._store.increment_view_count(repo.id)
             repo.view_count += 1
+
+    def _copy_repo_path(self) -> None:
+        repo = self._get_active_repo()
+        if repo:
+            copy_path(repo.path)
+            self._scan_status = f"Copied: {repo.path}"
+            self._app.invalidate()
+            self._start_timer(3.0, self._clear_scan_status)
+
+    def _open_finder(self) -> None:
+        repo = self._get_active_repo()
+        if repo:
+            open_in_editor(repo.path, "o", self._editors)
+
+    def _open_git_in_browser(self) -> None:
+        repo = self._get_active_repo()
+        if not repo:
+            return
+        if not repo.remotes:
+            self._set_scan_status("No remote URL")
+            return
+        https = _remote_to_https(repo.remotes[0].url)
+        if not https:
+            self._set_scan_status("Cannot convert remote URL to HTTPS")
+            return
+        webbrowser.open(https)
+        self._set_scan_status(f"Opened: {https}")
+
+    def _run_add_task(self) -> None:
+        import shutil
+        import subprocess
+        repo = self._get_active_repo()
+        if not repo:
+            return
+        if not shutil.which("tloop"):
+            self._set_scan_status("未安装 tloop")
+            return
+        proc = subprocess.Popen(
+            ["tloop", "edit", repo.path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+
+        def wait_and_notify():
+            proc.wait()
+            if proc.returncode == 0:
+                self._start_timer(0.1, lambda: self._set_scan_status("✓ 任务已添加"))
+            else:
+                self._start_timer(0.1, lambda: self._set_scan_status("✗ 任务添加失败"))
+
+        t = threading.Thread(target=wait_and_notify, daemon=True)
+        t.start()
 
     # ── layouts ─────────────────────────────────────────────────────────────
 
@@ -564,6 +620,18 @@ class BlinkApp:
             if repo:
                 self._run_pull(repo)
 
+        # ── Shift+G — open in browser ────────────────────────────────────
+        @kb.add("G", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting))
+        def _(event):
+            self._trigger_footer_highlight()
+            self._open_git_in_browser()
+
+        # ── Shift+T — add todo task ──────────────────────────────────────
+        @kb.add("T", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting))
+        def _(event):
+            self._trigger_footer_highlight()
+            self._run_add_task()
+
         # ── Enter ────────────────────────────────────────────────────────────
         @kb.add("enter")
         def _(event):
@@ -792,8 +860,8 @@ class BlinkApp:
         hints = [
             ("Enter", "ide"), ("/", "search"),
             ("Tab", "focus"),
-            ("Shift+I", "ide"), ("Shift+O", "open"), ("Shift+P", "path"),
-            ("Shift+R", "rescan"), ("Shift+C", "commit"), ("Shift+U", "pull"),
+            ("Shift+R", "rescan"), ("Shift+G", "browser"),
+            ("Shift+T", "task"), ("Shift+U", "pull"),
         ]
         parts: list[tuple[str, str]] = [("class:footer-dim", " ")]
         for i, (key, desc) in enumerate(hints):

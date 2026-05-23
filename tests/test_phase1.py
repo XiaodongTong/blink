@@ -162,17 +162,27 @@ def _make_detail_panel(repo=None):
     )
 
 
-def test_detail_panel_has_4_local_marker_lines():
-    assert DetailPanel.MAX_LINE == 3
+def test_detail_panel_has_action_and_marker_lines():
+    assert DetailPanel.MAX_LINE == 9
     assert hasattr(DetailPanel, "LINE_PINNED")
     assert hasattr(DetailPanel, "LINE_ALIAS")
     assert hasattr(DetailPanel, "LINE_TAGS")
     assert hasattr(DetailPanel, "LINE_DESC")
+    assert hasattr(DetailPanel, "LINE_IDE")
+    assert hasattr(DetailPanel, "LINE_PATH")
+    assert hasattr(DetailPanel, "LINE_COMMIT")
+    assert hasattr(DetailPanel, "LINE_FINDER")
+    assert hasattr(DetailPanel, "LINE_GIT")
+    assert hasattr(DetailPanel, "LINE_TASK")
 
 
-def test_detail_panel_no_operation_line_constants():
-    for attr in ("LINE_IDE", "LINE_FINDER", "LINE_TLOOP", "LINE_COMMIT", "LINE_PULL"):
-        assert not hasattr(DetailPanel, attr)
+def test_detail_panel_action_line_constants():
+    assert DetailPanel.LINE_IDE == 0
+    assert DetailPanel.LINE_PATH == 1
+    assert DetailPanel.LINE_COMMIT == 2
+    assert DetailPanel.LINE_FINDER == 3
+    assert DetailPanel.LINE_GIT == 4
+    assert DetailPanel.LINE_TASK == 5
 
 
 # ── Shortcut passthrough filter ──────────────────────────────────────────
@@ -187,7 +197,7 @@ def test_shift_keys_work_in_detail_view():
     kb = app._build_key_bindings()
     # The dedicated shift-gated bindings use "not self._in_edit_mode()" filter.
     # Check that at least one binding per shift key is active in detail view.
-    shift_keys = {"I", "O", "P", "C", "U"}
+    shift_keys = {"I", "O", "P", "C", "U", "G", "T"}
     active_keys = set()
     for reg in kb.bindings:
         for key in reg.keys:

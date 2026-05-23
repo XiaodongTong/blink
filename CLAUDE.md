@@ -37,11 +37,11 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 
 **TUI** (`src/blink/tui/`):
 
-- `app.py` — Main `BlinkApp` class. Composes two-column `VSplit` layout (left repo list ~40% width, right detail panel ~60%). Manages three-state focus pane (`_focus_pane`: `"list"` / `"detail"` / `"edit"`). All key bindings, search state machine, exit mechanism, edit-mode input routing, background scan orchestration, and background status fetching live here. Styles defined in `_build_style()` using GitHub dark theme colors. Narrow terminal (<80 cols) hides right panel via `ConditionalContainer`.
+- `app.py` — Main `BlinkApp` class. Composes two-column `VSplit` layout (left repo list ~40% width, right detail panel ~60%). Manages three-state focus pane (`_focus_pane`: `"list"` / `"detail"` / `"edit"`). All key bindings, search state machine, exit mechanism, edit-mode input routing, background scan orchestration, and background status fetching live here. Callbacks for detail panel actions: `_open_git_in_browser()` (webbrowser.open), `_run_add_task()` (tloop edit), `_copy_repo_path()`, `_open_finder()`. Key bindings Shift+I/O/P/C/G/T/R/U wired with search/edit/IDE-selecting filters. Styles defined in `_build_style()` using GitHub dark theme colors. Narrow terminal (<80 cols) hides right panel via `ConditionalContainer`.
 - `repo_list.py` — Custom `UIControl`/`Window` for the two-line repo list. Each repo renders as: line 1 = indicator + `★` (if pinned) + name/alias + tags, line 2 = path + right-aligned status badge (`branch ● +N ↑N ↓N`). Supports Nerd Font icons when `config.nerd_fonts` is True. Selected items pad lines to full width for consistent background fill. Badge uses CJK-aware width calculation via `display_width()`.
 - `search.py` — `SearchBar` wrapping a `prompt_toolkit.Buffer`. Visibility controlled by `ConditionalContainer` in app layout.
 - `actions.py` — Editor detection and launch (VSCode, Cursor, Antigravity, system open), clipboard via `pbcopy`. `IDE_CHOICES` defines the three IDE options for the unified IDE selection flow.
-- `detail.py` — `DetailPanel` class rendering repo info in three sections: Metadata (Name/Path/Git/Status, read-only), Local Markers (Pinned/Alias/Tags/Desc, cursor-navigable), and Shortcuts (static hints). 4 cursor-navigable rows (MAX_LINE=3). Supports `set_repo(repo)` for real-time sync, inline alias/desc edit, tag management, and pin toggle.
+- `detail.py` — `DetailPanel` class rendering repo info in three sections: Metadata (Name/Path/Git/Status, read-only), Actions (IDE/Path/Commit/Finder/Git/Task, cursor-navigable indices 0–5), and Local Markers (Pinned/Alias/Tags/Desc, cursor-navigable indices 6–9). 10 cursor-navigable rows (MAX_LINE=9). Supports `set_repo(repo)` for real-time sync, inline alias/desc edit, tag management, pin toggle, and action callbacks. `_remote_to_https()` at module level converts SSH URLs to HTTPS for browser opening.
 - `icons.py` — Nerd Font icon constants with ASCII fallbacks. `get_icon(nerd_fonts, nf_char, ascii_char)` selects the appropriate character.
 
 **Data flow**: Scanner finds git dirs → creates `ScanResult(repo, remotes)` → Store upserts into SQLite → TUI loads from Store for display/search. StatusFetcher fetches git status → Store upserts into `repo_status` → TUI reloads repos (with status via LEFT JOIN) for badge display. List navigation triggers `_sync_detail_panel()` which calls `detail_panel.set_repo(repo)` for real-time right-panel updates.
@@ -62,12 +62,17 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 │                      │     Git       https://github.com/...         │
 │                      │     Status    main ●                        │
 │                      │ ─────────────────────────────────────────── │
+│                      │   ▸ IDE       Open with IDE   [Shift+I]     │
+│                      │     Path      Copy repo path  [Shift+P]     │
+│                      │     Commit    Commit changes  [Shift+C]     │
+│                      │     Finder    Open in Finder  [Shift+O]     │
+│                      │     Git       Open in browser [Shift+G]     │
+│                      │     Task      Add todo task   [Shift+T]     │
+│                      │ ─────────────────────────────────────────── │
 │                      │   ▸ Pinned    No        ← cursor row        │
 │                      │     Alias     (none)                        │
 │                      │     Tags      [python] [api]                │
 │                      │     Desc      description                   │
-│                      │ ─────────────────────────────────────────── │
-│                      │   Shift+I:ide  Shift+O:open  ...            │
 │ ──────────────────   │ ──────────────────────────────────────────  │
 ├───────────────────────┴─────────────────────────────────────────────┤
 │ status bar / edit input                                             │
@@ -89,8 +94,8 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
   - 排序规则：置顶优先 → 查看次数降序 → 名称升序
 - **详情面板**（detail panel）— 右侧面板，约 60% 宽度，三个区域：
   - **Metadata 区域**（只读）：Name/Path/Git/Status，不可选中
-  - **Local Markers 区域**（可选中）：Pinned(0)/Alias(1)/Tags(2)/Desc(3)，`↑`/`↓` 导航，Enter 执行操作
-  - **Shortcuts 区域**（静态）：显示 Shift+I/O/P/C/U 快捷键提示
+  - **Actions 区域**（可选中）：IDE(0)/Path(1)/Commit(2)/Finder(3)/Git(4)/Task(5)，`↑`/`↓` 导航，Enter 执行操作，选中行显示快捷键徽标
+  - **Local Markers 区域**（可选中）：Pinned(6)/Alias(7)/Tags(8)/Desc(9)，`↑`/`↓` 导航，Enter 执行操作
 - **状态栏**（status bar）— 显示选中项目的描述和路径；编辑态时显示输入内容和光标；过滤态下显示搜索词和结果数
 - **快捷键栏**（footer）— 显示主要快捷键，按 Shift+操作键时短暂高亮 2 秒
 - **焦点状态**（focus pane）— 三态：`"list"` / `"detail"` / `"edit"`
@@ -111,10 +116,12 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 | `Shift+P` | 复制仓库路径到剪贴板 | list, detail |
 | `Shift+R` | 重新扫描文件系统 | list, detail |
 | `Shift+C` | 提交代码 | list, detail |
+| `Shift+G` | 在浏览器中打开远程仓库 | list, detail |
+| `Shift+T` | 添加 Todo 任务（tloop edit） | list, detail |
 | `Shift+U` | 拉取最新代码 | list, detail |
 | `Ctrl+C` ×2 | 退出程序（2秒内按两次）| any |
 
-- 编辑态下全局快捷键（Shift+I/O/P/C/U）被屏蔽
+- 编辑态下全局快捷键（Shift+I/O/P/C/G/T/U）被屏蔽
 - 编辑态下 `↑`/`↓` 被屏蔽，Enter 保存，Esc/Ctrl+C 取消
 - `Esc` 不退出程序，用于取消编辑/搜索/焦点切换
 
@@ -129,12 +136,12 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 
 编辑模式在详情面板的 Local Markers 区域触发：
 
-- **Pinned** — Enter 直接切换置顶状态
-- **Alias** — Enter 进入别名编辑态，Enter 保存，Esc/Ctrl+C 取消
-- **Tags** — Enter 进入标签编辑态，输入+Enter 添加，`1`~`9` 按序号删除，Esc/Ctrl+C 退出
-- **Description** — Enter 进入描述编辑态，Enter 保存，Esc/Ctrl+C 取消
+- **Pinned**（光标行 6）— Enter 直接切换置顶状态
+- **Alias**（光标行 7）— Enter 进入别名编辑态，Enter 保存，Esc/Ctrl+C 取消
+- **Tags**（光标行 8）— Enter 进入标签编辑态，输入+Enter 添加，`1`~`9` 按序号删除，Esc/Ctrl+C 退出
+- **Description**（光标行 9）— Enter 进入描述编辑态，Enter 保存，Esc/Ctrl+C 取消
 - 编辑时状态栏显示输入内容和光标，详情面板行保持原始值不变
-- `view_count` 仅在编辑操作（别名/标签/描述/置顶）时递增，光标移动不递增
+- `view_count` 仅在 Local Markers 编辑操作（别名/标签/描述/置顶）时递增；Actions 行操作不递增
 
 ## Key Patterns
 
@@ -143,7 +150,7 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 - StatusFetcher's `run_fetch(repos, blocking, on_status, on_error, on_done)` follows the same threaded pattern. On per-repo failure, calls `on_error(repo_id)` instead of upserting, preserving cached status. The TUI shows `⚠` for error repos via `RepoListControl.error_repo_ids`. Status fetch is triggered on startup and on Shift+R rescan completion.
 - TUI uses `app.invalidate()` to trigger re-renders after state changes
 - Config falls back to defaults if the file is missing or corrupted, and rewrites it. `nerd_fonts` config key (default `false`) controls icon rendering.
-- Detail panel uses `set_repo(repo)` for real-time sync with list selection. Cursor only covers Local Markers rows (0-3: Pinned/Alias/Tags/Desc). Metadata rows are display-only.
+- Detail panel uses `set_repo(repo)` for real-time sync with list selection. Cursor covers Actions rows (0-5: IDE/Path/Commit/Finder/Git/Task) and Local Markers rows (6-9: Pinned/Alias/Tags/Desc). Metadata rows are display-only.
 - Single VSplit layout with `_focus_pane` three-state management (`"list"` / `"detail"` / `"edit"`). Focus switching updates border highlight styles dynamically. No layout replacement — focus is managed within the same layout.
 - Search area completely hidden by default via `ConditionalContainer`. Available from both focus panes.
 - Key bindings use `Condition` filters for focus-dependent behavior. `←`/`→` handle both IDE selection (eager) and focus switching based on filter priority.

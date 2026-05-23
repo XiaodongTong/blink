@@ -98,7 +98,7 @@ def test_cursor_down_at_max():
     panel = _make_detail_panel()
     for _ in range(15):
         panel.cursor_down()
-    assert panel._cursor_index == DetailPanel.MAX_LINE
+    assert panel._cursor_index == 9
 
 
 def test_cursor_up_at_zero():
@@ -344,17 +344,22 @@ def test_handle_enter_pinned_toggles():
 
 
 def test_detail_panel_line_constants():
-    assert DetailPanel.LINE_PINNED == 0
-    assert DetailPanel.LINE_ALIAS == 1
-    assert DetailPanel.LINE_TAGS == 2
-    assert DetailPanel.LINE_DESC == 3
-    assert DetailPanel.MAX_LINE == 3
+    assert DetailPanel.LINE_IDE == 0
+    assert DetailPanel.LINE_PATH == 1
+    assert DetailPanel.LINE_COMMIT == 2
+    assert DetailPanel.LINE_FINDER == 3
+    assert DetailPanel.LINE_GIT == 4
+    assert DetailPanel.LINE_TASK == 5
+    assert DetailPanel.LINE_PINNED == 6
+    assert DetailPanel.LINE_ALIAS == 7
+    assert DetailPanel.LINE_TAGS == 8
+    assert DetailPanel.LINE_DESC == 9
+    assert DetailPanel.MAX_LINE == 9
 
 
-def test_detail_panel_no_operation_line_constants():
-    for attr in ("LINE_IDE", "LINE_FINDER", "LINE_TLOOP", "LINE_COMMIT", "LINE_PULL",
-                  "LINE_NAME", "LINE_PATH", "LINE_GIT", "LINE_STATUS"):
-        assert not hasattr(DetailPanel, attr)
+def test_detail_panel_action_line_constants():
+    for attr in ("LINE_IDE", "LINE_PATH", "LINE_COMMIT", "LINE_FINDER", "LINE_GIT", "LINE_TASK"):
+        assert hasattr(DetailPanel, attr)
 
 
 # ── status row ─────────────────────────────────────────────────────────────
@@ -388,24 +393,26 @@ def test_detail_panel_status_before_pinned():
 # ── shortcut hints ───────────────────────────────────────────────────────
 
 
-def test_detail_panel_renders_shortcut_hints():
+def test_detail_panel_renders_action_shortcuts():
     panel = _make_detail_panel()
     t = _to_plain(panel._formatted_text())
     assert "Shift+I" in t
     assert "Shift+O" in t
     assert "Shift+P" in t
     assert "Shift+C" in t
-    assert "Shift+U" in t
+    assert "Shift+G" in t
+    assert "Shift+T" in t
 
 
-def test_detail_panel_no_operation_rows():
+def test_detail_panel_renders_action_rows():
     panel = _make_detail_panel()
     t = _to_plain(panel._formatted_text())
-    assert "Open with IDE" not in t
-    assert "Open with Finder" not in t
-    assert "Add Todo Loop Task" not in t
-    assert "Commit Changes" not in t
-    assert "Pull Latest" not in t
+    assert "Open with IDE" in t
+    assert "Open in Finder" in t
+    assert "Add todo task" in t
+    assert "Commit changes" in t
+    assert "Open in browser" in t
+    assert "Copy repo path" in t
 
 
 # ── set_repo ──────────────────────────────────────────────────────────────
@@ -474,3 +481,102 @@ def test_on_action_called_on_desc_edit():
     panel._cursor_index = DetailPanel.LINE_DESC
     panel.handle_enter()
     assert actions == [True]
+
+
+# ── actions section ────────────────────────────────────────────────────────
+
+
+def test_actions_section_renders_6_rows():
+    panel = _make_detail_panel()
+    t = _to_plain(panel._formatted_text())
+    assert "IDE" in t
+    assert "Path" in t
+    assert "Commit" in t
+    assert "Finder" in t
+    assert "Git" in t
+    assert "Task" in t
+
+
+def test_actions_triggers_callbacks():
+    callbacks = []
+    panel = _make_detail_panel()
+    panel._on_open_ide = lambda: callbacks.append("ide")
+    panel._on_copy_path = lambda: callbacks.append("path")
+    panel._on_commit = lambda: callbacks.append("commit")
+    panel._on_open_finder = lambda: callbacks.append("finder")
+    panel._on_open_git = lambda: callbacks.append("git")
+    panel._on_add_task = lambda: callbacks.append("task")
+
+    panel._cursor_index = DetailPanel.LINE_IDE
+    panel.handle_enter()
+    panel._cursor_index = DetailPanel.LINE_PATH
+    panel.handle_enter()
+    panel._cursor_index = DetailPanel.LINE_COMMIT
+    panel.handle_enter()
+    panel._cursor_index = DetailPanel.LINE_FINDER
+    panel.handle_enter()
+    panel._cursor_index = DetailPanel.LINE_GIT
+    panel.handle_enter()
+    panel._cursor_index = DetailPanel.LINE_TASK
+    panel.handle_enter()
+
+    assert callbacks == ["ide", "path", "commit", "finder", "git", "task"]
+
+
+def test_actions_do_not_increment_view_count():
+    actions = []
+    panel = _make_detail_panel()
+    panel._on_action = lambda: actions.append(True)
+
+    for idx in range(6):
+        panel._cursor_index = idx
+        panel.handle_enter()
+
+    assert actions == []
+
+
+def test_selected_action_row_shows_indicator():
+    panel = _make_detail_panel()
+    panel._cursor_index = DetailPanel.LINE_IDE
+    t = _to_plain(panel._formatted_text())
+    assert "▸" in t
+
+
+def test_actions_section_between_metadata_and_markers():
+    panel = _make_detail_panel()
+    t = _to_plain(panel._formatted_text())
+    name_pos = t.index("Name")
+    ide_pos = t.index("IDE")
+    pinned_pos = t.index("Pinned")
+    assert name_pos < ide_pos < pinned_pos
+
+
+def test_no_static_shortcut_hints_section():
+    panel = _make_detail_panel()
+    t = _to_plain(panel._formatted_text())
+    lines = [l for l in t.split("\n") if l.strip()]
+    last_line = lines[-1]
+    assert "Shift+I:IDE" not in last_line
+    assert "Shift+O:Finder" not in last_line
+
+
+def test_marker_cursor_indices():
+    assert DetailPanel.LINE_PINNED == 6
+    assert DetailPanel.LINE_ALIAS == 7
+    assert DetailPanel.LINE_TAGS == 8
+    assert DetailPanel.LINE_DESC == 9
+
+
+def test_cursor_navigates_full_range():
+    panel = _make_detail_panel()
+    assert panel._cursor_index == 0
+    for expected in range(1, 10):
+        panel.cursor_down()
+        assert panel._cursor_index == expected
+    panel.cursor_down()
+    assert panel._cursor_index == 9
+    for expected in range(8, -1, -1):
+        panel.cursor_up()
+        assert panel._cursor_index == expected
+    panel.cursor_up()
+    assert panel._cursor_index == 0

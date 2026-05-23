@@ -183,7 +183,7 @@ def test_shift_keys_present(app_with_store):
     for reg in kb.bindings:
         for k in reg.keys:
             bound_keys.append(k.value if hasattr(k, 'value') else str(k))
-    for expected in ("I", "O", "R", "s-up", "s-down"):
+    for expected in ("I", "O", "R", "G", "T", "s-up", "s-down"):
         assert expected in bound_keys, f"Missing Shift-gated key: {expected}"
 
 
@@ -191,7 +191,7 @@ def test_shift_keys_blocked_during_search(app_with_store):
     app, store, rid = app_with_store
     app._search_active = True
     kb = app._build_key_bindings()
-    shift_keys = {"I", "O", "R", "s-up"}
+    shift_keys = {"I", "O", "R", "G", "T", "s-up"}
     for reg in kb.bindings:
         for key in reg.keys:
             key_str = key.value if hasattr(key, 'value') else str(key)
@@ -351,3 +351,66 @@ def test_search_available_from_both_panes(app_with_store):
                 except Exception:
                     pass
     assert found, "/ should be available in list pane"
+
+
+# --- New key bindings (Shift+G, Shift+T) ---
+
+
+def test_shift_g_and_t_keys_present(app_with_store):
+    app, store, rid = app_with_store
+    kb = app._build_key_bindings()
+    bound_keys = []
+    for reg in kb.bindings:
+        for k in reg.keys:
+            bound_keys.append(k.value if hasattr(k, 'value') else str(k))
+    assert "G" in bound_keys, "Missing Shift+G key binding"
+    assert "T" in bound_keys, "Missing Shift+T key binding"
+
+
+def test_shift_g_and_t_blocked_during_search(app_with_store):
+    app, store, rid = app_with_store
+    app._search_active = True
+    kb = app._build_key_bindings()
+    for reg in kb.bindings:
+        for key in reg.keys:
+            key_str = key.value if hasattr(key, 'value') else str(key)
+            if key_str in ("G", "T"):
+                assert reg.filter is not None, f"Shift key '{key_str}' missing search filter"
+                assert not reg.filter(), f"Shift key '{key_str}' should be blocked during search"
+
+
+def test_shift_g_and_t_blocked_during_edit(app_with_store):
+    app, store, rid = app_with_store
+    panel = MagicMock()
+    panel.is_editing = True
+    panel.edit_mode = "alias"
+    app._detail_panel = panel
+    kb = app._build_key_bindings()
+    # Check that the non-eager G/T bindings (Shift+action, not printable routing) are blocked
+    for reg in kb.bindings:
+        for key in reg.keys:
+            key_str = key.value if hasattr(key, 'value') else str(key)
+            if key_str in ("G", "T") and not reg.eager():
+                assert reg.filter is not None
+                assert not reg.filter(), f"Shift key '{key_str}' should be blocked during edit"
+
+
+# --- Footer hints ---
+
+
+def test_footer_no_shift_i_o_p_c_hints(app_with_store):
+    app, store, rid = app_with_store
+    footer = app._footer_text()
+    footer_str = "".join(t[1] for t in footer)
+    assert "Shift+I" not in footer_str
+    assert "Shift+O" not in footer_str
+    assert "Shift+P" not in footer_str
+    assert "Shift+C" not in footer_str
+
+
+def test_footer_has_shift_g_and_t_hints(app_with_store):
+    app, store, rid = app_with_store
+    footer = app._footer_text()
+    footer_str = "".join(t[1] for t in footer)
+    assert "Shift+G" in footer_str
+    assert "Shift+T" in footer_str

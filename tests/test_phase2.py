@@ -252,9 +252,9 @@ def test_detail_metadata_displayed():
 def test_detail_local_markers_have_cursor():
     panel = _make_panel()
     panel._cursor_index = DetailPanel.LINE_PINNED
-    assert panel._cursor_index == 0
+    assert panel._cursor_index == 6
     panel._cursor_index = DetailPanel.LINE_DESC
-    assert panel._cursor_index == 3
+    assert panel._cursor_index == 9
 
 
 def test_detail_shortcuts_displayed():
@@ -262,7 +262,8 @@ def test_detail_shortcuts_displayed():
     from prompt_toolkit.formatted_text import to_plain_text
     t = to_plain_text(panel._formatted_text())
     assert "Shift+I" in t
-    assert "Shift+U" in t
+    assert "Shift+G" in t
+    assert "Shift+T" in t
 
 
 # ── Sync detail panel ──────────────────────────────────────────────────

@@ -43,8 +43,8 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 
 右侧详情面板分三个区域：
 - **基础信息**（只读）：Name、Path、Git、Status
+- **操作区**（可选中，Enter 执行）：IDE、Path、Commit、Finder、Git（在浏览器中打开）、Task（添加 Todo 任务）
 - **本地标记**（可编辑）：Pinned、Alias、Tags、Description
-- **快捷操作**（静态提示）：全局快捷键参考
 
 当终端宽度不足 80 列时，自动降级为仅显示左侧列表。
 
@@ -62,6 +62,8 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 | `Shift+P` | 复制仓库路径到剪贴板 |
 | `Shift+R` | 重新扫描文件系统 |
 | `Shift+C` | 提交代码（`tloop commit`） |
+| `Shift+G` | 在浏览器中打开远程仓库 |
+| `Shift+T` | 添加 Todo 任务（`tloop edit`） |
 | `Shift+U` | 拉取最新代码（`git pull`） |
 | `Ctrl+C` ×2 | 退出程序（2 秒内按两次） |
 
@@ -69,6 +71,12 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 
 使用 `Tab` 或 `→` 将焦点移至右侧面板，`↑`/`↓` 选择行，`Enter` 执行操作：
 
+- **IDE** — 用 IDE 打开仓库
+- **Path** — 复制仓库路径到剪贴板
+- **Commit** — 提交代码（`tloop commit`）
+- **Finder** — 在 Finder 中打开
+- **Git** — 在浏览器中打开远程仓库
+- **Task** — 添加 Todo 任务（`tloop edit`）
 - **Pinned** — 切换置顶状态
 - **Alias** — 编辑别名（Enter 保存，Esc 取消）
 - **Tags** — 管理标签（输入+Enter 添加，数字键按序号删除）

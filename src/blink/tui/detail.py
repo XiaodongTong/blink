@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import webbrowser
 from typing import Callable, List, Optional
 
 from prompt_toolkit.buffer import Buffer
@@ -11,7 +10,7 @@ from prompt_toolkit.layout.controls import UIContent, UIControl
 
 from blink.models import Repo, RepoStatus
 from blink.store import Store
-from blink.tui.actions import EditorInfo, copy_path, open_in_editor
+from blink.tui.actions import EditorInfo
 
 
 def _remote_to_https(url: str) -> str | None:
@@ -25,19 +24,35 @@ def _remote_to_https(url: str) -> str | None:
 
 
 class DetailPanel(UIControl):
-    # Cursor-navigable rows (Local Markers only)
-    LINE_PINNED = 0
-    LINE_ALIAS = 1
-    LINE_TAGS = 2
-    LINE_DESC = 3
-    MAX_LINE = 3
+    # Cursor-navigable rows: Actions (0–5) + Local Markers (6–9)
+    LINE_IDE = 0
+    LINE_PATH = 1
+    LINE_COMMIT = 2
+    LINE_FINDER = 3
+    LINE_GIT = 4
+    LINE_TASK = 5
+    LINE_PINNED = 6
+    LINE_ALIAS = 7
+    LINE_TAGS = 8
+    LINE_DESC = 9
+    MAX_LINE = 9
 
-    _SHORTCUT_HINTS = [
-        ("Shift+I", "IDE open"),
-        ("Shift+O", "Finder"),
-        ("Shift+P", "Copy path"),
-        ("Shift+C", "Commit"),
-        ("Shift+U", "Pull"),
+    _ACTION_SHORTCUTS: dict[int, str] = {
+        0: "Shift+I",
+        1: "Shift+P",
+        2: "Shift+C",
+        3: "Shift+O",
+        4: "Shift+G",
+        5: "Shift+T",
+    }
+
+    _ACTION_ITEMS = [
+        ("IDE     ", "Open with IDE"),
+        ("Path    ", "Copy repo path"),
+        ("Commit  ", "Commit changes"),
+        ("Finder  ", "Open in Finder"),
+        ("Git     ", "Open in browser"),
+        ("Task    ", "Add todo task"),
     ]
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
@@ -48,7 +63,11 @@ class DetailPanel(UIControl):
                  on_open_ide: Callable[[], None] = lambda: None,
                  on_commit: Callable[[], None] = lambda: None,
                  on_pull: Callable[[], None] = lambda: None,
-                 on_action: Callable[[], None] = lambda: None) -> None:
+                 on_action: Callable[[], None] = lambda: None,
+                 on_copy_path: Callable[[], None] = lambda: None,
+                 on_open_finder: Callable[[], None] = lambda: None,
+                 on_open_git: Callable[[], None] = lambda: None,
+                 on_add_task: Callable[[], None] = lambda: None) -> None:
         self._repo = repo
         self._store = store
         self._editors = editors
@@ -61,6 +80,10 @@ class DetailPanel(UIControl):
         self._on_commit = on_commit
         self._on_pull = on_pull
         self._on_action = on_action
+        self._on_copy_path = on_copy_path
+        self._on_open_finder = on_open_finder
+        self._on_open_git = on_open_git
+        self._on_add_task = on_add_task
 
         self._cursor_index = 0
         self._edit_mode: str | None = None
@@ -110,17 +133,29 @@ class DetailPanel(UIControl):
             return True
 
         line = self._cursor_index
-        if line == self.LINE_ALIAS:
-            self._start_alias_edit()
+        if line == self.LINE_IDE:
+            self._on_open_ide()
+        elif line == self.LINE_PATH:
+            self._on_copy_path()
+        elif line == self.LINE_COMMIT:
+            self._on_commit()
+        elif line == self.LINE_FINDER:
+            self._on_open_finder()
+        elif line == self.LINE_GIT:
+            self._on_open_git()
+        elif line == self.LINE_TASK:
+            self._on_add_task()
+        elif line == self.LINE_PINNED:
+            self._toggle_pin()
             self._on_action()
-        elif line == self.LINE_DESC:
-            self._start_desc_edit()
+        elif line == self.LINE_ALIAS:
+            self._start_alias_edit()
             self._on_action()
         elif line == self.LINE_TAGS:
             self._start_tags_edit()
             self._on_action()
-        elif line == self.LINE_PINNED:
-            self._toggle_pin()
+        elif line == self.LINE_DESC:
+            self._start_desc_edit()
             self._on_action()
         return True
 
@@ -281,6 +316,31 @@ class DetailPanel(UIControl):
                 fragments.append(("class:" + pad_cls, " " * (width - line_len)))
         return fragments
 
+    def _build_action_line(self, label: str, desc: str, selected: bool, width: int = 0, *, index: int = 0) -> List[tuple[str, str]]:
+        shortcut = self._ACTION_SHORTCUTS.get(index, "")
+        if selected:
+            fragments: List[tuple[str, str]] = [
+                ("class:detail-indicator", "  ▸ "),
+                ("class:detail-label-sel", label),
+                ("class:detail-selected", desc),
+                ("class:detail-selected", " "),
+            ]
+            if shortcut:
+                fragments.append(("class:detail-selected", f"[{shortcut}]"))
+            line_len = sum(len(t) for _, t in fragments)
+            if line_len < width:
+                fragments.append(("class:detail-selected", " " * (width - line_len)))
+        else:
+            fragments = [
+                ("class:dim", "    "),
+                ("class:label", label),
+                ("class:dim", desc),
+                ("class:dim", " "),
+            ]
+            if shortcut:
+                fragments.append(("class:detail-shortcut-dim", f"[{shortcut}]"))
+        return fragments
+
     def _build_lines(self, width: int) -> List[List[tuple[str, str]]]:
         cur = self._cursor_index
 
@@ -302,7 +362,14 @@ class DetailPanel(UIControl):
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
-        # ── Local Markers section (cursor-navigable) ──
+        # ── Actions section (cursor-navigable, indices 0–5) ──
+        for i, (label, desc) in enumerate(self._ACTION_ITEMS):
+            lines.append(self._build_action_line(label, desc, cur == i, width, index=i))
+
+        # Separator
+        lines.append([("class:detail-sep", "─" * width)])
+
+        # ── Local Markers section (cursor-navigable, indices 6–9) ──
         pin_str = "Yes" if self._repo.pinned else "No"
         lines.append(self._build_marker_line("Pinned    ", pin_str, cur == self.LINE_PINNED, width))
         lines.append(self._build_marker_line("Alias     ", self._repo.alias or "(none)", cur == self.LINE_ALIAS, width))
@@ -310,22 +377,7 @@ class DetailPanel(UIControl):
         lines.append(self._build_marker_line("Tags      ", tag_str, cur == self.LINE_TAGS, width))
         lines.append(self._build_marker_line("Desc      ", self._repo.description or "(none)", cur == self.LINE_DESC, width))
 
-        # Separator
-        lines.append([("class:detail-sep", "─" * width)])
-
-        # ── Shortcuts section (static) ──
-        lines.append(self._build_shortcut_hints(width))
-
         return lines
-
-    def _build_shortcut_hints(self, width: int) -> List[tuple[str, str]]:
-        parts: List[tuple[str, str]] = [("class:dim", "  ")]
-        for i, (key, desc) in enumerate(self._SHORTCUT_HINTS):
-            if i > 0:
-                parts.append(("class:dim", "  "))
-            parts.append(("class:detail-shortcut-key", key))
-            parts.append(("class:detail-shortcut-dim", f":{desc}"))
-        return parts
 
     def create_content(self, width: int, height: int) -> UIContent:
         rendered = self._build_lines(width)
