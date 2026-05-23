@@ -256,6 +256,11 @@ class BlinkApp:
             "status-dirty": "fg:#f85149",
             "status-ahead-behind": "fg:#d29922",
             "status-loading": "fg:#484f58",
+            # Status badge — selected (with highlight background)
+            "status-clean-sel": "fg:#3fb950 bg:#264f78",
+            "status-dirty-sel": "fg:#f85149 bg:#264f78",
+            "status-ahead-behind-sel": "fg:#d29922 bg:#264f78",
+            "status-loading-sel": "fg:#484f58 bg:#264f78",
         })
 
     # ── key bindings ─────────────────────────────────────────────────────────

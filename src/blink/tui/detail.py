@@ -172,6 +172,26 @@ class DetailPanel(UIControl):
         self._edit_mode = "tags"
         self._tag_buffer = Buffer()
 
+    def _format_status_value(self, selected: bool) -> List[tuple[str, str]]:
+        sel = "-sel" if selected else ""
+        status = self._repo.status
+        if status is None:
+            return [("class:status-loading" + sel, "···")]
+        fragments: List[tuple[str, str]] = []
+        branch = status.branch or "HEAD"
+        fragments.append(("class:status-clean" + sel, branch))
+        if status.dirty_count > 0:
+            fragments.append(("class:status-dirty" + sel, f" ○ +{status.dirty_count}"))
+        else:
+            fragments.append(("class:status-clean" + sel, " ●"))
+        if status.ahead > 0 and status.behind > 0:
+            fragments.append(("class:status-ahead-behind" + sel, f" ↑{status.ahead} ↓{status.behind}"))
+        elif status.ahead > 0:
+            fragments.append(("class:status-ahead-behind" + sel, f" ↑{status.ahead}"))
+        elif status.behind > 0:
+            fragments.append(("class:status-ahead-behind" + sel, f" ↓{status.behind}"))
+        return fragments
+
     def _status_display(self) -> str:
         status = self._repo.status
         if status is None:
@@ -318,7 +338,18 @@ class DetailPanel(UIControl):
         lines.append([("class:detail-sep", "─" * width)])
 
         # Row 6: Status
-        lines.append(self._build_one_line("Status    ", self._status_display(), cur == self.LINE_STATUS, width))
+        is_status_sel = cur == self.LINE_STATUS
+        status_fragments: List[tuple[str, str]] = [
+            ("class:detail-indicator" if is_status_sel else "class:dim",
+             "  ▸ " if is_status_sel else "    "),
+            ("class:detail-label-sel" if is_status_sel else "class:label", "Status    "),
+        ]
+        status_fragments.extend(self._format_status_value(is_status_sel))
+        if is_status_sel and width > 0:
+            line_len = sum(len(t) for _, t in status_fragments)
+            if line_len < width:
+                status_fragments.append(("class:detail-selected", " " * (width - line_len)))
+        lines.append(status_fragments)
 
         # Row 7: Pinned
         pin_str = "Yes" if self._repo.pinned else "No"

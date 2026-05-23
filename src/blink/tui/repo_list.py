@@ -47,24 +47,26 @@ class RepoListControl(UIControl):
     def preferred_height(self, width: int, max_available_height: int, wrap_lines: bool, get_line_prefix) -> int | None:
         return max(len(self.repos) * 2, 1)
 
-    def _format_status_badge(self, status: Optional[RepoStatus], is_error: bool = False) -> list[tuple[str, str]]:
+    def _format_status_badge(self, status: Optional[RepoStatus], is_error: bool = False,
+                             selected: bool = False) -> list[tuple[str, str]]:
+        sel = "-sel" if selected else ""
         if is_error:
-            return [("class:status-loading", " ⚠")]
+            return [("class:status-loading" + sel, " ⚠")]
         if status is None:
-            return [("class:status-loading", " ···")]
+            return [("class:status-loading" + sel, " ···")]
         parts: list[tuple[str, str]] = []
         branch = status.branch or "HEAD"
-        parts.append(("class:status-clean", f" {branch}"))
+        parts.append(("class:status-clean" + sel, f" {branch}"))
         if status.dirty_count > 0:
-            parts.append(("class:status-dirty", f" ○ +{status.dirty_count}"))
+            parts.append(("class:status-dirty" + sel, f" ○ +{status.dirty_count}"))
         else:
-            parts.append(("class:status-clean", " ●"))
+            parts.append(("class:status-clean" + sel, " ●"))
         if status.ahead > 0 and status.behind > 0:
-            parts.append(("class:status-ahead-behind", f" ↑{status.ahead} ↓{status.behind}"))
+            parts.append(("class:status-ahead-behind" + sel, f" ↑{status.ahead} ↓{status.behind}"))
         elif status.ahead > 0:
-            parts.append(("class:status-ahead-behind", f" ↑{status.ahead}"))
+            parts.append(("class:status-ahead-behind" + sel, f" ↑{status.ahead}"))
         elif status.behind > 0:
-            parts.append(("class:status-ahead-behind", f" ↓{status.behind}"))
+            parts.append(("class:status-ahead-behind" + sel, f" ↓{status.behind}"))
         return parts
 
     def _badge_display_width(self, badge: list[tuple[str, str]]) -> int:
@@ -105,7 +107,7 @@ class RepoListControl(UIControl):
         line2: list[tuple[str, str]] = [(path_s, f"     {repo.path}")]
 
         is_error = repo.id is not None and repo.id in self.error_repo_ids
-        badge = self._format_status_badge(repo.status, is_error)
+        badge = self._format_status_badge(repo.status, is_error, selected=selected)
 
         if width > 0:
             pad_s = "class:selected-dim" if selected else "class:path"
