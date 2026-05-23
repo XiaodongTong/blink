@@ -117,7 +117,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
 │   ▸ Open with IDE                    ← 选中行   │
 │     Open with Finder                              │
 │     Add Todo Loop Task                            │
-│     Commit                                       │
+│     Commit Changes                               │
 │─────────────────────────────────────────────────│
 │     Name      repo-name                           │
 │     Path      /path/to/repo                       │
@@ -135,7 +135,7 @@ The TUI has two views: **列表视图**（list view）and **详情视图**（det
   - 行 0（Open with IDE）— Enter 用首选 IDE 打开，首次使用时在状态栏弹出选择（`←`/`→` 切换，`Enter` 确认，`Esc` 取消）
   - 行 1（Open with Finder）— Enter 执行打开
   - 行 2（Add Todo Loop Task）— Enter 执行 `tloop edit`，未安装时状态栏提示"未安装 tloop"
-  - 行 3（Commit）— Enter 执行 `tloop commit`，未安装时状态栏提示"未安装 tloop"
+  - 行 3（Commit Changes）— Enter 执行 `tloop commit`，未安装时状态栏提示"未安装 tloop"
   - 行 4（Name）— Enter 复制项目名称，状态栏提示
   - 行 5（Path）— Enter 复制路径，状态栏提示
   - 行 6（Git）— Enter 将 SSH 地址转为 HTTPS 并在浏览器打开

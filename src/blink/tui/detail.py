@@ -335,7 +335,7 @@ class DetailPanel(UIControl):
         lines.append(self._build_one_line("", "Add Todo Loop Task", cur == self.LINE_TLOOP, width))
 
         # Row 3: Commit
-        lines.append(self._build_one_line("", "Commit", cur == self.LINE_COMMIT, width))
+        lines.append(self._build_one_line("", "Commit Changes", cur == self.LINE_COMMIT, width))
 
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
