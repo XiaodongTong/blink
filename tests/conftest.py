@@ -46,9 +46,6 @@ def app_with_store():
     app._ide_selecting = False
     app._ide_select_cursor = 0
     app._ide_pending_repo = None
-    app._committing = False
-    app._commit_spinner_index = 0
-    app._pulling = False
-    app._pull_spinner_index = 0
-    app._pull_spinner_timer = None
+    app._committing_paths = set()
+    app._pulling_paths = set()
     yield app, store, rid

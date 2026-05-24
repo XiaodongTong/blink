@@ -96,9 +96,9 @@ class BlinkApp:
         self._ide_select_cursor: int = 0
         self._ide_pending_repo: Optional[Repo] = None
 
-        self._committing: bool = False
+        self._committing_paths: set[str] = set()
 
-        self._pulling: bool = False
+        self._pulling_paths: set[str] = set()
 
         self._load_repos()
         self._init_detail_panel()
@@ -762,11 +762,11 @@ class BlinkApp:
             parts.append(("class:status-dim", "    "))
             parts.append(("class:footer-dim", "←→:选择  Enter:确认  Esc:取消"))
             return FormattedText(parts)
-        if self._pulling:
+        if self._pulling_paths:
             return FormattedText([
                 ("class:status-label", " 正在拉取..."),
             ])
-        if self._committing:
+        if self._committing_paths:
             return FormattedText([
                 ("class:status-label", " 正在提交..."),
             ])
@@ -884,7 +884,7 @@ class BlinkApp:
 
     def _run_pull(self, repo: Repo) -> None:
         import subprocess as sp
-        if self._pulling:
+        if repo.path in self._pulling_paths:
             return
         ok, msg = check_pull_prereqs(repo)
         if not ok:
@@ -892,7 +892,7 @@ class BlinkApp:
             self._app.invalidate()
             self._start_timer(3.0, self._clear_scan_status)
             return
-        self._pulling = True
+        self._pulling_paths.add(repo.path)
         self._app.invalidate()
 
         def do_pull() -> None:
@@ -911,7 +911,7 @@ class BlinkApp:
                 success, message = False, f"✗ Pull failed: {exc}"
 
             def on_done():
-                self._pulling = False
+                self._pulling_paths.discard(repo.path)
                 if success:
                     self._refresh_repo_status(repo)
                 self._scan_status = message
@@ -981,9 +981,9 @@ class BlinkApp:
         self._start_timer(timeout, self._clear_scan_status)
 
     def _run_commit(self, repo: Repo) -> None:
-        if self._committing:
+        if repo.path in self._committing_paths:
             return
-        self._committing = True
+        self._committing_paths.add(repo.path)
         self._app.invalidate()
 
         def do_commit():
@@ -1004,7 +1004,7 @@ class BlinkApp:
 
         def on_done():
             success, message = do_commit()
-            self._committing = False
+            self._committing_paths.discard(repo.path)
             if success:
                 self._refresh_repo_status(repo)
             self._scan_status = message
