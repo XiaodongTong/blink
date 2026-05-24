@@ -68,7 +68,8 @@ def run_task(task, index, state, review_enabled=False):
 
     config.LOGS_DIR.mkdir(exist_ok=True)
     safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
-    log_file = config.LOGS_DIR / f"{index + 1:03d}-{safe_name}.log"
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_file = config.LOGS_DIR / f"{timestamp}-{safe_name}.log"
 
     with open(log_file, "w") as log:
         log.write(f"Task: {name}\n")
