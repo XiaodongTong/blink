@@ -60,7 +60,7 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 - `repo_list.py` — Custom `UIControl`/`Window` for the two-line repo list. Each repo renders as: line 1 = indicator + `★` (if pinned) + name/alias + tags, line 2 = path + right-aligned status badge (`branch ● +N ↑N ↓N`). Supports Nerd Font icons when `config.nerd_fonts` is True. Selected items pad lines to full width for consistent background fill. Badge uses CJK-aware width calculation via `display_width()`.
 - `search.py` — `SearchBar` wrapping a `prompt_toolkit.Buffer`. Visibility controlled by `ConditionalContainer` in app layout.
 - `actions.py` — Editor detection and launch (VSCode, Cursor, Antigravity, system open), clipboard via `pbcopy`. `IDE_CHOICES` defines the three IDE options for the unified IDE selection flow.
-- `detail.py` — `DetailPanel` class rendering repo info in three sections: Metadata (Name/Path/Git/Status, read-only), Actions (IDE/Path/Commit/Finder/Git/Task, cursor-navigable indices 0–5), and Local Markers (Pinned/Alias/Tags/Desc, cursor-navigable indices 6–9). 10 cursor-navigable rows (MAX_LINE=9). Supports `set_repo(repo)` for real-time sync, inline alias/desc edit, tag management, pin toggle, and action callbacks. `_remote_to_https()` at module level converts SSH URLs to HTTPS for browser opening.
+- `detail.py` — `DetailPanel` class rendering repo info in three sections: Metadata (Name/Path/Git/Status, read-only), Actions (IDE/Git/Commit/Task/Finder/Path, cursor-navigable indices 0–5), and Local Markers (Pinned/Alias/Tags/Desc, cursor-navigable indices 6–9). 10 cursor-navigable rows (MAX_LINE=9). Supports `set_repo(repo)` for real-time sync, inline alias/desc edit, tag management, pin toggle, and action callbacks. `_remote_to_https()` at module level converts SSH URLs to HTTPS for browser opening.
 - `icons.py` — Nerd Font icon constants with ASCII fallbacks. `get_icon(nerd_fonts, nf_char, ascii_char)` selects the appropriate character.
 
 **Data flow**: Scanner finds git dirs → creates `ScanResult(repo, remotes)` → Store upserts into SQLite → TUI loads from Store for display/search. StatusFetcher fetches git status → Store upserts into `repo_status` → TUI reloads repos (with status via LEFT JOIN) for badge display. List navigation triggers `_sync_detail_panel()` which calls `detail_panel.set_repo(repo)` for real-time right-panel updates. TUI Shift+C calls `blink.loop.git_ops.ensure_clean_git()` in background thread; Shift+T calls `blink.loop.cmd_edit._add_task()`. `config-task --add` also calls `_add_task()` to append task entries. CLI subcommands delegate to `blink.loop.cmd_*` handlers. All loop data stored under `~/.blink/loop/`.
@@ -81,12 +81,12 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 │                      │     Git       https://github.com/...         │
 │                      │     Status    main ●                        │
 │                      │ ─────────────────────────────────────────── │
-│                      │   ▸ IDE       Open with IDE   [Shift+I]     │
-│                      │     Path      Copy repo path  [Shift+P]     │
+│                      │   ▸ IDE       Open with IDE        [Shift+I] │
+│                      │     Git       Open in browser      [Shift+G] │
 │                      │     Commit    Auto Commit Changes  [Shift+C] │
-│                      │     Finder    Open in Finder  [Shift+O]     │
-│                      │     Git       Open in browser [Shift+G]     │
-│                      │     Task      Add todo task   [Shift+T]     │
+│                      │     Task      Add todo task        [Shift+T] │
+│                      │     Finder    Open in Finder       [Shift+O] │
+│                      │     Path      Copy repo path       [Shift+P] │
 │                      │ ─────────────────────────────────────────── │
 │                      │   ▸ Pinned    No        ← cursor row        │
 │                      │     Alias     (none)                        │
@@ -113,8 +113,8 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
   - 排序规则：置顶优先 → 查看次数降序 → 名称升序
 - **详情面板**（detail panel）— 右侧面板，约 60% 宽度，三个区域：
   - **Metadata 区域**（只读）：Name/Path/Git/Status，不可选中
-  - **Actions 区域**（可选中）：IDE(0)/Path(1)/Commit(2)/Finder(3)/Git(4)/Task(5)，`↑`/`↓` 导航，Enter 执行操作，选中行显示快捷键徽标
-  - **Local Markers 区域**（可选中）：Pinned(6)/Alias(7)/Tags(8)/Desc(9)，`↑`/`↓` 导航，Enter 执行操作
+  - **Actions 区域**（可选中）：IDE(0)/Git(1)/Commit(2)/Task(3)/Finder(4)/Path(5)，`↑`/`↓` 导航，Enter 执行操作。未聚焦时所有行显示为普通态并显示对应快捷键徽标（如 `[Shift+I]`）；聚焦时选中行显示 `[Enter]` 替代快捷键徽标，默认选中 IDE（行 0）
+  - **Local Markers 区域**（可选中）：Pinned(6)/Alias(7)/Tags(8)/Desc(9)，`↑`/`↓` 导航，Enter 执行操作。未聚焦时无选中效果；聚焦时才显示当前选中行
 - **状态栏**（status bar）— 显示选中项目的描述和路径；编辑态时显示输入内容和光标；过滤态下显示搜索词和结果数。所有操作反馈提示（如提交完成、路径已复制、任务已添加等）均显示在状态栏中，5 秒后自动消失
 - **快捷键栏**（footer）— 显示主要快捷键，按 Shift+操作键时短暂高亮 2 秒
 - **焦点状态**（focus pane）— 三态：`"list"` / `"detail"` / `"edit"`
@@ -169,7 +169,7 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 - StatusFetcher's `run_fetch(repos, blocking, on_status, on_error, on_done)` follows the same threaded pattern. On per-repo failure, calls `on_error(repo_id)` instead of upserting, preserving cached status. The TUI shows `⚠` for error repos via `RepoListControl.error_repo_ids`. Status fetch is triggered on startup and on Shift+R rescan completion.
 - TUI uses `app.invalidate()` to trigger re-renders after state changes
 - Config falls back to defaults if the file is missing or corrupted, and rewrites it. `nerd_fonts` config key (default `false`) controls icon rendering.
-- Detail panel uses `set_repo(repo)` for real-time sync with list selection. Cursor covers Actions rows (0-5: IDE/Path/Commit/Finder/Git/Task) and Local Markers rows (6-9: Pinned/Alias/Tags/Desc). Metadata rows are display-only.
+- Detail panel uses `set_repo(repo)` for real-time sync with list selection. Cursor covers Actions rows (0-5: IDE/Git/Commit/Task/Finder/Path) and Local Markers rows (6-9: Pinned/Alias/Tags/Desc). Metadata rows are display-only. `set_focused(bool)` controls whether selection highlighting is shown; app calls it via `_set_focus(pane)` which also updates `_focus_pane`. Actions rows show `[Enter]` on the selected row when focused; when unfocused all rows render without selection effect and display shortcut badges instead.
 - Single VSplit layout with `_focus_pane` three-state management (`"list"` / `"detail"` / `"edit"`). Focus switching updates border highlight styles dynamically. No layout replacement — focus is managed within the same layout.
 - Search area completely hidden by default via `ConditionalContainer`. Available from both focus panes.
 - Key bindings use `Condition` filters for focus-dependent behavior. `←`/`→` handle both IDE selection (eager) and focus switching based on filter priority.

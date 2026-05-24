@@ -26,11 +26,11 @@ def _remote_to_https(url: str) -> str | None:
 class DetailPanel(UIControl):
     # Cursor-navigable rows: Actions (0–5) + Local Markers (6–9)
     LINE_IDE = 0
-    LINE_PATH = 1
+    LINE_GIT = 1
     LINE_COMMIT = 2
-    LINE_FINDER = 3
-    LINE_GIT = 4
-    LINE_TASK = 5
+    LINE_TASK = 3
+    LINE_FINDER = 4
+    LINE_PATH = 5
     LINE_PINNED = 6
     LINE_ALIAS = 7
     LINE_TAGS = 8
@@ -39,20 +39,20 @@ class DetailPanel(UIControl):
 
     _ACTION_SHORTCUTS: dict[int, str] = {
         0: "Shift+I",
-        1: "Shift+P",
+        1: "Shift+G",
         2: "Shift+C",
-        3: "Shift+O",
-        4: "Shift+G",
-        5: "Shift+T",
+        3: "Shift+T",
+        4: "Shift+O",
+        5: "Shift+P",
     }
 
     _ACTION_ITEMS = [
-        ("IDE     ", "Open with IDE"),
-        ("Path    ", "Copy repo path"),
-        ("Commit  ", "Auto Commit Changes"),
-        ("Finder  ", "Open in Finder"),
-        ("Git     ", "Open in browser"),
-        ("Task    ", "Add todo task"),
+        ("IDE       ", "Open with IDE"),
+        ("Git       ", "Open in browser"),
+        ("Commit    ", "Auto Commit Changes"),
+        ("Task      ", "Add todo task"),
+        ("Finder    ", "Open in Finder"),
+        ("Path      ", "Copy repo path"),
     ]
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
@@ -86,6 +86,7 @@ class DetailPanel(UIControl):
         self._on_add_task = on_add_task
 
         self._cursor_index = 0
+        self._focused = False
         self._edit_mode: str | None = None
         self._alias_buffer: Optional[Buffer] = None
         self._desc_buffer: Optional[Buffer] = None
@@ -100,6 +101,13 @@ class DetailPanel(UIControl):
             self._alias_buffer = None
             self._desc_buffer = None
             self._tag_buffer = None
+
+    def set_focused(self, focused: bool) -> None:
+        self._focused = focused
+
+    @property
+    def focused(self) -> bool:
+        return self._focused
 
     def is_focusable(self) -> bool:
         return True
@@ -326,9 +334,8 @@ class DetailPanel(UIControl):
                 ("class:detail-label-sel", label),
                 ("class:detail-selected", desc),
                 ("class:detail-selected", " "),
+                ("class:detail-selected", "[Enter]"),
             ]
-            if shortcut:
-                fragments.append(("class:detail-selected", f"[{shortcut}]"))
             line_len = sum(len(t) for _, t in fragments)
             if line_len < width:
                 fragments.append(("class:detail-selected", " " * (width - line_len)))
@@ -336,11 +343,16 @@ class DetailPanel(UIControl):
             fragments = [
                 ("class:dim", "    "),
                 ("class:label", label),
-                ("class:detail-action-desc", desc),
-                ("class:detail-action-desc", " "),
+                ("class:normal", desc),
             ]
             if shortcut:
-                fragments.append(("class:detail-shortcut-dim", f"[{shortcut}]"))
+                shortcut_text = f"[{shortcut}]"
+                line_len = 4 + len(label) + len(desc)
+                if width > 0:
+                    padding = width - line_len - len(shortcut_text)
+                    if padding > 0:
+                        fragments.append(("class:normal", " " * padding))
+                fragments.append(("class:detail-shortcut-dim", shortcut_text))
         return fragments
 
     def _build_lines(self, width: int) -> List[List[tuple[str, str]]]:
@@ -366,18 +378,19 @@ class DetailPanel(UIControl):
 
         # ── Actions section (cursor-navigable, indices 0–5) ──
         for i, (label, desc) in enumerate(self._ACTION_ITEMS):
-            lines.append(self._build_action_line(label, desc, cur == i, width, index=i))
+            is_sel = (cur == i) and self._focused
+            lines.append(self._build_action_line(label, desc, is_sel, width, index=i))
 
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
         # ── Local Markers section (cursor-navigable, indices 6–9) ──
         pin_str = "Yes" if self._repo.pinned else "No"
-        lines.append(self._build_marker_line("Pinned    ", pin_str, cur == self.LINE_PINNED, width))
-        lines.append(self._build_marker_line("Alias     ", self._repo.alias or "(none)", cur == self.LINE_ALIAS, width))
+        lines.append(self._build_marker_line("Pinned    ", pin_str, cur == self.LINE_PINNED and self._focused, width))
+        lines.append(self._build_marker_line("Alias     ", self._repo.alias or "(none)", cur == self.LINE_ALIAS and self._focused, width))
         tag_str = " ".join(f"[{t}]" for t in self._repo.tags) if self._repo.tags else "(none)"
-        lines.append(self._build_marker_line("Tags      ", tag_str, cur == self.LINE_TAGS, width))
-        lines.append(self._build_marker_line("Desc      ", self._repo.description or "(none)", cur == self.LINE_DESC, width))
+        lines.append(self._build_marker_line("Tags      ", tag_str, cur == self.LINE_TAGS and self._focused, width))
+        lines.append(self._build_marker_line("Desc      ", self._repo.description or "(none)", cur == self.LINE_DESC and self._focused, width))
 
         return lines
 

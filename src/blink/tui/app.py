@@ -121,6 +121,13 @@ class BlinkApp:
 
         self._start_background_status_fetch()
 
+    # ── focus management ────────────────────────────────────────────────────
+
+    def _set_focus(self, pane: str) -> None:
+        self._focus_pane = pane
+        if self._detail_panel is not None:
+            self._detail_panel.set_focused(pane in ("detail", "edit"))
+
     # ── edit mode helpers ────────────────────────────────────────────────────
 
     def _in_edit_mode(self) -> bool:
@@ -396,7 +403,6 @@ class BlinkApp:
             "status-loading-sel": "fg:#484f58 bg:#264f78",
             "detail-shortcut-key": "bold fg:#79c0ff",
             "detail-shortcut-dim": "fg:#8b949e",
-            "detail-action-desc": "fg:#c9d1d9",
         })
 
     # ── key bindings ─────────────────────────────────────────────────────────
@@ -487,7 +493,7 @@ class BlinkApp:
                 return
             # If focus is on detail, return to list
             if self._focus_pane == "detail":
-                self._focus_pane = "list"
+                self._set_focus("list")
                 self._app.layout.focus(self._repo_list_window)
                 self._app.invalidate()
 
@@ -495,7 +501,7 @@ class BlinkApp:
         @kb.add(Keys.Tab, filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting))
         def _(event):
             if self._detail_panel is not None and self._focus_pane == "list":
-                self._focus_pane = "detail"
+                self._set_focus("detail")
                 self._detail_panel.set_repo(self._repo_control.selected_repo())
                 self._app.layout.focus(self._detail_window)
                 self._app.invalidate()
@@ -503,14 +509,14 @@ class BlinkApp:
         @kb.add("right", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting and self._focus_pane == "list"))
         def _(event):
             if self._detail_panel is not None:
-                self._focus_pane = "detail"
+                self._set_focus("detail")
                 self._detail_panel.set_repo(self._repo_control.selected_repo())
                 self._app.layout.focus(self._detail_window)
                 self._app.invalidate()
 
         @kb.add("left", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting and self._focus_pane == "detail"))
         def _(event):
-            self._focus_pane = "list"
+            self._set_focus("list")
             self._app.layout.focus(self._repo_list_window)
             self._app.invalidate()
 
@@ -521,7 +527,7 @@ class BlinkApp:
             self._search_active = False
             if self._search_bar.text:
                 self._search_filtering = True
-            self._focus_pane = "list"
+            self._set_focus("list")
             self._app.layout.focus(self._repo_list_window)
             self._app.invalidate()
             return
@@ -630,17 +636,17 @@ class BlinkApp:
                 self._search_active = False
                 if self._search_bar.text:
                     self._search_filtering = True
-                self._focus_pane = "list"
+                self._set_focus("list")
                 self._app.layout.focus(self._repo_list_window)
                 self._app.invalidate()
                 return
             if self._focus_pane in ("detail", "edit") and self._detail_panel is not None:
                 self._detail_panel.handle_enter()
                 if self._detail_panel.is_editing:
-                    self._focus_pane = "edit"
+                    self._set_focus("edit")
                     self._app.layout.focus(self._edit_status_window)
                 else:
-                    self._focus_pane = "detail"
+                    self._set_focus("detail")
                     self._app.layout.focus(self._detail_window)
                 self._app.invalidate()
                 return
@@ -708,7 +714,7 @@ class BlinkApp:
             self._detail_panel._alias_buffer = None
             self._detail_panel._desc_buffer = None
             self._detail_panel._tag_buffer = None
-            self._focus_pane = "detail"
+            self._set_focus("detail")
             self._app.layout.focus(self._detail_window)
             self._app.invalidate()
 
@@ -718,7 +724,7 @@ class BlinkApp:
         self._search_filtering = False
         self._load_repos()
         self._sync_detail_panel()
-        self._focus_pane = "list"
+        self._set_focus("list")
         self._app.layout.focus(self._repo_list_window)
         self._app.invalidate()
 

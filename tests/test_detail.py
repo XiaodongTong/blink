@@ -345,11 +345,11 @@ def test_handle_enter_pinned_toggles():
 
 def test_detail_panel_line_constants():
     assert DetailPanel.LINE_IDE == 0
-    assert DetailPanel.LINE_PATH == 1
+    assert DetailPanel.LINE_GIT == 1
     assert DetailPanel.LINE_COMMIT == 2
-    assert DetailPanel.LINE_FINDER == 3
-    assert DetailPanel.LINE_GIT == 4
-    assert DetailPanel.LINE_TASK == 5
+    assert DetailPanel.LINE_TASK == 3
+    assert DetailPanel.LINE_FINDER == 4
+    assert DetailPanel.LINE_PATH == 5
     assert DetailPanel.LINE_PINNED == 6
     assert DetailPanel.LINE_ALIAS == 7
     assert DetailPanel.LINE_TAGS == 8
@@ -552,6 +552,7 @@ def test_actions_do_not_increment_view_count():
 
 def test_selected_action_row_shows_indicator():
     panel = _make_detail_panel()
+    panel.set_focused(True)
     panel._cursor_index = DetailPanel.LINE_IDE
     t = _to_plain(panel._formatted_text())
     assert "▸" in t

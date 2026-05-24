@@ -51,8 +51,8 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 
 右侧详情面板分三个区域：
 - **基础信息**（只读）：Name、Path、Git、Status
-- **操作区**（可选中，Enter 执行）：IDE、Path、Commit、Finder、Git（在浏览器中打开）、Task（添加 Todo 任务）
-- **本地标记**（可编辑）：Pinned、Alias、Tags、Description
+- **操作区**（可选中，Enter 执行）：IDE、Git（在浏览器中打开）、Commit、Task（添加 Todo 任务）、Finder、Path。聚焦时选中行显示 `[Enter]`，未聚焦时显示对应快捷键徽标
+- **本地标记**（可编辑）：Pinned、Alias、Tags、Description。仅在聚焦时显示选中效果
 
 当终端宽度不足 80 列时，自动降级为仅显示左侧列表。
 
@@ -80,11 +80,11 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 使用 `Tab` 或 `→` 将焦点移至右侧面板，`↑`/`↓` 选择行，`Enter` 执行操作：
 
 - **IDE** — 用 IDE 打开仓库
-- **Path** — 复制仓库路径到剪贴板
-- **Commit** — 自动提交代码（AI 生成 commit message）
-- **Finder** — 在 Finder 中打开
 - **Git** — 在浏览器中打开远程仓库
+- **Commit** — 自动提交代码（AI 生成 commit message）
 - **Task** — 添加 Todo 任务（追加到 `~/.blink/loop/tasks.yaml`）
+- **Finder** — 在 Finder 中打开
+- **Path** — 复制仓库路径到剪贴板
 - **Pinned** — 切换置顶状态
 - **Alias** — 编辑别名（Enter 保存，Esc 取消）
 - **Tags** — 管理标签（输入+Enter 添加，数字键按序号删除）
