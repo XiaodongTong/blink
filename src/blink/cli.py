@@ -13,7 +13,8 @@ from blink.tui.app import BlinkApp
 
 
 @click.group(invoke_without_command=True)
-@click.option("--rescan", is_flag=True, default=False, help="Force a full rescan before launching TUI.")
+@click.option("-R", "--rescan", is_flag=True, default=False, help="Force a full rescan before launching TUI.")
+@click.version_option("1.1.0", "-v", "--version", prog_name="blink", message="%(prog)s %(version)s")
 @click.pass_context
 def main(ctx: click.Context, rescan: bool) -> None:
     if ctx.invoked_subcommand is not None:
@@ -56,11 +57,11 @@ def main(ctx: click.Context, rescan: bool) -> None:
 
 
 @main.command()
-@click.option("--status", "-s", is_flag=True, help="Show task status")
-@click.option("--reset", is_flag=True, help="Reset all tasks to pending")
-@click.option("--only", type=int, default=None, help="Run only task #N (1-based)")
-@click.option("--continue", "-c", "continue_on_fail", is_flag=True, help="Continue even if a task fails")
-@click.option("--review", "-r", is_flag=True, help="Run post-task code review after each task")
+@click.option("-s", "--status", is_flag=True, help="Show task status")
+@click.option("-e", "--reset", is_flag=True, help="Reset all tasks to pending")
+@click.option("-o", "--only", type=int, default=None, help="Run only task #N (1-based)")
+@click.option("-c", "--continue", "continue_on_fail", is_flag=True, help="Continue even if a task fails")
+@click.option("-r", "--review", is_flag=True, help="Run post-task code review after each task")
 def run(status: bool, reset: bool, only: int | None, continue_on_fail: bool, review: bool) -> None:
     """Run tasks defined in ~/.blink/loop/tasks.yaml."""
     from blink.loop.cmd_run import handle
@@ -108,4 +109,3 @@ def log(task_number: int | None) -> None:
         task_number=task_number,
     )
     handle(args)
-

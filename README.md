@@ -28,7 +28,8 @@ pip install blink-repo
 
 ```bash
 blink              # 启动 TUI
-blink --rescan     # 强制重新扫描后启动
+blink -R           # 强制重新扫描后启动（--rescan 的简写）
+blink -v           # 显示版本号（--version 的简写）
 blink run          # 执行 tasks.yaml 中定义的任务
 blink run --status # 查看任务状态
 blink edit          # 编辑任务文件
@@ -156,8 +157,9 @@ uv sync
 
 ```bash
 uv run blink              # 启动 TUI
-uv run blink --rescan     # 强制重新扫描
-uv run blink run --status # 查看任务状态
+uv run blink -R           # 强制重新扫描（--rescan 的简写）
+uv run blink -v           # 显示版本号（--version 的简写）
+uv run blink run -s       # 查看任务状态（--status 的简写）
 uv run blink commit -p .  # 自动提交变更
 ```
 
