@@ -94,7 +94,7 @@ class BlinkApp:
 
         self._ide_selecting: bool = False
         self._ide_select_cursor: int = 0
-        self._ide_pending_repo: Optional[Repo] = None
+        self._ide_pending_path: Optional[str] = None
 
         self._committing_paths: set[str] = set()
 
@@ -145,15 +145,18 @@ class BlinkApp:
     def _ide_options(self) -> List[tuple[str, str]]:
         return list(IDE_CHOICES)
 
-    def _trigger_open_ide(self, repo: Repo) -> None:
+    def _open_with_ide(self, path: str) -> None:
         preferred = self._config.preferred_ide
         if preferred:
-            open_in_editor(repo.path, preferred, self._editors)
+            open_in_editor(path, preferred, self._editors)
         else:
-            self._ide_pending_repo = repo
+            self._ide_pending_path = path
             self._ide_selecting = True
             self._ide_select_cursor = 0
             self._app.invalidate()
+
+    def _trigger_open_ide(self, repo: Repo) -> None:
+        self._open_with_ide(repo.path)
 
     def _edit_cursor_col(self) -> int | None:
         panel = self._detail_panel
@@ -254,9 +257,16 @@ class BlinkApp:
         def do_add_task():
             try:
                 from blink.loop.cmd_edit import _add_task
+                from blink.loop.config import TASKS_FILE
                 msg = _add_task(repo.path)
-                status = f"✓ {msg}" if msg else "✓ Task 已更新"
-                self._start_timer(0.1, lambda: self._set_scan_status(status, timeout=5.0))
+                if msg:
+                    task_file = str(TASKS_FILE)
+                    def on_success():
+                        self._set_scan_status(f"✓ {msg}", timeout=2.0)
+                        self._open_with_ide(task_file)
+                    self._start_timer(0.1, on_success)
+                else:
+                    self._start_timer(0.1, lambda: self._set_scan_status("✗ Task 添加失败", timeout=5.0))
             except Exception:
                 self._start_timer(0.1, lambda: self._set_scan_status("✗ Task 添加失败", timeout=5.0))
 
@@ -429,10 +439,10 @@ class BlinkApp:
                 key, name = opts[self._ide_select_cursor]
                 self._config.set("preferred_ide", key)
                 self._ide_selecting = False
-                repo = self._ide_pending_repo
-                self._ide_pending_repo = None
-                if repo:
-                    open_in_editor(repo.path, key, self._editors)
+                path = self._ide_pending_path
+                self._ide_pending_path = None
+                if path:
+                    open_in_editor(path, key, self._editors)
                     self._set_scan_status(f"正在打开 {name}...")
                 else:
                     self._app.invalidate()
@@ -441,14 +451,14 @@ class BlinkApp:
         @kb.add("escape", eager=True, filter=Condition(lambda: self._ide_selecting))
         def _(event):
             self._ide_selecting = False
-            self._ide_pending_repo = None
+            self._ide_pending_path = None
             self._app.invalidate()
             return
 
         @kb.add("c-c", eager=True, filter=Condition(lambda: self._ide_selecting))
         def _(event):
             self._ide_selecting = False
-            self._ide_pending_repo = None
+            self._ide_pending_path = None
             self._app.invalidate()
             return
 

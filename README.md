@@ -71,7 +71,7 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 | `Shift+R` | 重新扫描文件系统 |
 | `Shift+C` | 自动提交代码（AI 生成 commit message） |
 | `Shift+G` | 在浏览器中打开远程仓库 |
-| `Shift+T` | 添加 Todo 任务（追加到 `~/.blink/loop/tasks.yaml`） |
+| `Shift+T` | 添加 Todo 任务（追加到 `~/.blink/loop/tasks.yaml`，完成后自动打开 IDE 编辑） |
 | `Shift+U` | 拉取最新代码（`git pull`） |
 | `Ctrl+C` ×2 | 退出程序（2 秒内按两次） |
 
@@ -82,7 +82,7 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 - **IDE** — 用 IDE 打开仓库
 - **Git** — 在浏览器中打开远程仓库
 - **Commit** — 自动提交代码（AI 生成 commit message）
-- **Task** — 添加 Todo 任务（追加到 `~/.blink/loop/tasks.yaml`）
+- **Task** — 添加 Todo 任务（追加到 `~/.blink/loop/tasks.yaml`，完成后自动打开 IDE 编辑）
 - **Finder** — 在 Finder 中打开
 - **Path** — 复制仓库路径到剪贴板
 - **Pinned** — 切换置顶状态
@@ -126,7 +126,7 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 | `scan_paths` | 扫描 git 仓库的根目录列表 |
 | `exclude_dirs` | 扫描时跳过的目录名 |
 | `editor` | 默认编辑器命令 |
-| `preferred_ide` | 首选 IDE（`"v"` VSCode / `"u"` Cursor / `"a"` Antigravity），首次使用 Shift+I 时自动设置 |
+| `preferred_ide` | 首选 IDE（`"v"` VSCode / `"u"` Cursor / `"a"` Antigravity），首次使用 Shift+I 或 `blink edit` 时自动设置 |
 | `auto_sync_days` | 自动重新扫描间隔天数（`0` 为禁用） |
 | `nerd_fonts` | 启用 Nerd Font 图标（`true` 启用，`false` 使用 ASCII） |
 

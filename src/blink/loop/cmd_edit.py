@@ -1,26 +1,18 @@
 """blink edit — open ~/.blink/loop/tasks.yaml in editor, optionally add a task."""
 
 import argparse
-import json
 import re
-import shutil
 import subprocess
 
 import yaml
 
 from blink.loop import config
 
-KNOWN_EDITORS = {
-    "code": ("Visual Studio Code", "code"),
-    "vim": ("Vim", "vim"),
-    "nano": ("Nano", "nano"),
-}
-
 EDIT_HELP = """\
 Open ~/.blink/loop/tasks.yaml in your editor.
 
-On first run, you will be prompted to choose an editor (VS Code, Vim, Nano,
-or a custom command). The choice is saved to ~/.blink/loop/settings.json.
+Uses the same IDE selection as the TUI (VSCode, Cursor, Antigravity).
+The choice is saved to ~/.blink/config.json as preferred_ide.
 Override anytime with: blink edit --editor <command>
 
 Task file format (~/.blink/loop/tasks.yaml):
@@ -50,55 +42,33 @@ Task file format (~/.blink/loop/tasks.yaml):
 """
 
 
-def _load_settings():
-    if config.SETTINGS_FILE.exists():
-        try:
-            return json.loads(config.SETTINGS_FILE.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
-    return {}
+def _prompt_ide_choice():
+    from blink.config import Config
+    from blink.tui.actions import detect_editors, IDE_CHOICES
 
+    cfg = Config()
+    editors = detect_editors()
+    available = [(key, name) for key, name in IDE_CHOICES
+                 if key in editors and editors[key].available]
+    if not available:
+        print("No IDE found. Install VSCode, Cursor, or Antigravity.")
+        return None
 
-def _save_settings(settings):
-    config.TLOOP_HOME.mkdir(exist_ok=True)
-    config.SETTINGS_FILE.write_text(json.dumps(settings, indent=2) + "\n")
-
-
-def _prompt_editor():
-    options = []
-    for key, (label, cmd) in KNOWN_EDITORS.items():
-        if shutil.which(cmd):
-            options.append((key, label, cmd))
-
-    print(f"{config.BOLD}Choose your editor for tasks.yaml:{config.RESET}\n")
-    for i, (key, label, _) in enumerate(options, 1):
-        print(f"  {i}) {label}")
-    print(f"  {len(options) + 1}) Other (enter command manually)")
+    print(f"{config.BOLD}Choose your IDE:{config.RESET}\n")
+    for i, (_, name) in enumerate(available, 1):
+        print(f"  {i}) {name}")
     print()
 
     while True:
-        choice = input(f"Enter number [1-{len(options) + 1}]: ").strip()
+        choice = input(f"Enter number [1-{len(available)}]: ").strip()
         if choice.isdigit():
             idx = int(choice)
-            if 1 <= idx <= len(options):
-                return options[idx - 1][2]
-            if idx == len(options) + 1:
-                cmd = input("Enter editor command: ").strip()
-                if cmd:
-                    return cmd
+            if 1 <= idx <= len(available):
+                key, name = available[idx - 1]
+                cfg.set("preferred_ide", key)
+                print(f"{config.GREEN}Default IDE set to {name}.{config.RESET}\n")
+                return key
         print("Invalid choice, try again.")
-
-
-def _resolve_editor(cli_editor=None):
-    if cli_editor:
-        return cli_editor
-    settings = _load_settings()
-    if "editor" in settings:
-        return settings["editor"]
-    editor = _prompt_editor()
-    _save_settings({"editor": editor})
-    print(f"{config.GREEN}Editor saved. Change anytime with: blink edit --editor <command>{config.RESET}\n")
-    return editor
 
 
 def add_parser(subparsers):
@@ -161,6 +131,9 @@ def _add_task(path):
 
 
 def handle(args):
+    from blink.config import Config
+    from blink.tui.actions import detect_editors, open_in_editor
+
     path = getattr(args, "path", None)
     if path:
         msg = _add_task(path)
@@ -171,5 +144,18 @@ def handle(args):
     if not config.TASKS_FILE.exists():
         config.TASKS_FILE.write_text(config.SAMPLE_TASKS_YAML)
 
-    editor = _resolve_editor(getattr(args, "editor", None))
-    subprocess.run([editor, str(config.TASKS_FILE)])
+    cli_editor = getattr(args, "editor", None)
+    if cli_editor:
+        subprocess.run([cli_editor, str(config.TASKS_FILE)])
+        return
+
+    cfg = Config()
+    editors = detect_editors()
+
+    if not cfg.preferred_ide:
+        _prompt_ide_choice()
+
+    if cfg.preferred_ide:
+        open_in_editor(str(config.TASKS_FILE), cfg.preferred_ide, editors)
+    else:
+        print("No IDE selected.")
