@@ -336,8 +336,8 @@ class DetailPanel(UIControl):
             fragments = [
                 ("class:dim", "    "),
                 ("class:label", label),
-                ("class:dim", desc),
-                ("class:dim", " "),
+                ("class:detail-action-desc", desc),
+                ("class:detail-action-desc", " "),
             ]
             if shortcut:
                 fragments.append(("class:detail-shortcut-dim", f"[{shortcut}]"))

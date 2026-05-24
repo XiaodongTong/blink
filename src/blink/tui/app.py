@@ -396,6 +396,7 @@ class BlinkApp:
             "status-loading-sel": "fg:#484f58 bg:#264f78",
             "detail-shortcut-key": "bold fg:#79c0ff",
             "detail-shortcut-dim": "fg:#8b949e",
+            "detail-action-desc": "fg:#c9d1d9",
         })
 
     # ── key bindings ─────────────────────────────────────────────────────────
