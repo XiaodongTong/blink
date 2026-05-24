@@ -364,11 +364,12 @@ class DetailPanel(UIControl):
     def _build_action_line(self, label: str, desc: str, selected: bool, width: int = 0, *, index: int = 0) -> List[tuple[str, str]]:
         shortcut = self._ACTION_SHORTCUTS.get(index, "")
         if selected:
+            max_desc_len = max(len(d) for _, d in self._ACTION_ITEMS)
             fragments: List[tuple[str, str]] = [
                 ("class:detail-indicator", "  ▸ "),
                 ("class:detail-label-sel", label),
                 ("class:detail-selected", desc),
-                ("class:detail-selected", " "),
+                ("class:detail-selected", " " * (max_desc_len - len(desc) + 1)),
                 ("class:detail-selected", "[Enter]"),
             ]
             line_len = sum(len(t) for _, t in fragments)
