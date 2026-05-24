@@ -22,20 +22,27 @@ TUI 中选中目标仓库
         ▼
 [Shift+V] 触发 Code Review 流程
         │
-        ├─ 1. 询问同事分支名（status bar 输入态）
+        ├─ 1. 后台获取最近 5 个分支（按 committer date 排序，排除 main/master 和当前分支）
+        │      status bar 显示「正在获取分支列表...」
+        │
+        ▼
+Status bar 进入分支选择模式
+        │
+        ├─ 2. ←→ 选择分支，Enter 确认，Esc 取消
+        │      显示格式：Review [2/5]: ▸ feature/auth-improvements
         │
         ▼
 blink review <branch> [--against <base>]
         │
-        ├─ 2. 创建临时 review 分支 (review/<branch>-<date>)
+        ├─ 3. 创建临时 review 分支 (review/<branch>-<date>)
         │      = main + 同事分支 merge 结果
         │
-        ├─ 3. 收集上下文
+        ├─ 4. 收集上下文
         │      ├─ git diff main..<branch>（纯变更视角）
         │      ├─ 临时分支整体代码视角
         │      └─ ./docs/blink/review-rules.md（项目规则，如有）
         │
-        ├─ 4. 调用 claude 进行分析（structured output）
+        ├─ 5. 调用 claude 进行分析（structured output）
         │
         ▼
 输出结构化 Review 报告
@@ -124,6 +131,7 @@ git merge --no-ff <colleague-branch>
 - `delete_branch(dir_path, branch_name)` — 安全删除分支（带 -D 强制选项）
 - `branch_exists(dir_path, name)` — 已存在，直接复用
 - `get_diff_stat(dir_path, base, branch)` — 返回变更文件统计
+- `get_recent_branches(dir_path, limit=5)` — 返回按最近提交日期排序的本地分支（排除 main/master 和当前分支）
 
 ---
 
@@ -250,9 +258,12 @@ tasks:
 2. **交互流程**：
    ```
    Shift+V
-     → status bar 切换为输入态：「输入同事分支名：」
-     → 用户输入分支名，Enter 确认
-     → 后台线程执行 blink review <branch> --dir <repo.path>
+     → 后台线程获取最近 5 个分支（按 committer date 排序）
+     → status bar 显示「正在获取分支列表...」
+     → 获取完成后进入分支选择模式：
+       显示格式：Review [1/5]: ▸ feature/auth  ←→:选择  Enter:确认  Esc:取消
+     → 用户 ←→ 选择分支，Enter 确认
+     → 后台线程执行 review 流程
      → status bar 显示「🔍 正在 review...」
      → 完成后显示结论徽标：「✅ APPROVE」/ 「⚠️ 有注意事项」/ 「❌ 需要修改」
      → Shift+L 可打开报告文件
@@ -424,6 +435,7 @@ def handle_callback(request):
 
 | 决策点 | 选择 | 理由 |
 |--------|------|------|
+| TUI 分支选择方式 | ←→ 选择最近 5 个分支 | 免输入，一键选择；分支名通常较长，手动输入体验差 |
 | review 分支清理时机 | review 完成后立即删除 | 避免临时分支积累；如需复现可重新运行 |
 | verdict 由谁决定 | Claude 给出建议，人工最终确认 | AI 作为决策辅助，主程保留最终权力 |
 | MAJOR 问题的 verdict | 默认 APPROVE_WITH_NOTES | 保守原则，CRITICAL 才强制阻塞 |

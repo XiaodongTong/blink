@@ -101,8 +101,10 @@ class BlinkApp:
         self._pulling_paths: set[str] = set()
 
         self._reviewing_paths: set[str] = set()
-        self._review_branch_buffer: str = ""
-        self._review_input_active: bool = False
+        self._review_branch_loading: bool = False
+        self._review_selecting: bool = False
+        self._review_branches: list[str] = []
+        self._review_branch_cursor: int = 0
         self._last_report_paths: dict[str, str] = {}
 
         self._load_repos()
@@ -136,7 +138,7 @@ class BlinkApp:
     # ── edit mode helpers ────────────────────────────────────────────────────
 
     def _in_edit_mode(self) -> bool:
-        if self._review_input_active:
+        if self._review_selecting or self._review_branch_loading:
             return True
         if self._detail_panel is not None:
             return self._detail_panel.is_editing
@@ -166,8 +168,8 @@ class BlinkApp:
         self._open_with_ide(repo.path)
 
     def _edit_cursor_col(self) -> int | None:
-        if self._review_input_active:
-            return len(" Review branch: ") + len(self._review_branch_buffer)
+        if self._review_selecting or self._review_branch_loading:
+            return None
         panel = self._detail_panel
         if panel is None or not panel.is_editing:
             return None
@@ -213,7 +215,7 @@ class BlinkApp:
             on_open_finder=lambda: self._open_finder(),
             on_open_git=lambda: self._open_git_in_browser(),
             on_add_task=lambda: self._run_add_task(),
-            on_review=lambda: self._start_review_input(),
+            on_review=lambda: self._start_review_branch_select(),
         )
 
     def _sync_detail_panel(self) -> None:
@@ -285,26 +287,54 @@ class BlinkApp:
 
     # ── review ────────────────────────────────────────────────────────────────
 
-    def _start_review_input(self) -> None:
-        self._review_input_active = True
-        self._review_branch_buffer = ""
+    def _start_review_branch_select(self) -> None:
+        repo = self._get_active_repo()
+        if not repo:
+            return
+        if repo.path in self._reviewing_paths:
+            self._set_scan_status("✗ 正在 review 中，请等待完成", timeout=3.0)
+            return
+        self._review_branch_loading = True
         self._set_focus("edit")
-        self._app.layout.focus(self._edit_status_window)
         self._app.invalidate()
 
-    def _cancel_review_input(self) -> None:
-        self._review_input_active = False
-        self._review_branch_buffer = ""
+        def fetch_branches():
+            from blink.loop import git_ops
+            branches = git_ops.get_recent_branches(repo.path)
+            def on_done():
+                self._review_branch_loading = False
+                if not branches:
+                    self._set_scan_status("✗ 没有找到可 review 的分支", timeout=3.0)
+                    self._set_focus("detail")
+                    self._app.layout.focus(self._detail_window)
+                    self._app.invalidate()
+                    return
+                self._review_branches = branches
+                self._review_branch_cursor = 0
+                self._review_selecting = True
+                self._app.invalidate()
+            self._start_timer(0.1, on_done)
+
+        t = threading.Thread(target=fetch_branches, daemon=True)
+        t.start()
+
+    def _cancel_review(self) -> None:
+        self._review_selecting = False
+        self._review_branch_loading = False
+        self._review_branches = []
+        self._review_branch_cursor = 0
         self._set_focus("detail")
         self._app.layout.focus(self._detail_window)
         self._app.invalidate()
 
-    def _submit_review_input(self) -> None:
-        branch = self._review_branch_buffer.strip()
-        if not branch:
-            self._cancel_review_input()
+    def _confirm_review_branch(self) -> None:
+        if not self._review_branches:
+            self._cancel_review()
             return
-        self._review_input_active = False
+        branch = self._review_branches[self._review_branch_cursor]
+        self._review_selecting = False
+        self._review_branches = []
+        self._review_branch_cursor = 0
         repo = self._get_active_repo()
         if not repo:
             self._set_focus("detail")
@@ -569,14 +599,31 @@ class BlinkApp:
             self._app.invalidate()
             return
 
+        # ── Review branch selection mode ───────────────────────────────────
+        @kb.add("left", filter=Condition(lambda: self._review_selecting))
+        def _(event):
+            self._review_branch_cursor = max(0, self._review_branch_cursor - 1)
+            self._app.invalidate()
+
+        @kb.add("right", filter=Condition(lambda: self._review_selecting))
+        def _(event):
+            n = len(self._review_branches)
+            self._review_branch_cursor = min(n - 1, self._review_branch_cursor + 1)
+            self._app.invalidate()
+
+        @kb.add("enter", eager=True, filter=Condition(lambda: self._review_selecting))
+        def _(event):
+            self._confirm_review_branch()
+            return
+
         # ── Ctrl+C ──────────────────────────────────────────────────────────
         @kb.add("c-c")
         def _(event):
             if self._ide_selecting:
                 return
-            # Priority: review input → edit mode → search → double-quit
-            if self._review_input_active:
-                self._cancel_review_input()
+            # Priority: review → edit mode → search → double-quit
+            if self._review_selecting or self._review_branch_loading:
+                self._cancel_review()
                 return
             if self._in_edit_mode():
                 self._cancel_edit()
@@ -602,8 +649,8 @@ class BlinkApp:
         def _(event):
             if self._ide_selecting:
                 return
-            if self._review_input_active:
-                self._cancel_review_input()
+            if self._review_selecting or self._review_branch_loading:
+                self._cancel_review()
                 return
             if self._in_edit_mode():
                 self._cancel_edit()
@@ -756,7 +803,7 @@ class BlinkApp:
             self._trigger_footer_highlight()
             repo = self._get_active_repo()
             if repo:
-                self._start_review_input()
+                self._start_review_branch_select()
 
         # ── Shift+L — open last review report ─────────────────────────
         @kb.add("L", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting))
@@ -771,8 +818,8 @@ class BlinkApp:
         def _(event):
             if self._ide_selecting:
                 return
-            if self._review_input_active:
-                self._submit_review_input()
+            if self._review_selecting:
+                self._confirm_review_branch()
                 return
             if self._search_active:
                 self._search_active = False
@@ -871,19 +918,11 @@ class BlinkApp:
         self._app.invalidate()
 
     def _route_printable(self, char: str) -> None:
-        if self._review_input_active:
-            self._review_branch_buffer += char
-            self._app.invalidate()
-            return
         if self._detail_panel is not None and self._detail_panel.is_editing:
             self._detail_panel.route_printable(char)
         self._app.invalidate()
 
     def _route_backspace(self) -> None:
-        if self._review_input_active:
-            self._review_branch_buffer = self._review_branch_buffer[:-1]
-            self._app.invalidate()
-            return
         if self._detail_panel is not None and self._detail_panel.is_editing:
             self._detail_panel.route_backspace()
         self._app.invalidate()
@@ -923,11 +962,19 @@ class BlinkApp:
             return FormattedText([
                 ("class:status-label", " 正在拉取..."),
             ])
-        if self._review_input_active:
+        if self._review_branch_loading:
             return FormattedText([
-                ("class:status-label", " Review branch: "),
-                ("class:status-value", self._review_branch_buffer),
-                ("", " "),
+                ("class:status-label", " 正在获取分支列表..."),
+            ])
+        if self._review_selecting:
+            total = len(self._review_branches)
+            idx = self._review_branch_cursor + 1
+            branch = self._review_branches[self._review_branch_cursor] if self._review_branches else ""
+            return FormattedText([
+                ("class:status-label", f" Review [{idx}/{total}]: "),
+                ("class:status-accent", f"▸ {branch}"),
+                ("class:status-dim", "    "),
+                ("class:footer-dim", "←→:选择  Enter:确认  Esc:取消"),
             ])
         if self._reviewing_paths:
             return FormattedText([

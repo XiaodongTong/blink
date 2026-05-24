@@ -181,6 +181,26 @@ def get_branch_list(dir_path, pattern=""):
     return [line.strip().lstrip("* ") for line in result.stdout.strip().splitlines() if line.strip()]
 
 
+def get_recent_branches(dir_path, limit=5):
+    """Return local branches sorted by most recent commit date, excluding main/master and current."""
+    current = get_current_branch(dir_path)
+    main = detect_main_branch(dir_path)
+    exclude = {current, main} - {None}
+
+    result = _git(dir_path, "branch", "--sort=-committerdate", "--format=%(refname:short)")
+    if result.returncode != 0:
+        return []
+
+    branches = []
+    for line in result.stdout.strip().splitlines():
+        name = line.strip()
+        if name and name not in exclude:
+            branches.append(name)
+            if len(branches) >= limit:
+                break
+    return branches
+
+
 def detect_main_branch(dir_path):
     if branch_exists(dir_path, "main"):
         return "main"

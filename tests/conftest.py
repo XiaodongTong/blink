@@ -49,7 +49,9 @@ def app_with_store():
     app._committing_paths = set()
     app._pulling_paths = set()
     app._reviewing_paths = set()
-    app._review_branch_buffer = ""
-    app._review_input_active = False
+    app._review_branch_loading = False
+    app._review_selecting = False
+    app._review_branches = []
+    app._review_branch_cursor = 0
     app._last_report_paths = {}
     yield app, store, rid
