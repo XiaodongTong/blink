@@ -844,8 +844,8 @@ class BlinkApp:
         hints = [
             ("Enter", "ide"), ("/", "search"),
             ("Tab", "focus"),
-            ("Shift+R", "rescan"), ("Shift+G", "browser"),
-            ("Shift+T", "task"), ("Shift+U", "pull"),
+            ("Shift+R", "rescan"),
+            ("Shift+U", "pull"),
         ]
         parts: list[tuple[str, str]] = [("class:footer-dim", " ")]
         for i, (key, desc) in enumerate(hints):
