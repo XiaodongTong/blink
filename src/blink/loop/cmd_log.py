@@ -45,9 +45,14 @@ def _parse_task_number(path):
 def _extract_task_name(path):
     try:
         with open(path, errors="replace") as f:
-            first_line = f.readline()
-        if first_line.startswith("Task:"):
-            return first_line.split(":", 1)[1].strip()
+            for line in f:
+                stripped = line.strip()
+                # New format: " Task:       Some Name"
+                if stripped.startswith("Task:"):
+                    return stripped.split(":", 1)[1].strip()
+                # Stop scanning after header
+                if stripped.startswith("──") or stripped.startswith("══"):
+                    break
     except (OSError, UnicodeDecodeError):
         pass
     name = path.stem

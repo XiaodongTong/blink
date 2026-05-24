@@ -47,14 +47,15 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 - `config.py` — Constants for loop data directory (`~/.blink/loop/`), ANSI colors, YAML header. `ensure_tloop_home()` initializes directory structure. `load_config()` parses `tasks.yaml`.
 - `state.py` — JSON state file management (`state.json`). Task status tracking and archiving of completed tasks.
 - `git_ops.py` — Git safety checks (`is_git_repo`, `is_git_clean`, `has_staged_changes`), auto-commit via Claude (`ensure_clean_git`), branch creation (`create_task_branch`).
-- `claude_runner.py` — `run_claude()` wraps `claude --dangerously-skip-permissions --print` with retry and verification loops.
-- `review.py` — Post-task code review via self-critique. `review_changes()` diffs against base commit and sends to Claude.
-- `task.py` — `run_task()` executes a single task: auto-commit, branch creation, runner selection (cybervisor/claude), state updates.
+- `log_format.py` — Structured log formatting. Tagged line format: `[HH:MM:SS]-[phase]-[tag] content`. Phases: `auto commit`, `branch`, `implement`, `review`, `finished`. Tags: `input` (multiline with aligned continuation), `output` (per-line timestamp). `write_footer()` adds `═══` footer with duration/status. Used by all log-writing modules.
+- `claude_runner.py` — `run_claude()` wraps `claude --dangerously-skip-permissions --print` with retry and verification loops. Uses `log_format.write_auto_commit()` for tagged output.
+- `review.py` — Post-task code review via self-critique. `review_changes()` diffs against base commit and sends to Claude. Uses `log_format.write_review_*()` for tagged input/output.
+- `task.py` — `run_task()` executes a single task: auto-commit, branch creation, runner selection (cybervisor/claude), state updates. Writes header/footer and branch log via `log_format`. `create_task_branch()` returns branch name (string) on success, `""` when skipped, `None` on failure.
 - `cmd_run.py` — `handle()` for `blink run` subcommand: runs tasks from `tasks.yaml`.
 - `cmd_edit.py` — `handle()` for `blink edit`: unified IDE selection (uses `Config.preferred_ide` and `IDE_CHOICES` from `actions.py`), task file editing. `_add_task(path)` appends task entry and returns confirmation message string. `blink edit --add PATH` calls `_add_task()` to add a task then opens tasks.yaml in IDE. TUI Shift+T also calls `_add_task()` then opens tasks.yaml via unified `_open_with_ide()` flow.
 - `cmd_commit.py` — `handle()` for `blink commit`: auto-commits dirty working tree via Claude.
 - `cmd_log.py` — `handle()` for `blink log`: lists and displays task log files.
-- `runner/` — `Runner` ABC with `ClaudeRunner` (round-loop execution) and `CybervisorRunner` backends.
+- `runner/` — `Runner` ABC with `ClaudeRunner` (round-loop execution) and `CybervisorRunner` backends. Both use `log_format.write_implement_*()` for tagged output. `ClaudeRunner` logs input via `write_implement_input()`; rounds >1 show `Round N/M` marker.
 
 **TUI** (`src/blink/tui/`):
 

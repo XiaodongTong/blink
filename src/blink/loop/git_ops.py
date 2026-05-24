@@ -124,14 +124,14 @@ def find_next_available_branch(dir_path, prefix):
 
 def create_task_branch(dir_path, branch_config):
     if not is_git_repo(dir_path):
-        return True
+        return ""
 
     if branch_config is False:
-        return True
+        return ""
 
     if is_detached_head(dir_path):
         print(f"{RED}  Cannot create branch: repository is in detached HEAD state.{RESET}")
-        return False
+        return None
 
     today = datetime.now().strftime("%Y%m%d")
 
@@ -140,7 +140,7 @@ def create_task_branch(dir_path, branch_config):
         name = find_next_available_branch(dir_path, prefix)
         if name is None:
             print(f"{RED}  Could not find an available branch name with prefix {prefix}{RESET}")
-            return False
+            return None
     else:
         custom = str(branch_config)
         if not branch_exists(dir_path, custom):
@@ -150,12 +150,12 @@ def create_task_branch(dir_path, branch_config):
             name = find_next_available_branch(dir_path, prefix)
             if name is None:
                 print(f"{RED}  Could not find an available branch name with prefix {prefix}{RESET}")
-                return False
+                return None
 
     result = _git(dir_path, "checkout", "-b", name)
     if result.returncode != 0:
         print(f"{RED}  Failed to create branch '{name}': {result.stderr.strip()}{RESET}")
-        return False
+        return None
 
     print(f"{GREEN}  Created and checked out branch: {name}{RESET}")
-    return True
+    return name

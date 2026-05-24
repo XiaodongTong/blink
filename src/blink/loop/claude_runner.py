@@ -2,6 +2,8 @@
 
 import subprocess
 
+from blink.loop import log_format
+
 GREEN = "\033[92m"
 RED = "\033[91m"
 YELLOW = "\033[93m"
@@ -11,7 +13,6 @@ CYAN = "\033[96m"
 
 DEFAULT_MAX_RETRIES = 3
 
-# Append this to prompts where Claude might just plan instead of executing.
 EXECUTION_SUFFIX = (
     "\n\nIMPORTANT: Execute the steps above immediately. "
     "Do NOT ask for confirmation, do NOT just describe what you would do. "
@@ -77,11 +78,15 @@ def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log
 
         if log_file:
             with open(log_file, "a") as log:
-                log.write(f"[claude_runner] model={model} attempt {attempt}/{max_retries} exit={result.returncode}\n")
+                if attempt > 1:
+                    log_format.write_round(log, attempt, max_retries)
+                log_format.write_auto_commit(log, f"model={model} exit={result.returncode}")
                 if result.stdout:
-                    log.write(result.stdout + "\n")
+                    for line in result.stdout.splitlines():
+                        log_format.write_auto_commit(log, line)
                 if result.stderr:
-                    log.write(result.stderr + "\n")
+                    for line in result.stderr.splitlines():
+                        log_format.write_auto_commit(log, line)
                 log.flush()
 
         if result.returncode != 0:
@@ -98,7 +103,6 @@ def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log
                 print(f"{YELLOW}[stderr]{RESET} {result.stderr}")
             print(f"{CYAN}--- end ---{RESET}")
 
-        # If no verification function, trust the exit code.
         if verify_fn is None:
             return True
 

@@ -4,6 +4,7 @@ import subprocess
 import time
 from pathlib import Path
 
+from blink.loop import log_format
 from blink.loop.runner import Runner
 
 COMPLETION_SUFFIX = (
@@ -46,18 +47,28 @@ class ClaudeRunner(Runner):
         log = open(log_file, "a") if log_file else open("/dev/null", "a")
         try:
             if constitution_content:
-                log.write("[Constitution loaded from docs/blink/constitution.md]\n\n")
-                log.flush()
+                log_format.write_implement_message(log, "Constitution loaded from docs/blink/constitution.md")
 
             for round_num in range(1, max_rounds + 1):
-                log.write(f"\n{'='*60}\n")
-                log.write(f"Round {round_num}/{max_rounds}\n")
-                log.write(f"{'='*60}\n\n")
-                log.flush()
+                log_format.write_round(log, round_num, max_rounds)
 
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print(f" Round {round_num}/{max_rounds} ")
-                print(f"{'='*60}")
+                print(f"{'=' * 60}")
+
+                if prompt_file:
+                    with open(prompt_file, "r") as f:
+                        final_input = constitution_content + f.read() + COMPLETION_SUFFIX
+                else:
+                    final_input = constitution_content + enriched_prompt
+
+                log_format.write_implement_input(log, final_input)
+
+                print(f"\n{'─' * 60}")
+                print(" Input to Claude:")
+                print(f"{'─' * 60}")
+                print(final_input)
+                print(f"{'─' * 60}\n")
 
                 process = subprocess.Popen(
                     ["claude", "-p", "--dangerously-skip-permissions", "--model", "opus"],
@@ -68,43 +79,27 @@ class ClaudeRunner(Runner):
                     text=True,
                 )
 
-                output_parts = []
-                if prompt_file:
-                    with open(prompt_file, "r") as f:
-                        final_input = constitution_content + f.read() + COMPLETION_SUFFIX
-                else:
-                    final_input = constitution_content + enriched_prompt
-
-                print(f"\n{'─'*60}")
-                print(" Input to Claude:")
-                print(f"{'─'*60}")
-                print(final_input)
-                print(f"{'─'*60}\n")
-
                 process.stdin.write(final_input)
                 process.stdin.close()
 
+                output_parts = []
                 for line in process.stdout:
                     print(line, end="")
-                    log.write(line)
+                    log_format.write_implement_output(log, line)
                     output_parts.append(line)
 
                 process.wait()
-                log.flush()
 
                 accumulated = "".join(output_parts)
                 if "<promise>COMPLETE</promise>" in accumulated:
-                    log.write("\n[Completion signal detected - exiting loop]\n")
-                    log.flush()
+                    log_format.write_implement_message(log, "Completion signal detected")
                     return 0
 
                 if round_num < max_rounds:
-                    log.write(f"\n[Round {round_num} complete, sleeping 2s before next round]\n")
-                    log.flush()
+                    log_format.write_implement_message(log, f"Round {round_num} complete, sleeping 2s before next round")
                     time.sleep(2)
 
-            log.write(f"\n[All {max_rounds} rounds exhausted without completion signal]\n")
-            log.flush()
+            log_format.write_implement_message(log, f"All {max_rounds} rounds exhausted without completion signal")
             return 1
         finally:
             log.close()
