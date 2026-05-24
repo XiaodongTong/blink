@@ -174,12 +174,12 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 - Search area completely hidden by default via `ConditionalContainer`. Available from both focus panes.
 - Key bindings use `Condition` filters for focus-dependent behavior. `←`/`→` handle both IDE selection (eager) and focus switching based on filter priority.
 - IDE selection mode (`_ide_selecting`) is a temporary overlay state in the status bar.
-- Commit/Pull actions use braille spinner animations in the status bar with `threading.Timer` (120ms ticks). All status bar notifications (commit/pull/task/copy/browser/open results) auto-dismiss after a configurable timeout (default 3s, task notifications use 5s) via `_set_scan_status(msg, timeout)`.
+- Commit/Pull actions show static "正在提交..."/"正在拉取..." text in the status bar. All status bar notifications (commit/pull/task/copy/browser/open results) auto-dismiss after a configurable timeout (default 3s, task notifications use 5s) via `_set_scan_status(msg, timeout)`.
 - Footer highlight timer uses `threading.Timer` for 2-second decay
 - Style class names avoid prompt_toolkit built-in names (e.g. `repo-selected` instead of `selected`) to prevent style conflicts
 - Tests create real git repos via subprocess in `tmp_path` fixtures
 - Narrow terminal degradation (<80 cols) hides right panel via `ConditionalContainer` with `_is_wide_enough()` check
 - CLI uses `click.group(invoke_without_command=True)` — `--rescan` stays on the group, subcommands (`run`/`edit`/`commit`/`log`) use lazy imports to avoid loading loop modules for TUI-only use
-- TUI commit action (`_run_commit`) calls `blink.loop.git_ops.ensure_clean_git()` directly in a background thread — no subprocess, no PATH dependency on `tloop`
+- TUI commit action (`_run_commit`) calls `blink.loop.git_ops.ensure_clean_git()` directly in a background thread with `quiet=True` — no subprocess, no PATH dependency on `tloop`, no stdout pollution
 - TUI task action (`_run_add_task`) calls `blink.loop.cmd_edit._add_task()` which returns a message string displayed in the status bar (5-second timeout). `blink config-task --add` also calls `_add_task()` and prints the returned message.
 - Loop data directory is `~/.blink/loop/` (not `~/.tloop/`). Contains `tasks.yaml`, `state.json`, `settings.json`, `logs/`, `archive/`

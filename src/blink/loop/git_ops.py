@@ -71,7 +71,7 @@ def branch_exists(dir_path, name):
     return result.stdout.strip() != ""
 
 
-def ensure_clean_git(dir_path, task_name, log_file=None, model="haiku"):
+def ensure_clean_git(dir_path, task_name, log_file=None, model="haiku", quiet=False):
     if not is_git_repo(dir_path):
         return True
 
@@ -79,7 +79,8 @@ def ensure_clean_git(dir_path, task_name, log_file=None, model="haiku"):
         return True
 
     if has_staged_changes(dir_path):
-        print(f"{YELLOW}  Dirty working tree detected. Auto-committing staged changes...{RESET}")
+        if not quiet:
+            print(f"{YELLOW}  Dirty working tree detected. Auto-committing staged changes...{RESET}")
         run_claude(
             COMMIT_STAGED_PROMPT,
             cwd=dir_path,
@@ -87,10 +88,12 @@ def ensure_clean_git(dir_path, task_name, log_file=None, model="haiku"):
             log_file=log_file,
             verbose=True,
             model=model,
+            quiet=quiet,
         )
 
     if not is_git_clean(dir_path):
-        print(f"{YELLOW}  Committing remaining working-directory changes...{RESET}")
+        if not quiet:
+            print(f"{YELLOW}  Committing remaining working-directory changes...{RESET}")
         run_claude(
             COMMIT_WORKDIR_PROMPT,
             cwd=dir_path,
@@ -98,13 +101,16 @@ def ensure_clean_git(dir_path, task_name, log_file=None, model="haiku"):
             log_file=log_file,
             verbose=True,
             model=model,
+            quiet=quiet,
         )
 
     if is_git_clean(dir_path):
-        print(f"{GREEN}  Working tree is now clean.{RESET}")
+        if not quiet:
+            print(f"{GREEN}  Working tree is now clean.{RESET}")
         return True
 
-    print(f"{RED}  Failed to clean working tree after auto-commit. Skipping task.{RESET}")
+    if not quiet:
+        print(f"{RED}  Failed to clean working tree after auto-commit. Skipping task.{RESET}")
     return False
 
 

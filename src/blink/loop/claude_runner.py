@@ -19,7 +19,7 @@ EXECUTION_SUFFIX = (
 )
 
 
-def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log_file=None, verbose=False, model="haiku"):
+def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log_file=None, verbose=False, model="haiku", quiet=False):
     """Run `claude -p` with --dangerously-skip-permissions and optional retry loop.
 
     Args:
@@ -30,13 +30,14 @@ def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log
         log_file: Optional path to append logs.
         verbose: If True, print the prompt sent to Claude and the raw output received.
         model: Model to use ("haiku", "sonnet", "opus"). Passed to `claude --model`.
+        quiet: If True, suppress all print() output (for TUI usage).
 
     Returns:
         True if Claude succeeded (and passed verification if provided), False otherwise.
     """
     enriched_prompt = prompt + EXECUTION_SUFFIX
 
-    if verbose:
+    if verbose and not quiet:
         print(f"{CYAN}--- claude input ---{RESET}")
         print(prompt)
         print(f"{CYAN}--- end ---{RESET}")
@@ -55,7 +56,8 @@ def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log
         else:
             attempt_cmd = cmd
 
-        print(f"  Running claude --model {model} (attempt {attempt}/{max_retries})...")
+        if not quiet:
+            print(f"  Running claude --model {model} (attempt {attempt}/{max_retries})...")
         try:
             result = subprocess.run(
                 attempt_cmd,
@@ -65,9 +67,11 @@ def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log
                 timeout=300,
             )
         except subprocess.TimeoutExpired:
-            print(f"{YELLOW}  Claude timed out after 300s (attempt {attempt}/{max_retries}){RESET}")
+            if not quiet:
+                print(f"{YELLOW}  Claude timed out after 300s (attempt {attempt}/{max_retries}){RESET}")
             if attempt >= max_retries:
-                print(f"{RED}  Max retries reached. Giving up.{RESET}")
+                if not quiet:
+                    print(f"{RED}  Max retries reached. Giving up.{RESET}")
                 return False
             continue
 
@@ -81,12 +85,13 @@ def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log
                 log.flush()
 
         if result.returncode != 0:
-            print(f"{YELLOW}  Claude exited with code {result.returncode} (attempt {attempt}/{max_retries}){RESET}")
+            if not quiet:
+                print(f"{YELLOW}  Claude exited with code {result.returncode} (attempt {attempt}/{max_retries}){RESET}")
             if attempt < max_retries:
                 continue
             return False
 
-        if verbose:
+        if verbose and not quiet:
             print(f"{CYAN}--- claude output ---{RESET}")
             print(result.stdout if result.stdout else "(no output)")
             if result.stderr:
@@ -100,9 +105,11 @@ def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log
         if verify_fn(cwd):
             return True
 
-        print(f"{YELLOW}  Claude completed but verification failed (attempt {attempt}/{max_retries}){RESET}")
+        if not quiet:
+            print(f"{YELLOW}  Claude completed but verification failed (attempt {attempt}/{max_retries}){RESET}")
         if attempt >= max_retries:
-            print(f"{RED}  Max retries reached. Giving up.{RESET}")
+            if not quiet:
+                print(f"{RED}  Max retries reached. Giving up.{RESET}")
             return False
 
     return False

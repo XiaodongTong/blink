@@ -26,7 +26,6 @@ from blink.tui.search import SearchBar
 from blink.tui.actions import EditorInfo, IDE_CHOICES, copy_path, detect_editors, open_in_editor
 from blink.tui.detail import DetailPanel, _remote_to_https
 
-_COMMIT_SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 _NARROW_THRESHOLD = 80
 
 
@@ -98,12 +97,8 @@ class BlinkApp:
         self._ide_pending_repo: Optional[Repo] = None
 
         self._committing: bool = False
-        self._commit_spinner_index: int = 0
-        self._commit_spinner_timer: Optional[threading.Timer] = None
 
         self._pulling: bool = False
-        self._pull_spinner_index: int = 0
-        self._pull_spinner_timer: Optional[threading.Timer] = None
 
         self._load_repos()
         self._init_detail_panel()
@@ -768,16 +763,12 @@ class BlinkApp:
             parts.append(("class:footer-dim", "←→:选择  Enter:确认  Esc:取消"))
             return FormattedText(parts)
         if self._pulling:
-            frame = _COMMIT_SPINNER_FRAMES[self._pull_spinner_index]
             return FormattedText([
-                ("class:status-accent", f" {frame} "),
-                ("class:status-label", "正在拉取..."),
+                ("class:status-label", " 正在拉取..."),
             ])
         if self._committing:
-            frame = _COMMIT_SPINNER_FRAMES[self._commit_spinner_index]
             return FormattedText([
-                ("class:status-accent", f" {frame} "),
-                ("class:status-label", "正在提交..."),
+                ("class:status-label", " 正在提交..."),
             ])
         if self._detail_panel is not None and self._detail_panel.is_editing:
             mode = self._detail_panel.edit_mode
@@ -891,22 +882,6 @@ class BlinkApp:
         self._app.invalidate()
         self._start_timer(2.0, self._reset_footer_highlight)
 
-    def _tick_commit_spinner(self) -> None:
-        if not self._committing:
-            return
-        self._commit_spinner_index = (self._commit_spinner_index + 1) % len(_COMMIT_SPINNER_FRAMES)
-        self._app.invalidate()
-        self._commit_spinner_timer = threading.Timer(0.12, self._tick_commit_spinner)
-        self._commit_spinner_timer.daemon = True
-        self._commit_spinner_timer.start()
-
-    def _stop_commit_spinner(self) -> None:
-        if self._commit_spinner_timer:
-            self._commit_spinner_timer.cancel()
-            self._commit_spinner_timer = None
-        self._committing = False
-        self._commit_spinner_index = 0
-
     def _run_pull(self, repo: Repo) -> None:
         import subprocess as sp
         if self._pulling:
@@ -918,8 +893,7 @@ class BlinkApp:
             self._start_timer(3.0, self._clear_scan_status)
             return
         self._pulling = True
-        self._pull_spinner_index = 0
-        self._tick_pull_spinner()
+        self._app.invalidate()
 
         def do_pull() -> None:
             try:
@@ -937,7 +911,7 @@ class BlinkApp:
                 success, message = False, f"✗ Pull failed: {exc}"
 
             def on_done():
-                self._stop_pull_spinner()
+                self._pulling = False
                 if success:
                     self._refresh_repo_status(repo)
                 self._scan_status = message
@@ -948,22 +922,6 @@ class BlinkApp:
 
         t = threading.Thread(target=do_pull, daemon=True)
         t.start()
-
-    def _tick_pull_spinner(self) -> None:
-        if not self._pulling:
-            return
-        self._pull_spinner_index = (self._pull_spinner_index + 1) % len(_COMMIT_SPINNER_FRAMES)
-        self._app.invalidate()
-        self._pull_spinner_timer = threading.Timer(0.12, self._tick_pull_spinner)
-        self._pull_spinner_timer.daemon = True
-        self._pull_spinner_timer.start()
-
-    def _stop_pull_spinner(self) -> None:
-        if self._pull_spinner_timer:
-            self._pull_spinner_timer.cancel()
-            self._pull_spinner_timer = None
-        self._pulling = False
-        self._pull_spinner_index = 0
 
     # ── repo refresh helpers ────────────────────────────────────────────────
 
@@ -1026,8 +984,7 @@ class BlinkApp:
         if self._committing:
             return
         self._committing = True
-        self._commit_spinner_index = 0
-        self._tick_commit_spinner()
+        self._app.invalidate()
 
         def do_commit():
             try:
@@ -1036,7 +993,7 @@ class BlinkApp:
                     return False, "✗ 不是 Git 仓库"
                 if is_git_clean(repo.path):
                     return True, "✓ 工作树已干净"
-                success = ensure_clean_git(repo.path, "manual commit", model="haiku")
+                success = ensure_clean_git(repo.path, "manual commit", model="haiku", quiet=True)
                 if success:
                     return True, "✓ 提交完成"
                 return False, "✗ 提交失败"
@@ -1047,7 +1004,7 @@ class BlinkApp:
 
         def on_done():
             success, message = do_commit()
-            self._stop_commit_spinner()
+            self._committing = False
             if success:
                 self._refresh_repo_status(repo)
             self._scan_status = message
