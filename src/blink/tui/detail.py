@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Callable, List, Optional
 
 from prompt_toolkit.buffer import Buffer
@@ -8,9 +9,11 @@ from prompt_toolkit.data_structures import Point
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.layout.controls import UIContent, UIControl
 
-from blink.models import Repo, RepoStatus
+from blink.models import Repo, RepoStatus, display_width
 from blink.store import Store
 from blink.tui.actions import EditorInfo
+
+_INDENT = "            "  # 12 spaces (aligns with value column)
 
 
 def _remote_to_https(url: str) -> str | None:
@@ -304,12 +307,44 @@ class DetailPanel(UIControl):
 
     # ── rendering ────────────────────────────────────────────────────────────
 
-    def _build_info_line(self, label: str, value: str) -> List[tuple[str, str]]:
-        return [
-            ("class:dim", "    "),
-            ("class:label", label),
-            ("class:normal", value),
-        ]
+    @staticmethod
+    def _wrap_value(value: str, max_width: int) -> List[str]:
+        if max_width <= 0 or display_width(value) <= max_width:
+            return [value] if value else ["(none)"]
+        chunks: List[str] = []
+        current = ""
+        current_w = 0
+        for ch in value:
+            cw = 2 if unicodedata.east_asian_width(ch) in ('F', 'W') else 1
+            if current_w + cw > max_width and current:
+                chunks.append(current)
+                current = ch
+                current_w = cw
+            else:
+                current += ch
+                current_w += cw
+        if current:
+            chunks.append(current)
+        return chunks
+
+    def _build_info_lines(self, label: str, value: str, width: int) -> List[List[tuple[str, str]]]:
+        prefix_len = 4 + display_width(label)
+        max_val_w = width - prefix_len
+        chunks = self._wrap_value(value, max_val_w)
+        result: List[List[tuple[str, str]]] = []
+        for i, chunk in enumerate(chunks):
+            if i == 0:
+                result.append([
+                    ("class:dim", "    "),
+                    ("class:label", label),
+                    ("class:normal", chunk),
+                ])
+            else:
+                result.append([
+                    ("class:dim", _INDENT),
+                    ("class:normal", chunk),
+                ])
+        return result
 
     def _build_marker_line(self, label: str, value: str, selected: bool, width: int = 0) -> List[tuple[str, str]]:
         cls = "detail-selected" if selected else "normal"
@@ -358,9 +393,9 @@ class DetailPanel(UIControl):
         lines: List[List[tuple[str, str]]] = []
 
         # ── Metadata section (read-only, no cursor) ──
-        lines.append(self._build_info_line("Name      ", self._repo.name))
-        lines.append(self._build_info_line("Path      ", self._repo.path))
-        lines.append(self._build_info_line("Git       ", self._git_display_url()))
+        lines.extend(self._build_info_lines("Name      ", self._repo.name, width))
+        lines.extend(self._build_info_lines("Path      ", self._repo.path, width))
+        lines.extend(self._build_info_lines("Repo      ", self._git_display_url(), width))
 
         # Status row (styled, but not cursor-navigable)
         status_fragments: List[tuple[str, str]] = [
