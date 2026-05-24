@@ -36,9 +36,18 @@ blink edit [path]  # 编辑任务文件，可选添加指定目录的任务
 blink config-task -a [path]  # 添加任务配置到 tasks.yaml（--add 的简写）
 blink commit -p .  # 自动提交当前目录的变更
 blink log [N]      # 查看任务日志
+blink review <branch>          # AI code review（自动检测 main/master 作为 base 分支）
+blink review <branch> -d       # 仅 diff 模式（不创建临时分支）
+blink review -l                # 列出现有 review 报告
+blink review <branch> -a develop  # 指定目标分支
+blink review <branch> -m opus  # 指定 Claude 模型（haiku/sonnet/opus，默认 sonnet）
+blink review <branch> -p ~/proj  # 指定项目目录（默认当前目录）
+blink review -i                # 创建 review-rules.md 模板
 ```
 
-> 自动提交功能（`blink commit` 和 TUI Shift+C）需要已安装 [Claude CLI](https://docs.anthropic.com/en/docs/claude-code)（`claude` 命令）。
+> Review 报告保存至 `<project>/docs/blink/code-review/<branch>-<date>.md`，结论为 APPROVE / APPROVE_WITH_NOTES / REQUEST_CHANGES。可通过 `-i` 创建 `docs/blink/review-rules.md` 定义项目特定的 review 规则。
+
+> 自动提交功能（`blink commit` 和 TUI Shift+C）以及 Code Review 功能（`blink review` 和 TUI Shift+V）需要已安装 [Claude CLI](https://docs.anthropic.com/en/docs/claude-code)（`claude` 命令）。
 
 ### 首次运行
 
@@ -52,7 +61,7 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 
 右侧详情面板分三个区域：
 - **基础信息**（只读）：Name、Path、Git、Status
-- **操作区**（可选中，Enter 执行）：IDE、Git（在浏览器中打开）、Commit、Task（添加 Todo 任务）、Finder、Path。聚焦时选中行显示 `[Enter]`，未聚焦时显示对应快捷键徽标
+- **操作区**（可选中，Enter 执行）：IDE、Git（在浏览器中打开）、Commit、Task（添加 Todo 任务）、Finder、Review（AI Code Review）、Path。聚焦时选中行显示 `[Enter]`，未聚焦时显示对应快捷键徽标
 - **本地标记**（可编辑）：Pinned、Alias、Tags、Description。仅在聚焦时显示选中效果
 
 当终端宽度不足 80 列时，自动降级为仅显示左侧列表。
@@ -73,6 +82,8 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 | `Shift+C` | 自动提交代码（AI 生成 commit message） |
 | `Shift+G` | 在浏览器中打开远程仓库 |
 | `Shift+T` | 添加 Todo 任务（追加到 `~/.blink/loop/tasks.yaml`，完成后自动打开 IDE 编辑） |
+| `Shift+V` | AI Code Review（输入同事分支名，自动生成 review 报告） |
+| `Shift+L` | 打开最近的 review 报告 |
 | `Shift+U` | 拉取最新代码（`git pull`） |
 | `Ctrl+C` ×2 | 退出程序（2 秒内按两次） |
 
@@ -85,6 +96,7 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 - **Commit** — 自动提交代码（AI 生成 commit message）
 - **Task** — 添加 Todo 任务（追加到 `~/.blink/loop/tasks.yaml`，完成后自动打开 IDE 编辑）
 - **Finder** — 在 Finder 中打开
+- **Review** — AI Code Review（输入同事分支名，自动生成结构化 review 报告）
 - **Path** — 复制仓库路径到剪贴板
 - **Pinned** — 切换置顶状态
 - **Alias** — 编辑别名（Enter 保存，Esc 取消）
@@ -144,7 +156,7 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 - Python 3.9+
 - [uv](https://docs.astral.sh/uv/)
 - [git](https://git-scm.com/)
-- [Claude CLI](https://docs.anthropic.com/en/docs/claude-code)（可选，用于自动提交和任务执行）
+- [Claude CLI](https://docs.anthropic.com/en/docs/claude-code)（可选，用于自动提交、任务执行和 Code Review）
 
 ### 初始化
 

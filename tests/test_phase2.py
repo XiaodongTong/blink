@@ -47,9 +47,13 @@ def _make_app():
     app._app = MagicMock()
     app._ide_selecting = False
     app._ide_select_cursor = 0
-    app._ide_pending_repo = None
+    app._ide_pending_path = None
     app._committing_paths = set()
     app._pulling_paths = set()
+    app._reviewing_paths = set()
+    app._review_branch_buffer = ""
+    app._review_input_active = False
+    app._last_report_paths = {}
     return app, store, rid
 
 
@@ -249,9 +253,9 @@ def test_detail_metadata_displayed():
 def test_detail_local_markers_have_cursor():
     panel = _make_panel()
     panel._cursor_index = DetailPanel.LINE_PINNED
-    assert panel._cursor_index == 6
+    assert panel._cursor_index == 7
     panel._cursor_index = DetailPanel.LINE_DESC
-    assert panel._cursor_index == 9
+    assert panel._cursor_index == 10
 
 
 def test_detail_shortcuts_displayed():

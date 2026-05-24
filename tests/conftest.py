@@ -45,7 +45,11 @@ def app_with_store():
     app._app = MagicMock()
     app._ide_selecting = False
     app._ide_select_cursor = 0
-    app._ide_pending_repo = None
+    app._ide_pending_path = None
     app._committing_paths = set()
     app._pulling_paths = set()
+    app._reviewing_paths = set()
+    app._review_branch_buffer = ""
+    app._review_input_active = False
+    app._last_report_paths = {}
     yield app, store, rid

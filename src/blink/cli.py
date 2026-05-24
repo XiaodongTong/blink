@@ -121,3 +121,26 @@ def config_task(add_path: str | None) -> None:
         msg = _add_task(add_path)
         if msg:
             print(f"{loop_config.GREEN}{msg}{loop_config.RESET}")
+
+
+@main.command()
+@click.argument("branch", required=False, default=None)
+@click.option("-a", "--against", default=None, help="Base branch to compare against (default: auto-detect main)")
+@click.option("-d", "--diff-only", is_flag=True, help="Skip temporary branch creation (faster, less context)")
+@click.option("-l", "--list", "list_reports", is_flag=True, help="List existing review reports")
+@click.option("-p", "--dir", "project_dir", default=".", help="Project directory (default: current directory)")
+@click.option("-m", "--model", type=click.Choice(["haiku", "sonnet", "opus"]), default="sonnet", help="Claude model to use (default: sonnet)")
+@click.option("-i", "--init-rules", is_flag=True, help="Create review-rules.md template in project")
+def review(branch: str | None, against: str | None, diff_only: bool, list_reports: bool, project_dir: str, model: str, init_rules: bool) -> None:
+    """AI-assisted code review of a colleague branch."""
+    from blink.loop.cmd_review import handle
+    args = argparse.Namespace(
+        branch=branch,
+        against=against,
+        diff_only=diff_only,
+        list=list_reports,
+        dir=project_dir,
+        model=model,
+        init_rules=init_rules,
+    )
+    handle(args)

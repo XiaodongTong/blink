@@ -98,7 +98,7 @@ def test_cursor_down_at_max():
     panel = _make_detail_panel()
     for _ in range(15):
         panel.cursor_down()
-    assert panel._cursor_index == 9
+    assert panel._cursor_index == 10
 
 
 def test_cursor_up_at_zero():
@@ -349,16 +349,17 @@ def test_detail_panel_line_constants():
     assert DetailPanel.LINE_COMMIT == 2
     assert DetailPanel.LINE_TASK == 3
     assert DetailPanel.LINE_FINDER == 4
-    assert DetailPanel.LINE_PATH == 5
-    assert DetailPanel.LINE_PINNED == 6
-    assert DetailPanel.LINE_ALIAS == 7
-    assert DetailPanel.LINE_TAGS == 8
-    assert DetailPanel.LINE_DESC == 9
-    assert DetailPanel.MAX_LINE == 9
+    assert DetailPanel.LINE_REVIEW == 5
+    assert DetailPanel.LINE_PATH == 6
+    assert DetailPanel.LINE_PINNED == 7
+    assert DetailPanel.LINE_ALIAS == 8
+    assert DetailPanel.LINE_TAGS == 9
+    assert DetailPanel.LINE_DESC == 10
+    assert DetailPanel.MAX_LINE == 10
 
 
 def test_detail_panel_action_line_constants():
-    for attr in ("LINE_IDE", "LINE_PATH", "LINE_COMMIT", "LINE_FINDER", "LINE_GIT", "LINE_TASK"):
+    for attr in ("LINE_IDE", "LINE_PATH", "LINE_COMMIT", "LINE_FINDER", "LINE_GIT", "LINE_TASK", "LINE_REVIEW"):
         assert hasattr(DetailPanel, attr)
 
 
@@ -402,6 +403,7 @@ def test_detail_panel_renders_action_shortcuts():
     assert "Shift+C" in t
     assert "Shift+G" in t
     assert "Shift+T" in t
+    assert "Shift+V" in t
 
 
 def test_detail_panel_renders_action_rows():
@@ -412,6 +414,7 @@ def test_detail_panel_renders_action_rows():
     assert "Add todo task" in t
     assert "Auto Commit Changes" in t
     assert "Open in browser" in t
+    assert "AI Code Review" in t
     assert "Copy repo path" in t
 
 
@@ -501,7 +504,7 @@ def test_on_action_called_on_desc_edit():
 # ── actions section ────────────────────────────────────────────────────────
 
 
-def test_actions_section_renders_6_rows():
+def test_actions_section_renders_action_rows():
     panel = _make_detail_panel()
     t = _to_plain(panel._formatted_text())
     assert "IDE" in t
@@ -577,21 +580,21 @@ def test_no_static_shortcut_hints_section():
 
 
 def test_marker_cursor_indices():
-    assert DetailPanel.LINE_PINNED == 6
-    assert DetailPanel.LINE_ALIAS == 7
-    assert DetailPanel.LINE_TAGS == 8
-    assert DetailPanel.LINE_DESC == 9
+    assert DetailPanel.LINE_PINNED == 7
+    assert DetailPanel.LINE_ALIAS == 8
+    assert DetailPanel.LINE_TAGS == 9
+    assert DetailPanel.LINE_DESC == 10
 
 
 def test_cursor_navigates_full_range():
     panel = _make_detail_panel()
     assert panel._cursor_index == 0
-    for expected in range(1, 10):
+    for expected in range(1, 11):
         panel.cursor_down()
         assert panel._cursor_index == expected
     panel.cursor_down()
-    assert panel._cursor_index == 9
-    for expected in range(8, -1, -1):
+    assert panel._cursor_index == 10
+    for expected in range(9, -1, -1):
         panel.cursor_up()
         assert panel._cursor_index == expected
     panel.cursor_up()

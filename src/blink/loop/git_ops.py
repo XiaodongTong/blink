@@ -1,5 +1,6 @@
 """Git operations for blink loop: auto-commit, branch management, and safety checks."""
 
+import re
 import subprocess
 from datetime import datetime
 
@@ -119,6 +120,72 @@ def find_next_available_branch(dir_path, prefix):
         name = f"{prefix}-{n:03d}"
         if not branch_exists(dir_path, name):
             return name
+    return None
+
+
+def get_current_branch(dir_path):
+    result = _git(dir_path, "symbolic-ref", "--short", "HEAD")
+    if result.returncode == 0:
+        return result.stdout.strip()
+    return None
+
+
+def get_diff_stat(dir_path, base, branch):
+    result = _git(dir_path, "diff", "--stat", f"{base}..{branch}")
+    if result.returncode == 0:
+        return result.stdout.strip()
+    return ""
+
+
+def create_review_branch(dir_path, colleague_branch, base):
+    current = get_current_branch(dir_path)
+    date_str = datetime.now().strftime("%Y%m%d")
+    slug = colleague_branch.replace("/", "-")
+    slug = re.sub(r"-+", "-", slug)
+    review_name = f"review/{slug}-{date_str}"
+
+    stashed = not is_git_clean(dir_path)
+    if stashed:
+        _git(dir_path, "stash", "--include-untracked", "--quiet")
+
+    _git(dir_path, "checkout", base, "--quiet")
+    _git(dir_path, "checkout", "-b", review_name, "--quiet")
+
+    merge_result = _git(dir_path, "merge", colleague_branch, "--no-edit")
+    if merge_result.returncode != 0:
+        _git(dir_path, "merge", "--abort")
+        if current:
+            _git(dir_path, "checkout", current, "--quiet")
+        else:
+            _git(dir_path, "checkout", base, "--quiet")
+        _git(dir_path, "branch", "-D", review_name)
+        if stashed:
+            _git(dir_path, "stash", "pop", "--quiet")
+        return None, f"Merge conflict between {base} and {colleague_branch}", stashed
+
+    return review_name, current, stashed
+
+
+def delete_branch(dir_path, branch_name, force=True):
+    flag = "-D" if force else "-d"
+    _git(dir_path, "branch", flag, branch_name)
+
+
+def get_branch_list(dir_path, pattern=""):
+    args = ["branch", "--list"]
+    if pattern:
+        args.append(pattern)
+    result = _git(dir_path, *args)
+    if result.returncode != 0:
+        return []
+    return [line.strip().lstrip("* ") for line in result.stdout.strip().splitlines() if line.strip()]
+
+
+def detect_main_branch(dir_path):
+    if branch_exists(dir_path, "main"):
+        return "main"
+    if branch_exists(dir_path, "master"):
+        return "master"
     return None
 
 

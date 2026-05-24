@@ -112,9 +112,13 @@ def _make_app_mock():
     app._app = MagicMock()
     app._ide_selecting = False
     app._ide_select_cursor = 0
-    app._ide_pending_repo = None
+    app._ide_pending_path = None
     app._committing_paths = set()
     app._pulling_paths = set()
+    app._reviewing_paths = set()
+    app._review_branch_buffer = ""
+    app._review_input_active = False
+    app._last_report_paths = {}
     return app, store, rid
 
 
@@ -160,7 +164,7 @@ def _make_detail_panel(repo=None):
 
 
 def test_detail_panel_has_action_and_marker_lines():
-    assert DetailPanel.MAX_LINE == 9
+    assert DetailPanel.MAX_LINE == 10
     assert hasattr(DetailPanel, "LINE_PINNED")
     assert hasattr(DetailPanel, "LINE_ALIAS")
     assert hasattr(DetailPanel, "LINE_TAGS")
@@ -171,15 +175,17 @@ def test_detail_panel_has_action_and_marker_lines():
     assert hasattr(DetailPanel, "LINE_FINDER")
     assert hasattr(DetailPanel, "LINE_GIT")
     assert hasattr(DetailPanel, "LINE_TASK")
+    assert hasattr(DetailPanel, "LINE_REVIEW")
 
 
 def test_detail_panel_action_line_constants():
     assert DetailPanel.LINE_IDE == 0
-    assert DetailPanel.LINE_PATH == 1
+    assert DetailPanel.LINE_PATH == 6
     assert DetailPanel.LINE_COMMIT == 2
-    assert DetailPanel.LINE_FINDER == 3
-    assert DetailPanel.LINE_GIT == 4
-    assert DetailPanel.LINE_TASK == 5
+    assert DetailPanel.LINE_FINDER == 4
+    assert DetailPanel.LINE_GIT == 1
+    assert DetailPanel.LINE_TASK == 3
+    assert DetailPanel.LINE_REVIEW == 5
 
 
 # ── Shortcut passthrough filter ──────────────────────────────────────────

@@ -43,10 +43,12 @@ class TestLoopImports:
         from blink.loop.cmd_edit import handle as edit_handle
         from blink.loop.cmd_commit import handle as commit_handle
         from blink.loop.cmd_log import handle as log_handle
+        from blink.loop.cmd_review import handle as review_handle
         assert callable(run_handle)
         assert callable(edit_handle)
         assert callable(commit_handle)
         assert callable(log_handle)
+        assert callable(review_handle)
 
     def test_runner_base_class(self):
         from blink.loop.runner import Runner
@@ -96,6 +98,7 @@ class TestCLIHelp:
         assert "edit" in result.stdout
         assert "run" in result.stdout
         assert "log" in result.stdout
+        assert "review" in result.stdout
 
     def test_run_help(self):
         result = subprocess.run(
@@ -121,7 +124,7 @@ class TestCLIHelp:
             capture_output=True, text=True,
         )
         assert result.returncode == 0
-        assert "--editor" in result.stdout
+        assert "PATH" in result.stdout
 
     def test_log_help(self):
         result = subprocess.run(

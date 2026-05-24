@@ -24,6 +24,11 @@ uv run blink edit [path]   # Edit tasks.yaml / add task
 uv run blink config-task -a [path]  # Add a task entry to tasks.yaml (shorthand for --add)
 uv run blink commit -p .   # Auto-commit changes
 uv run blink log [N]       # View task logs
+uv run blink review <branch>          # AI code review of branch vs main
+uv run blink review <branch> -d       # Diff-only review (no temp branch)
+uv run blink review -l                # List existing review reports
+uv run blink review <branch> -a develop  # Review against specific base
+uv run blink review -i                # Create review-rules.md template
 uv run pytest              # Run all tests
 uv run pytest tests/test_scanner.py  # Run a single test file
 uv run pytest -k test_scan_paths_finds_git_repos  # Run a single test
@@ -34,7 +39,7 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 
 ## Architecture
 
-**Entry point**: `src/blink/cli.py` — click group with `invoke_without_command=True`. When no subcommand is given, launches TUI. Five subcommands (`run`, `edit`, `config-task`, `commit`, `log`) delegate to `blink.loop` handler functions via argparse.Namespace shim objects.
+**Entry point**: `src/blink/cli.py` — click group with `invoke_without_command=True`. When no subcommand is given, launches TUI. Six subcommands (`run`, `edit`, `config-task`, `commit`, `log`, `review`) delegate to `blink.loop` handler functions via argparse.Namespace shim objects.
 
 **Core modules** (all in `src/blink/`):
 
@@ -47,9 +52,10 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 
 - `config.py` — Constants for loop data directory (`~/.blink/loop/`), ANSI colors, YAML header. `ensure_tloop_home()` initializes directory structure. `load_config()` parses `tasks.yaml`.
 - `state.py` — JSON state file management (`state.json`). Task status tracking and archiving of completed tasks.
-- `git_ops.py` — Git safety checks (`is_git_repo`, `is_git_clean`, `has_staged_changes`), auto-commit via Claude (`ensure_clean_git`), branch creation (`create_task_branch`).
-- `claude_runner.py` — `run_claude()` wraps `claude --dangerously-skip-permissions --print` with retry and verification loops.
+- `git_ops.py` — Git safety checks (`is_git_repo`, `is_git_clean`, `has_staged_changes`), auto-commit via Claude (`ensure_clean_git`), branch creation (`create_task_branch`), review branch management (`create_review_branch`, `delete_branch`, `detect_main_branch`, `get_current_branch`, `get_diff_stat`, `get_branch_list`).
+- `claude_runner.py` — `run_claude()` wraps `claude --dangerously-skip-permissions --print` with retry and verification loops. `run_claude_text()` returns stdout string without EXECUTION_SUFFIX (for analysis tasks like code review).
 - `review.py` — Post-task code review via self-critique. `review_changes()` diffs against base commit and sends to Claude.
+- `cmd_review.py` — `handle()` for `blink review` subcommand: AI-assisted code review of colleague branches. Collects three-layer context (diff, temporary merged branch, project rules), runs Claude via `run_claude_text()`, produces structured report with verdict (APPROVE/APPROVE_WITH_NOTES/REQUEST_CHANGES). Reports saved to `<project>/docs/blink/code-review/<slug>-<date>.md`. Supports `--diff-only`, `--list`, `--init-rules`, `--against`, `--model` flags.
 - `task.py` — `run_task()` executes a single task: auto-commit, branch creation, runner selection (cybervisor/claude), state updates.
 - `cmd_run.py` — `handle()` for `blink run` subcommand: runs tasks from `tasks.yaml`.
 - `cmd_edit.py` — `handle()` for `blink edit`: unified IDE selection (uses `Config.preferred_ide` and `IDE_CHOICES` from `actions.py`), task file editing. `_add_task(path)` appends task entry and returns confirmation message string. Both TUI and `blink config-task --add` call `_add_task()` directly. TUI opens tasks.yaml in IDE after adding; CLI callers print the returned message.
@@ -59,11 +65,11 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 
 **TUI** (`src/blink/tui/`):
 
-- `app.py` — Main `BlinkApp` class. Composes two-column `VSplit` layout (left repo list ~48% width, right detail panel ~52%). Manages three-state focus pane (`_focus_pane`: `"list"` / `"detail"` / `"edit"`). All key bindings, search state machine, exit mechanism, edit-mode input routing, background scan orchestration, and background status fetching live here. `_open_with_ide(path)` generalizes IDE opening for any path; `_trigger_open_ide(repo)` delegates to it. Callbacks for detail panel actions: `_open_git_in_browser()` (webbrowser.open), `_run_add_task()` (calls `_add_task()` then opens tasks.yaml via `_open_with_ide()`), `_copy_repo_path()`, `_open_finder()`. Key bindings Shift+I/O/P/C/G/T/R/U wired with search/edit/IDE-selecting filters. Styles defined in `_build_style()` using GitHub dark theme colors. Narrow terminal (<80 cols) hides right panel via `ConditionalContainer`.
+- `app.py` — Main `BlinkApp` class. Composes two-column `VSplit` layout (left repo list ~48% width, right detail panel ~52%). Manages three-state focus pane (`_focus_pane`: `"list"` / `"detail"` / `"edit"`). All key bindings, search state machine, exit mechanism, edit-mode input routing, background scan orchestration, and background status fetching live here. `_open_with_ide(path)` generalizes IDE opening for any path; `_trigger_open_ide(repo)` delegates to it. Callbacks for detail panel actions: `_open_git_in_browser()` (webbrowser.open), `_run_add_task()` (calls `_add_task()` then opens tasks.yaml via `_open_with_ide()`), `_copy_repo_path()`, `_open_finder()`, `_run_review()` (AI code review in background thread). Key bindings Shift+I/O/P/C/G/T/V/L/R/U wired with search/edit/IDE-selecting filters. Shift+V triggers review branch-name input mode in status bar; Shift+L opens last review report in IDE. Styles defined in `_build_style()` using GitHub dark theme colors. Narrow terminal (<80 cols) hides right panel via `ConditionalContainer`.
 - `repo_list.py` — Custom `UIControl`/`Window` for the two-line repo list. Each repo renders as: line 1 = indicator + `★` (if pinned) + name/alias + tags, line 2 = path + right-aligned status badge (`branch ● +N ↑N ↓N`). Supports Nerd Font icons when `config.nerd_fonts` is True. Selected items pad lines to full width for consistent background fill. Badge uses CJK-aware width calculation via `display_width()`.
 - `search.py` — `SearchBar` wrapping a `prompt_toolkit.Buffer`. Visibility controlled by `ConditionalContainer` in app layout.
 - `actions.py` — Editor detection and launch (VSCode, Cursor, Antigravity, system open), clipboard via `pbcopy`. `IDE_CHOICES` defines the three IDE options for the unified IDE selection flow. Used by both TUI and CLI (`blink edit`).
-- `detail.py` — `DetailPanel` class rendering repo info in three sections: Metadata (Name/Path/Repo/Status, read-only, with CJK-aware line wrapping for long values), Actions (IDE/Git/Commit/Task/Finder/Path, cursor-navigable indices 0–5), and Local Markers (Pinned/Alias/Tags/Desc, cursor-navigable indices 6–9). 10 cursor-navigable rows (MAX_LINE=9). Supports `set_repo(repo)` for real-time sync, inline alias/desc edit, tag management, pin toggle, and action callbacks. `_wrap_value()` performs CJK-aware word wrapping; `_build_info_lines()` produces one or more lines per metadata field. `_remote_to_https()` at module level converts SSH URLs to HTTPS for browser opening.
+- `detail.py` — `DetailPanel` class rendering repo info in three sections: Metadata (Name/Path/Repo/Status, read-only, with CJK-aware line wrapping for long values), Actions (IDE/Git/Commit/Task/Finder/Review/Path, cursor-navigable indices 0–6), and Local Markers (Pinned/Alias/Tags/Desc, cursor-navigable indices 7–10). 11 cursor-navigable rows (MAX_LINE=10). Supports `set_repo(repo)` for real-time sync, inline alias/desc edit, tag management, pin toggle, and action callbacks. `_wrap_value()` performs CJK-aware word wrapping; `_build_info_lines()` produces one or more lines per metadata field. `_remote_to_https()` at module level converts SSH URLs to HTTPS for browser opening.
 - `icons.py` — Nerd Font icon constants with ASCII fallbacks. `get_icon(nerd_fonts, nf_char, ascii_char)` selects the appropriate character.
 
 **Data flow**: Scanner finds git dirs → creates `ScanResult(repo, remotes)` → Store upserts into SQLite → TUI loads from Store for display/search. StatusFetcher fetches git status → Store upserts into `repo_status` → TUI reloads repos (with status via LEFT JOIN) for badge display. List navigation triggers `_sync_detail_panel()` which calls `detail_panel.set_repo(repo)` for real-time right-panel updates. TUI Shift+C calls `blink.loop.git_ops.ensure_clean_git()` in background thread; Shift+T calls `blink.loop.cmd_edit._add_task()` then opens tasks.yaml via unified `_open_with_ide()` flow. `config-task --add` also calls `_add_task()` to append task entries. CLI subcommands delegate to `blink.loop.cmd_*` handlers. All loop data stored under `~/.blink/loop/`.
@@ -89,6 +95,7 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 │                      │     Commit    Auto Commit Changes  [Shift+C] │
 │                      │     Task      Add todo task        [Shift+T] │
 │                      │     Finder    Open in Finder       [Shift+O] │
+│                      │     Review    AI Code Review       [Shift+V] │
 │                      │     Path      Copy repo path       [Shift+P] │
 │                      │ ─────────────────────────────────────────── │
 │                      │   ▸ Pinned    No        ← cursor row        │
@@ -116,8 +123,8 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
   - 排序规则：置顶优先 → 查看次数降序 → 名称升序
 - **详情面板**（detail panel）— 右侧面板，约 52% 宽度，三个区域：
   - **Metadata 区域**（只读）：Name/Path/Repo/Status，不可选中
-  - **Actions 区域**（可选中）：IDE(0)/Git(1)/Commit(2)/Task(3)/Finder(4)/Path(5)，`↑`/`↓` 导航，Enter 执行操作。未聚焦时所有行显示为普通态并显示对应快捷键徽标（如 `[Shift+I]`）；聚焦时选中行显示 `[Enter]` 替代快捷键徽标，默认选中 IDE（行 0）
-  - **Local Markers 区域**（可选中）：Pinned(6)/Alias(7)/Tags(8)/Desc(9)，`↑`/`↓` 导航，Enter 执行操作。未聚焦时无选中效果；聚焦时才显示当前选中行
+  - **Actions 区域**（可选中）：IDE(0)/Git(1)/Commit(2)/Task(3)/Finder(4)/Review(5)/Path(6)，`↑`/`↓` 导航，Enter 执行操作。未聚焦时所有行显示为普通态并显示对应快捷键徽标（如 `[Shift+I]`）；聚焦时选中行显示 `[Enter]` 替代快捷键徽标，默认选中 IDE（行 0）
+  - **Local Markers 区域**（可选中）：Pinned(7)/Alias(8)/Tags(9)/Desc(10)，`↑`/`↓` 导航，Enter 执行操作。未聚焦时无选中效果；聚焦时才显示当前选中行
 - **状态栏**（status bar）— 显示选中项目的描述和路径；编辑态时显示输入内容和光标；过滤态下显示搜索词和结果数。所有操作反馈提示（如提交完成、路径已复制、任务已添加等）均显示在状态栏中，5 秒后自动消失
 - **快捷键栏**（footer）— 显示主要快捷键，按 Shift+操作键时短暂高亮 2 秒
 - **焦点状态**（focus pane）— 三态：`"list"` / `"detail"` / `"edit"`
@@ -141,6 +148,8 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 | `Shift+G` | 在浏览器中打开远程仓库 | list, detail |
 | `Shift+T` | 添加 Todo 任务（追加到 `~/.blink/loop/tasks.yaml`，完成后自动打开 IDE 编辑） | list, detail |
 | `Shift+U` | 拉取最新代码 | list, detail |
+| `Shift+V` | AI Code Review（输入同事分支名） | list, detail |
+| `Shift+L` | 打开最近的 review 报告 | list, detail |
 | `Ctrl+C` ×2 | 退出程序（2秒内按两次）| any |
 
 - 编辑态下全局快捷键（Shift+I/O/P/C/G/T/U）被屏蔽
@@ -158,10 +167,10 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 
 编辑模式在详情面板的 Local Markers 区域触发：
 
-- **Pinned**（光标行 6）— Enter 直接切换置顶状态
-- **Alias**（光标行 7）— Enter 进入别名编辑态，Enter 保存，Esc/Ctrl+C 取消
-- **Tags**（光标行 8）— Enter 进入标签编辑态，输入+Enter 添加，`1`~`9` 按序号删除，Esc/Ctrl+C 退出
-- **Description**（光标行 9）— Enter 进入描述编辑态，Enter 保存，Esc/Ctrl+C 取消
+- **Pinned**（光标行 7）— Enter 直接切换置顶状态
+- **Alias**（光标行 8）— Enter 进入别名编辑态，Enter 保存，Esc/Ctrl+C 取消
+- **Tags**（光标行 9）— Enter 进入标签编辑态，输入+Enter 添加，`1`~`9` 按序号删除，Esc/Ctrl+C 退出
+- **Description**（光标行 10）— Enter 进入描述编辑态，Enter 保存，Esc/Ctrl+C 取消
 - 编辑时状态栏显示输入内容和光标，详情面板行保持原始值不变
 - `view_count` 仅在 Local Markers 编辑操作（别名/标签/描述/置顶）时递增；Actions 行操作不递增
 
@@ -172,7 +181,7 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 - StatusFetcher's `run_fetch(repos, blocking, on_status, on_error, on_done)` follows the same threaded pattern. On per-repo failure, calls `on_error(repo_id)` instead of upserting, preserving cached status. The TUI shows `⚠` for error repos via `RepoListControl.error_repo_ids`. Status fetch is triggered on startup and on Shift+R rescan completion.
 - TUI uses `app.invalidate()` to trigger re-renders after state changes
 - Config falls back to defaults if the file is missing or corrupted, and rewrites it. `nerd_fonts` config key (default `false`) controls icon rendering.
-- Detail panel uses `set_repo(repo)` for real-time sync with list selection. Cursor covers Actions rows (0-5: IDE/Git/Commit/Task/Finder/Path) and Local Markers rows (6-9: Pinned/Alias/Tags/Desc). Metadata rows are display-only and wrap across multiple lines when values exceed available width (`_wrap_value` with CJK-aware width calculation). `set_focused(bool)` controls whether selection highlighting is shown; app calls it via `_set_focus(pane)` which also updates `_focus_pane`. Actions rows show `[Enter]` on the selected row when focused; when unfocused all rows render without selection effect and display shortcut badges instead.
+- Detail panel uses `set_repo(repo)` for real-time sync with list selection. Cursor covers Actions rows (0-6: IDE/Git/Commit/Task/Finder/Review/Path) and Local Markers rows (7-10: Pinned/Alias/Tags/Desc). Metadata rows are display-only and wrap across multiple lines when values exceed available width (`_wrap_value` with CJK-aware width calculation). `set_focused(bool)` controls whether selection highlighting is shown; app calls it via `_set_focus(pane)` which also updates `_focus_pane`. Actions rows show `[Enter]` on the selected row when focused; when unfocused all rows render without selection effect and display shortcut badges instead.
 - Single VSplit layout with `_focus_pane` three-state management (`"list"` / `"detail"` / `"edit"`). Focus switching updates border highlight styles dynamically. No layout replacement — focus is managed within the same layout.
 - Search area completely hidden by default via `ConditionalContainer`. Available from both focus panes.
 - Key bindings use `Condition` filters for focus-dependent behavior. `←`/`→` handle both IDE selection (eager) and focus switching based on filter priority.
@@ -182,7 +191,8 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 - Style class names avoid prompt_toolkit built-in names (e.g. `repo-selected` instead of `selected`) to prevent style conflicts
 - Tests create real git repos via subprocess in `tmp_path` fixtures
 - Narrow terminal degradation (<80 cols) hides right panel via `ConditionalContainer` with `_is_wide_enough()` check
-- CLI uses `click.group(invoke_without_command=True)` — `--rescan` stays on the group, subcommands (`run`/`edit`/`commit`/`log`) use lazy imports to avoid loading loop modules for TUI-only use
+- CLI uses `click.group(invoke_without_command=True)` — `--rescan` stays on the group, subcommands (`run`/`edit`/`commit`/`log`/`review`) use lazy imports to avoid loading loop modules for TUI-only use
 - TUI commit action (`_run_commit`) calls `blink.loop.git_ops.ensure_clean_git()` directly in a background thread with `quiet=True` — no subprocess, no PATH dependency on `tloop`, no stdout pollution
 - TUI task action (`_run_add_task`) calls `blink.loop.cmd_edit._add_task()` which returns a message string, then opens tasks.yaml via unified `_open_with_ide()` (status bar shows success message with 2-second timeout). `blink config-task --add` also calls `_add_task()` and prints the returned message.
 - Loop data directory is `~/.blink/loop/` (not `~/.tloop/`). Contains `tasks.yaml`, `state.json`, `logs/`, `archive/`
+- Code review uses three-layer context: diff + temporary merged branch + project rules (`docs/blink/review-rules.md`). Reports saved to `<project>/docs/blink/code-review/<branch-slug>-<date>.md`. `run_claude_text()` must NOT append EXECUTION_SUFFIX — review is analysis, not execution. TUI Shift+V triggers branch-name input mode in status bar, then runs review in background thread; verdict displayed in status bar with 5s auto-dismiss. Shift+L opens last report in IDE. `detect_main_branch()` checks `main` then `master` when `--against` is not specified. Branch slug replaces `/` with `-` and collapses consecutive `-`.

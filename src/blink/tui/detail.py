@@ -27,18 +27,19 @@ def _remote_to_https(url: str) -> str | None:
 
 
 class DetailPanel(UIControl):
-    # Cursor-navigable rows: Actions (0–5) + Local Markers (6–9)
+    # Cursor-navigable rows: Actions (0–6) + Local Markers (7–10)
     LINE_IDE = 0
     LINE_GIT = 1
     LINE_COMMIT = 2
     LINE_TASK = 3
     LINE_FINDER = 4
-    LINE_PATH = 5
-    LINE_PINNED = 6
-    LINE_ALIAS = 7
-    LINE_TAGS = 8
-    LINE_DESC = 9
-    MAX_LINE = 9
+    LINE_REVIEW = 5
+    LINE_PATH = 6
+    LINE_PINNED = 7
+    LINE_ALIAS = 8
+    LINE_TAGS = 9
+    LINE_DESC = 10
+    MAX_LINE = 10
 
     _ACTION_SHORTCUTS: dict[int, str] = {
         0: "Shift+I",
@@ -46,7 +47,8 @@ class DetailPanel(UIControl):
         2: "Shift+C",
         3: "Shift+T",
         4: "Shift+O",
-        5: "Shift+P",
+        5: "Shift+V",
+        6: "Shift+P",
     }
 
     _ACTION_ITEMS = [
@@ -55,6 +57,7 @@ class DetailPanel(UIControl):
         ("Commit    ", "Auto Commit Changes"),
         ("Task      ", "Add todo task"),
         ("Finder    ", "Open in Finder"),
+        ("Review    ", "AI Code Review"),
         ("Path      ", "Copy repo path"),
     ]
 
@@ -70,7 +73,8 @@ class DetailPanel(UIControl):
                  on_copy_path: Callable[[], None] = lambda: None,
                  on_open_finder: Callable[[], None] = lambda: None,
                  on_open_git: Callable[[], None] = lambda: None,
-                 on_add_task: Callable[[], None] = lambda: None) -> None:
+                 on_add_task: Callable[[], None] = lambda: None,
+                 on_review: Callable[[], None] = lambda: None) -> None:
         self._repo = repo
         self._store = store
         self._editors = editors
@@ -87,6 +91,7 @@ class DetailPanel(UIControl):
         self._on_open_finder = on_open_finder
         self._on_open_git = on_open_git
         self._on_add_task = on_add_task
+        self._on_review = on_review
 
         self._cursor_index = 0
         self._focused = False
@@ -158,6 +163,8 @@ class DetailPanel(UIControl):
             self._on_open_git()
         elif line == self.LINE_TASK:
             self._on_add_task()
+        elif line == self.LINE_REVIEW:
+            self._on_review()
         elif line == self.LINE_PINNED:
             self._toggle_pin()
             self._on_action()
@@ -409,7 +416,7 @@ class DetailPanel(UIControl):
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
-        # ── Actions section (cursor-navigable, indices 0–5) ──
+        # ── Actions section (cursor-navigable, indices 0–6) ──
         for i, (label, desc) in enumerate(self._ACTION_ITEMS):
             is_sel = (cur == i) and self._focused
             lines.append(self._build_action_line(label, desc, is_sel, width, index=i))
@@ -417,7 +424,7 @@ class DetailPanel(UIControl):
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
-        # ── Local Markers section (cursor-navigable, indices 6–9) ──
+        # ── Local Markers section (cursor-navigable, indices 7–10) ──
         pin_str = "Yes" if self._repo.pinned else "No"
         lines.append(self._build_marker_line("Pinned    ", pin_str, cur == self.LINE_PINNED and self._focused, width))
         lines.append(self._build_marker_line("Alias     ", self._repo.alias or "(none)", cur == self.LINE_ALIAS and self._focused, width))

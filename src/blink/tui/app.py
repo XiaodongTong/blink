@@ -100,6 +100,11 @@ class BlinkApp:
 
         self._pulling_paths: set[str] = set()
 
+        self._reviewing_paths: set[str] = set()
+        self._review_branch_buffer: str = ""
+        self._review_input_active: bool = False
+        self._last_report_paths: dict[str, str] = {}
+
         self._load_repos()
         self._init_detail_panel()
 
@@ -131,6 +136,8 @@ class BlinkApp:
     # ── edit mode helpers ────────────────────────────────────────────────────
 
     def _in_edit_mode(self) -> bool:
+        if self._review_input_active:
+            return True
         if self._detail_panel is not None:
             return self._detail_panel.is_editing
         return False
@@ -159,6 +166,8 @@ class BlinkApp:
         self._open_with_ide(repo.path)
 
     def _edit_cursor_col(self) -> int | None:
+        if self._review_input_active:
+            return len(" Review branch: ") + len(self._review_branch_buffer)
         panel = self._detail_panel
         if panel is None or not panel.is_editing:
             return None
@@ -204,6 +213,7 @@ class BlinkApp:
             on_open_finder=lambda: self._open_finder(),
             on_open_git=lambda: self._open_git_in_browser(),
             on_add_task=lambda: self._run_add_task(),
+            on_review=lambda: self._start_review_input(),
         )
 
     def _sync_detail_panel(self) -> None:
@@ -271,6 +281,103 @@ class BlinkApp:
                 self._start_timer(0.1, lambda: self._set_scan_status("✗ Task 添加失败", timeout=5.0))
 
         t = threading.Thread(target=do_add_task, daemon=True)
+        t.start()
+
+    # ── review ────────────────────────────────────────────────────────────────
+
+    def _start_review_input(self) -> None:
+        self._review_input_active = True
+        self._review_branch_buffer = ""
+        self._set_focus("edit")
+        self._app.layout.focus(self._edit_status_window)
+        self._app.invalidate()
+
+    def _cancel_review_input(self) -> None:
+        self._review_input_active = False
+        self._review_branch_buffer = ""
+        self._set_focus("detail")
+        self._app.layout.focus(self._detail_window)
+        self._app.invalidate()
+
+    def _submit_review_input(self) -> None:
+        branch = self._review_branch_buffer.strip()
+        if not branch:
+            self._cancel_review_input()
+            return
+        self._review_input_active = False
+        repo = self._get_active_repo()
+        if not repo:
+            self._set_focus("detail")
+            self._app.layout.focus(self._detail_window)
+            self._app.invalidate()
+            return
+        self._set_focus("detail")
+        self._app.layout.focus(self._detail_window)
+        self._run_review(repo, branch)
+
+    def _run_review(self, repo: Repo, branch: str) -> None:
+        if repo.path in self._reviewing_paths:
+            return
+        self._reviewing_paths.add(repo.path)
+        self._app.invalidate()
+
+        def do_review():
+            try:
+                from blink.loop.cmd_review import (
+                    collect_context, build_review_prompt, parse_verdict,
+                    save_report,
+                )
+                from blink.loop.claude_runner import run_claude_text
+                from blink.loop import git_ops
+
+                dir_path = repo.path
+                base = git_ops.detect_main_branch(dir_path)
+                if not base:
+                    return False, "✗ 无法检测主分支，请用 CLI --against 指定"
+
+                if not git_ops.branch_exists(dir_path, branch):
+                    return False, f"✗ 分支 '{branch}' 不存在"
+
+                context = collect_context(dir_path, branch, base)
+                prompt = build_review_prompt(context)
+
+                output = run_claude_text(
+                    prompt,
+                    cwd=dir_path,
+                    model="sonnet",
+                    quiet=True,
+                )
+
+                if not output:
+                    return False, "✗ Claude 返回空结果"
+
+                verdict, full_output = parse_verdict(output)
+                report_path = save_report(dir_path, branch, base, verdict, full_output)
+                return True, (verdict, report_path)
+
+            except FileNotFoundError:
+                return False, "✗ claude CLI 未安装"
+            except Exception as exc:
+                return False, f"✗ Review 失败: {exc}"
+
+        def on_done():
+            success, result = do_review()
+            self._reviewing_paths.discard(repo.path)
+            if success:
+                verdict, report_path = result
+                self._last_report_paths[repo.path] = report_path
+                badges = {
+                    "APPROVE": "✅ APPROVE",
+                    "APPROVE_WITH_NOTES": "⚠️ APPROVE_WITH_NOTES",
+                    "REQUEST_CHANGES": "❌ REQUEST_CHANGES",
+                }
+                badge = badges.get(verdict, verdict)
+                self._set_scan_status(f"{badge}  {branch}", timeout=5.0)
+            else:
+                self._set_scan_status(result, timeout=5.0)
+            self._app.invalidate()
+
+        t = threading.Thread(target=on_done, daemon=True)
         t.start()
 
     # ── layouts ─────────────────────────────────────────────────────────────
@@ -467,7 +574,10 @@ class BlinkApp:
         def _(event):
             if self._ide_selecting:
                 return
-            # Priority: edit mode → search → double-quit
+            # Priority: review input → edit mode → search → double-quit
+            if self._review_input_active:
+                self._cancel_review_input()
+                return
             if self._in_edit_mode():
                 self._cancel_edit()
                 return
@@ -491,6 +601,9 @@ class BlinkApp:
         @kb.add("escape")
         def _(event):
             if self._ide_selecting:
+                return
+            if self._review_input_active:
+                self._cancel_review_input()
                 return
             if self._in_edit_mode():
                 self._cancel_edit()
@@ -637,10 +750,29 @@ class BlinkApp:
             self._trigger_footer_highlight()
             self._run_add_task()
 
+        # ── Shift+V — start review ────────────────────────────────────
+        @kb.add("V", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting))
+        def _(event):
+            self._trigger_footer_highlight()
+            repo = self._get_active_repo()
+            if repo:
+                self._start_review_input()
+
+        # ── Shift+L — open last review report ─────────────────────────
+        @kb.add("L", filter=Condition(lambda: not self._search_active and not self._in_edit_mode() and not self._ide_selecting))
+        def _(event):
+            self._trigger_footer_highlight()
+            repo = self._get_active_repo()
+            if repo and repo.path in self._last_report_paths:
+                self._open_with_ide(self._last_report_paths[repo.path])
+
         # ── Enter ────────────────────────────────────────────────────────────
         @kb.add("enter")
         def _(event):
             if self._ide_selecting:
+                return
+            if self._review_input_active:
+                self._submit_review_input()
                 return
             if self._search_active:
                 self._search_active = False
@@ -739,11 +871,19 @@ class BlinkApp:
         self._app.invalidate()
 
     def _route_printable(self, char: str) -> None:
+        if self._review_input_active:
+            self._review_branch_buffer += char
+            self._app.invalidate()
+            return
         if self._detail_panel is not None and self._detail_panel.is_editing:
             self._detail_panel.route_printable(char)
         self._app.invalidate()
 
     def _route_backspace(self) -> None:
+        if self._review_input_active:
+            self._review_branch_buffer = self._review_branch_buffer[:-1]
+            self._app.invalidate()
+            return
         if self._detail_panel is not None and self._detail_panel.is_editing:
             self._detail_panel.route_backspace()
         self._app.invalidate()
@@ -782,6 +922,16 @@ class BlinkApp:
         if self._pulling_paths:
             return FormattedText([
                 ("class:status-label", " 正在拉取..."),
+            ])
+        if self._review_input_active:
+            return FormattedText([
+                ("class:status-label", " Review branch: "),
+                ("class:status-value", self._review_branch_buffer),
+                ("", " "),
+            ])
+        if self._reviewing_paths:
+            return FormattedText([
+                ("class:status-label", " 🔍 正在 review..."),
             ])
         if self._committing_paths:
             return FormattedText([
@@ -861,7 +1011,11 @@ class BlinkApp:
         hints = [
             ("Enter", "ide"), ("/", "search"),
             ("Tab", "focus"),
+            ("Shift+G", "git"),
+            ("Shift+T", "task"),
             ("Shift+R", "rescan"),
+            ("Shift+V", "review"),
+            ("Shift+L", "report"),
             ("Shift+U", "pull"),
         ]
         parts: list[tuple[str, str]] = [("class:footer-dim", " ")]

@@ -113,3 +113,73 @@ def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log
             return False
 
     return False
+
+
+def run_claude_text(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, log_file=None, verbose=False, model="sonnet", quiet=False):
+    """Run `claude -p` and return stdout text. No EXECUTION_SUFFIX — for analysis tasks.
+
+    Unlike run_claude(), this function:
+    - Does NOT append EXECUTION_SUFFIX (review is analysis, not execution)
+    - Returns the stdout string on success, None on failure
+    - Has no verify_fn (output IS the result)
+    - Defaults to sonnet model (analysis needs deeper reasoning)
+    """
+    if verbose and not quiet:
+        print(f"{CYAN}--- claude input (text mode) ---{RESET}")
+        print(prompt)
+        print(f"{CYAN}--- end ---{RESET}")
+
+    cmd = ["claude", "--dangerously-skip-permissions", "--model", model, "--print", prompt]
+
+    for attempt in range(1, max_retries + 1):
+        if not quiet:
+            print(f"  Running claude --model {model} (attempt {attempt}/{max_retries})...")
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+        except subprocess.TimeoutExpired:
+            if not quiet:
+                print(f"{YELLOW}  Claude timed out after 300s (attempt {attempt}/{max_retries}){RESET}")
+            if attempt >= max_retries:
+                if not quiet:
+                    print(f"{RED}  Max retries reached. Giving up.{RESET}")
+                return None
+            continue
+
+        if log_file:
+            with open(log_file, "a") as log:
+                log.write(f"[claude_runner_text] model={model} attempt {attempt}/{max_retries} exit={result.returncode}\n")
+                if result.stdout:
+                    log.write(result.stdout + "\n")
+                if result.stderr:
+                    log.write(result.stderr + "\n")
+                log.flush()
+
+        if result.returncode != 0:
+            if not quiet:
+                print(f"{YELLOW}  Claude exited with code {result.returncode} (attempt {attempt}/{max_retries}){RESET}")
+            if attempt < max_retries:
+                continue
+            return None
+
+        if verbose and not quiet:
+            print(f"{CYAN}--- claude output ---{RESET}")
+            print(result.stdout if result.stdout else "(no output)")
+            if result.stderr:
+                print(f"{YELLOW}[stderr]{RESET} {result.stderr}")
+            print(f"{CYAN}--- end ---{RESET}")
+
+        if result.stdout and result.stdout.strip():
+            return result.stdout.strip()
+
+        if not quiet:
+            print(f"{YELLOW}  Claude returned empty output (attempt {attempt}/{max_retries}){RESET}")
+        if attempt >= max_retries:
+            return None
+
+    return None
