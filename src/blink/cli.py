@@ -118,4 +118,7 @@ def config_task(add_path: str | None) -> None:
     """Configure blink loop tasks."""
     if add_path:
         from blink.loop.cmd_edit import _add_task
-        _add_task(add_path)
+        from blink.loop import config as loop_config
+        msg = _add_task(add_path)
+        if msg:
+            print(f"{loop_config.GREEN}{msg}{loop_config.RESET}")

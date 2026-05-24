@@ -157,13 +157,15 @@ def _add_task(path):
         raw = stripped + "\n\n" + new_entry
 
     config.TASKS_FILE.write_text(raw + "\n")
-    print(f"{config.GREEN}Added task 'Task {task_num}' with dir={path}{config.RESET}")
+    return f"Added task 'Task {task_num}' with dir={path}"
 
 
 def handle(args):
     path = getattr(args, "path", None)
     if path:
-        _add_task(path)
+        msg = _add_task(path)
+        if msg:
+            print(f"{config.GREEN}{msg}{config.RESET}")
 
     config.TLOOP_HOME.mkdir(exist_ok=True)
     if not config.TASKS_FILE.exists():

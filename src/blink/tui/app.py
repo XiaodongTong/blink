@@ -252,10 +252,11 @@ class BlinkApp:
         def do_add_task():
             try:
                 from blink.loop.cmd_edit import _add_task
-                _add_task(repo.path)
-                self._start_timer(0.1, lambda: self._set_scan_status("✓ Task 已更新"))
+                msg = _add_task(repo.path)
+                status = f"✓ {msg}" if msg else "✓ Task 已更新"
+                self._start_timer(0.1, lambda: self._set_scan_status(status, timeout=5.0))
             except Exception:
-                self._start_timer(0.1, lambda: self._set_scan_status("✗ Task 添加失败"))
+                self._start_timer(0.1, lambda: self._set_scan_status("✗ Task 添加失败", timeout=5.0))
 
         t = threading.Thread(target=do_add_task, daemon=True)
         t.start()
@@ -1016,10 +1017,10 @@ class BlinkApp:
         t = threading.Thread(target=run, daemon=True)
         t.start()
 
-    def _set_scan_status(self, msg: str) -> None:
+    def _set_scan_status(self, msg: str, timeout: float = 3.0) -> None:
         self._scan_status = msg
         self._app.invalidate()
-        self._start_timer(3.0, self._clear_scan_status)
+        self._start_timer(timeout, self._clear_scan_status)
 
     def _run_commit(self, repo: Repo) -> None:
         if self._committing:

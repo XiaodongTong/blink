@@ -49,7 +49,7 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 - `review.py` — Post-task code review via self-critique. `review_changes()` diffs against base commit and sends to Claude.
 - `task.py` — `run_task()` executes a single task: auto-commit, branch creation, runner selection (cybervisor/claude), state updates.
 - `cmd_run.py` — `handle()` for `blink run` subcommand: runs tasks from `tasks.yaml`.
-- `cmd_edit.py` — `handle()` for `blink edit`: editor selection, task file editing. `_add_task(path)` appends task entry (includes all fields: name, dir, prompt, prompt_file, branch, review, use, max_rounds, commit-model). Both TUI and `blink config-task --add` call `_add_task()` directly.
+- `cmd_edit.py` — `handle()` for `blink edit`: editor selection, task file editing. `_add_task(path)` appends task entry (includes all fields: name, dir, prompt, prompt_file, branch, review, use, max_rounds, commit-model) and returns confirmation message string. Both TUI and `blink config-task --add` call `_add_task()` directly. TUI displays the returned message in the status bar; CLI callers print it.
 - `cmd_commit.py` — `handle()` for `blink commit`: auto-commits dirty working tree via Claude.
 - `cmd_log.py` — `handle()` for `blink log`: lists and displays task log files.
 - `runner/` — `Runner` ABC with `ClaudeRunner` (round-loop execution) and `CybervisorRunner` backends.
@@ -115,7 +115,7 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
   - **Metadata 区域**（只读）：Name/Path/Git/Status，不可选中
   - **Actions 区域**（可选中）：IDE(0)/Path(1)/Commit(2)/Finder(3)/Git(4)/Task(5)，`↑`/`↓` 导航，Enter 执行操作，选中行显示快捷键徽标
   - **Local Markers 区域**（可选中）：Pinned(6)/Alias(7)/Tags(8)/Desc(9)，`↑`/`↓` 导航，Enter 执行操作
-- **状态栏**（status bar）— 显示选中项目的描述和路径；编辑态时显示输入内容和光标；过滤态下显示搜索词和结果数
+- **状态栏**（status bar）— 显示选中项目的描述和路径；编辑态时显示输入内容和光标；过滤态下显示搜索词和结果数。所有操作反馈提示（如提交完成、路径已复制、任务已添加等）均显示在状态栏中，5 秒后自动消失
 - **快捷键栏**（footer）— 显示主要快捷键，按 Shift+操作键时短暂高亮 2 秒
 - **焦点状态**（focus pane）— 三态：`"list"` / `"detail"` / `"edit"`
   - 焦点侧边框为高亮色（`#58a6ff`），非焦点侧暗灰色（`#30363d`）
@@ -174,12 +174,12 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 - Search area completely hidden by default via `ConditionalContainer`. Available from both focus panes.
 - Key bindings use `Condition` filters for focus-dependent behavior. `←`/`→` handle both IDE selection (eager) and focus switching based on filter priority.
 - IDE selection mode (`_ide_selecting`) is a temporary overlay state in the status bar.
-- Commit/Pull actions use braille spinner animations in the status bar with `threading.Timer` (120ms ticks).
+- Commit/Pull actions use braille spinner animations in the status bar with `threading.Timer` (120ms ticks). All status bar notifications (commit/pull/task/copy/browser/open results) auto-dismiss after a configurable timeout (default 3s, task notifications use 5s) via `_set_scan_status(msg, timeout)`.
 - Footer highlight timer uses `threading.Timer` for 2-second decay
 - Style class names avoid prompt_toolkit built-in names (e.g. `repo-selected` instead of `selected`) to prevent style conflicts
 - Tests create real git repos via subprocess in `tmp_path` fixtures
 - Narrow terminal degradation (<80 cols) hides right panel via `ConditionalContainer` with `_is_wide_enough()` check
 - CLI uses `click.group(invoke_without_command=True)` — `--rescan` stays on the group, subcommands (`run`/`edit`/`commit`/`log`) use lazy imports to avoid loading loop modules for TUI-only use
 - TUI commit action (`_run_commit`) calls `blink.loop.git_ops.ensure_clean_git()` directly in a background thread — no subprocess, no PATH dependency on `tloop`
-- TUI task action (`_run_add_task`) and `blink config-task --add` both call `blink.loop.cmd_edit._add_task()` directly — appends to `~/.blink/loop/tasks.yaml` with all fields
+- TUI task action (`_run_add_task`) calls `blink.loop.cmd_edit._add_task()` which returns a message string displayed in the status bar (5-second timeout). `blink config-task --add` also calls `_add_task()` and prints the returned message.
 - Loop data directory is `~/.blink/loop/` (not `~/.tloop/`). Contains `tasks.yaml`, `state.json`, `settings.json`, `logs/`, `archive/`
