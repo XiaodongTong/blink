@@ -56,7 +56,7 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 
 **TUI** (`src/blink/tui/`):
 
-- `app.py` — Main `BlinkApp` class. Composes two-column `VSplit` layout (left repo list ~40% width, right detail panel ~60%). Manages three-state focus pane (`_focus_pane`: `"list"` / `"detail"` / `"edit"`). All key bindings, search state machine, exit mechanism, edit-mode input routing, background scan orchestration, and background status fetching live here. Callbacks for detail panel actions: `_open_git_in_browser()` (webbrowser.open), `_run_add_task()` (calls `blink.loop.cmd_edit._add_task()` directly), `_copy_repo_path()`, `_open_finder()`. Key bindings Shift+I/O/P/C/G/T/R/U wired with search/edit/IDE-selecting filters. Styles defined in `_build_style()` using GitHub dark theme colors. Narrow terminal (<80 cols) hides right panel via `ConditionalContainer`.
+- `app.py` — Main `BlinkApp` class. Composes two-column `VSplit` layout (left repo list ~48% width, right detail panel ~52%). Manages three-state focus pane (`_focus_pane`: `"list"` / `"detail"` / `"edit"`). All key bindings, search state machine, exit mechanism, edit-mode input routing, background scan orchestration, and background status fetching live here. Callbacks for detail panel actions: `_open_git_in_browser()` (webbrowser.open), `_run_add_task()` (calls `blink.loop.cmd_edit._add_task()` directly), `_copy_repo_path()`, `_open_finder()`. Key bindings Shift+I/O/P/C/G/T/R/U wired with search/edit/IDE-selecting filters. Styles defined in `_build_style()` using GitHub dark theme colors. Narrow terminal (<80 cols) hides right panel via `ConditionalContainer`.
 - `repo_list.py` — Custom `UIControl`/`Window` for the two-line repo list. Each repo renders as: line 1 = indicator + `★` (if pinned) + name/alias + tags, line 2 = path + right-aligned status badge (`branch ● +N ↑N ↓N`). Supports Nerd Font icons when `config.nerd_fonts` is True. Selected items pad lines to full width for consistent background fill. Badge uses CJK-aware width calculation via `display_width()`.
 - `search.py` — `SearchBar` wrapping a `prompt_toolkit.Buffer`. Visibility controlled by `ConditionalContainer` in app layout.
 - `actions.py` — Editor detection and launch (VSCode, Cursor, Antigravity, system open), clipboard via `pbcopy`. `IDE_CHOICES` defines the three IDE options for the unified IDE selection flow.
@@ -100,7 +100,7 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 ```
 
 - **搜索栏**（search bar）— 默认完全隐藏。按 `/` 展开带亮色边框的搜索输入框进入搜索输入态。Enter 确认后输入框隐藏，顶部显示当前搜索词（只读）。Esc/Ctrl+C 清空搜索恢复全部。搜索在左右焦点下均可触发。
-- **项目列表**（repo list）— 左侧面板，约 40% 宽度，两行式列表
+- **项目列表**（repo list）— 左侧面板，约 48% 宽度，两行式列表
   - **列表项**（list item）— 每项占两行：
     - 第一行 = 指示符（`▸` 选中态 / 空格 普通态）+ `★`（置顶项）+ 名称/别名 + 标签
     - 第二行 = 路径（左对齐）+ 状态徽标（右对齐）
@@ -111,7 +111,7 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
     - 加载中：`···`（灰色）
     - 获取失败：`⚠`（灰色）
   - 排序规则：置顶优先 → 查看次数降序 → 名称升序
-- **详情面板**（detail panel）— 右侧面板，约 60% 宽度，三个区域：
+- **详情面板**（detail panel）— 右侧面板，约 52% 宽度，三个区域：
   - **Metadata 区域**（只读）：Name/Path/Git/Status，不可选中
   - **Actions 区域**（可选中）：IDE(0)/Git(1)/Commit(2)/Task(3)/Finder(4)/Path(5)，`↑`/`↓` 导航，Enter 执行操作。未聚焦时所有行显示为普通态并显示对应快捷键徽标（如 `[Shift+I]`）；聚焦时选中行显示 `[Enter]` 替代快捷键徽标，默认选中 IDE（行 0）
   - **Local Markers 区域**（可选中）：Pinned(6)/Alias(7)/Tags(8)/Desc(9)，`↑`/`↓` 导航，Enter 执行操作。未聚焦时无选中效果；聚焦时才显示当前选中行

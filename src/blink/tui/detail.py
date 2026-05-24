@@ -346,13 +346,10 @@ class DetailPanel(UIControl):
                 ("class:normal", desc),
             ]
             if shortcut:
-                shortcut_text = f"[{shortcut}]"
-                line_len = 4 + len(label) + len(desc)
-                if width > 0:
-                    padding = width - line_len - len(shortcut_text)
-                    if padding > 0:
-                        fragments.append(("class:normal", " " * padding))
-                fragments.append(("class:detail-shortcut-dim", shortcut_text))
+                max_desc_len = max(len(d) for _, d in self._ACTION_ITEMS)
+                fragments.append(("class:normal", " " * (max_desc_len - len(desc))))
+                fragments.append(("class:normal", " "))
+                fragments.append(("class:detail-shortcut-dim", f"[{shortcut}]"))
         return fragments
 
     def _build_lines(self, width: int) -> List[List[tuple[str, str]]]:

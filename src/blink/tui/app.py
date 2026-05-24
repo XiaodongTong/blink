@@ -289,7 +289,7 @@ class BlinkApp:
             Window(height=D.exact(1), char="─", style=self._left_border_style),
             self._repo_list_window,
             Window(height=D.exact(1), char="─", style=self._left_border_style),
-        ], width=D(min=20, preferred=40, max=60))
+        ], width=D(min=25, preferred=48, max=70))
 
         # Right panel: detail with borders
         right_panel = ConditionalContainer(
