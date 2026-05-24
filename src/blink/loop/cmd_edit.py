@@ -2,7 +2,6 @@
 
 import argparse
 import re
-import subprocess
 
 import yaml
 
@@ -13,7 +12,6 @@ Open ~/.blink/loop/tasks.yaml in your editor.
 
 Uses the same IDE selection as the TUI (VSCode, Cursor, Antigravity).
 The choice is saved to ~/.blink/config.json as preferred_ide.
-Override anytime with: blink edit --editor <command>
 
 Task file format (~/.blink/loop/tasks.yaml):
 
@@ -79,7 +77,6 @@ def add_parser(subparsers):
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("path", nargs="?", help="Add a task with this dir and open the file")
-    p.add_argument("--editor", help="Override editor command for this session")
     p.set_defaults(func=handle)
 
 
@@ -143,11 +140,6 @@ def handle(args):
     config.TLOOP_HOME.mkdir(exist_ok=True)
     if not config.TASKS_FILE.exists():
         config.TASKS_FILE.write_text(config.SAMPLE_TASKS_YAML)
-
-    cli_editor = getattr(args, "editor", None)
-    if cli_editor:
-        subprocess.run([cli_editor, str(config.TASKS_FILE)])
-        return
 
     cfg = Config()
     editors = detect_editors()

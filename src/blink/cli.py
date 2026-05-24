@@ -76,13 +76,11 @@ def run(status: bool, reset: bool, only: int | None, continue_on_fail: bool, rev
 
 @main.command()
 @click.argument("path", required=False, default=None)
-@click.option("--editor", default=None, help="Override editor command for this session")
-def edit(path: str | None, editor: str | None) -> None:
+def edit(path: str | None) -> None:
     """Open ~/.blink/loop/tasks.yaml in editor, optionally add a task."""
     from blink.loop.cmd_edit import handle
     args = argparse.Namespace(
         path=path,
-        editor=editor,
     )
     handle(args)
 
