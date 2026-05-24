@@ -22,7 +22,7 @@ RESET = "\033[0m"
 
 TASKS_YAML_HEADER = (
     "# Run 'blink edit --help' for details on how to write this file.\n"
-    "# Project-level AI instructions: ./docs/tloop/constitution.md (auto-loaded by blink).\n"
+    "# Project-level AI instructions: ./docs/blink/constitution.md (auto-loaded by blink).\n"
 )
 
 SAMPLE_TASKS_YAML = TASKS_YAML_HEADER + "tasks: []\n"

@@ -62,7 +62,7 @@ def review_changes(dir_path, base_commit, log_file=None):
     if not diff:
         return True
 
-    constitution_path = Path(dir_path) / "docs" / "tloop" / "constitution.md"
+    constitution_path = Path(dir_path) / "docs" / "blink" / "constitution.md"
     constitution_content = ""
     if constitution_path.exists():
         constitution_content = (

@@ -31,7 +31,7 @@ Task file format (~/.blink/loop/tasks.yaml):
   Each task runs in the specified directory. Completed tasks are
   archived to ~/.blink/loop/archive/ after each run cycle.
 
-  Project-level AI instructions can be placed in ./docs/tloop/constitution.md
+  Project-level AI instructions can be placed in ./docs/blink/constitution.md
   within the project directory. If present, blink will auto-load them as
   constitutional rules when running tasks with the claude runner.
 

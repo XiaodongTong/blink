@@ -34,7 +34,7 @@ class ClaudeRunner(Runner):
         """
         enriched_prompt = prompt + COMPLETION_SUFFIX
 
-        constitution_path = Path(cwd) / "docs" / "tloop" / "constitution.md"
+        constitution_path = Path(cwd) / "docs" / "blink" / "constitution.md"
         constitution_content = ""
         if constitution_path.exists():
             constitution_content = (
@@ -46,7 +46,7 @@ class ClaudeRunner(Runner):
         log = open(log_file, "a") if log_file else open("/dev/null", "a")
         try:
             if constitution_content:
-                log.write("[Constitution loaded from docs/tloop/constitution.md]\n\n")
+                log.write("[Constitution loaded from docs/blink/constitution.md]\n\n")
                 log.flush()
 
             for round_num in range(1, max_rounds + 1):
