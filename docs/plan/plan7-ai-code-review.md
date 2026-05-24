@@ -22,7 +22,7 @@ TUI 中选中目标仓库
         ▼
 [Shift+V] 触发 Code Review 流程
         │
-        ├─ 1. 后台获取最近 5 个分支（按 committer date 排序，排除 main/master 和当前分支）
+        ├─ 1. 后台获取最近 5 个分支（按 committer date 排序，排除 main/master）
         │      status bar 显示「正在获取分支列表...」
         │
         ▼
@@ -131,7 +131,7 @@ git merge --no-ff <colleague-branch>
 - `delete_branch(dir_path, branch_name)` — 安全删除分支（带 -D 强制选项）
 - `branch_exists(dir_path, name)` — 已存在，直接复用
 - `get_diff_stat(dir_path, base, branch)` — 返回变更文件统计
-- `get_recent_branches(dir_path, limit=5)` — 返回按最近提交日期排序的本地分支（排除 main/master 和当前分支）
+- `get_recent_branches(dir_path, limit=5)` — 返回按最近提交日期排序的本地分支（排除 main/master）
 
 ---
 

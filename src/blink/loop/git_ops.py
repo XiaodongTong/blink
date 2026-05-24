@@ -182,10 +182,9 @@ def get_branch_list(dir_path, pattern=""):
 
 
 def get_recent_branches(dir_path, limit=5):
-    """Return local branches sorted by most recent commit date, excluding main/master and current."""
-    current = get_current_branch(dir_path)
+    """Return local branches sorted by most recent commit date, excluding main/master."""
     main = detect_main_branch(dir_path)
-    exclude = {current, main} - {None}
+    exclude = {main} - {None}
 
     result = _git(dir_path, "branch", "--sort=-committerdate", "--format=%(refname:short)")
     if result.returncode != 0:
