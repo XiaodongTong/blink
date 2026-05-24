@@ -28,11 +28,12 @@ pip install blink-repo
 
 ```bash
 blink              # 启动 TUI
-blink --rescan     # 强制重新扫描后启动
+blink -R           # 强制重新扫描后启动（--rescan 的简写）
+blink -v           # 显示版本号（--version 的简写）
 blink run          # 执行 tasks.yaml 中定义的任务
-blink run --status # 查看任务状态
+blink run -s       # 查看任务状态（--status 的简写）
 blink edit [path]  # 编辑任务文件，可选添加指定目录的任务
-blink config-task --add [path]  # 添加任务配置到 tasks.yaml
+blink config-task -a [path]  # 添加任务配置到 tasks.yaml（--add 的简写）
 blink commit -p .  # 自动提交当前目录的变更
 blink log [N]      # 查看任务日志
 ```
@@ -156,8 +157,9 @@ uv sync
 
 ```bash
 uv run blink              # 启动 TUI
-uv run blink --rescan     # 强制重新扫描
-uv run blink run --status # 查看任务状态
+uv run blink -R           # 强制重新扫描（--rescan 的简写）
+uv run blink -v           # 显示版本号（--version 的简写）
+uv run blink run -s       # 查看任务状态（--status 的简写）
 uv run blink commit -p .  # 自动提交变更
 ```
 
