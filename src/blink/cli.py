@@ -5,6 +5,7 @@ import os
 import sys
 
 import click
+from importlib.metadata import version as _pkg_version
 
 from blink.config import Config
 from blink.scanner import Scanner, validate_git
@@ -14,7 +15,7 @@ from blink.tui.app import BlinkApp
 
 @click.group(invoke_without_command=True)
 @click.option("-R", "--rescan", is_flag=True, default=False, help="Force a full rescan before launching TUI.")
-@click.version_option("1.1.2", "-v", "--version", prog_name="blink", message="%(prog)s %(version)s")
+@click.version_option(_pkg_version("blink-repo"), "-v", "--version", prog_name="blink", message="%(prog)s %(version)s")
 @click.pass_context
 def main(ctx: click.Context, rescan: bool) -> None:
     if ctx.invoked_subcommand is not None:
