@@ -427,20 +427,35 @@ def test_set_repo_updates_display():
     assert "/new/path" in t
 
 
-def test_set_repo_resets_cursor():
+def test_set_repo_resets_cursor_on_different_repo():
     panel = _make_detail_panel()
     panel._cursor_index = 3
-    panel.set_repo(_make_repo())
+    panel.set_repo(_make_repo(path="/different/repo"))
     assert panel._cursor_index == 0
 
 
-def test_set_repo_clears_edit_mode():
+def test_set_repo_preserves_cursor_on_same_repo():
+    panel = _make_detail_panel()
+    panel._cursor_index = 3
+    panel.set_repo(_make_repo())
+    assert panel._cursor_index == 3
+
+
+def test_set_repo_clears_edit_mode_on_different_repo():
+    panel = _make_detail_panel()
+    panel._start_alias_edit()
+    assert panel.is_editing
+    panel.set_repo(_make_repo(path="/different/repo"))
+    assert not panel.is_editing
+    assert panel.alias_buffer is None
+
+
+def test_set_repo_preserves_edit_mode_on_same_repo():
     panel = _make_detail_panel()
     panel._start_alias_edit()
     assert panel.is_editing
     panel.set_repo(_make_repo())
-    assert not panel.is_editing
-    assert panel.alias_buffer is None
+    assert panel.is_editing
 
 
 # ── on_action callback ────────────────────────────────────────────────────

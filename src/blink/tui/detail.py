@@ -92,12 +92,14 @@ class DetailPanel(UIControl):
         self._tag_buffer: Optional[Buffer] = None
 
     def set_repo(self, repo: Repo) -> None:
+        same_repo = self._repo is not None and self._repo.path == repo.path
         self._repo = repo
-        self._cursor_index = 0
-        self._edit_mode = None
-        self._alias_buffer = None
-        self._desc_buffer = None
-        self._tag_buffer = None
+        if not same_repo:
+            self._cursor_index = 0
+            self._edit_mode = None
+            self._alias_buffer = None
+            self._desc_buffer = None
+            self._tag_buffer = None
 
     def is_focusable(self) -> bool:
         return True
