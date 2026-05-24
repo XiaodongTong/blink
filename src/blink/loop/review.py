@@ -3,6 +3,8 @@
 import subprocess
 from pathlib import Path
 
+from blink.loop import log_format
+
 REVIEW_PROMPT = """\
 You are performing a critical self-review of code changes just made in this project.
 
@@ -76,12 +78,8 @@ def review_changes(dir_path, base_commit, log_file=None):
 
     log = open(log_file, "a") if log_file else open("/dev/null", "a")
     try:
-        log.write(f"\n{'=' * 60}\n")
-        log.write("[Post-task self-review]\n")
-        log.write(f"Base commit: {base_commit[:12]}\n")
-        log.write(f"Diff size: {len(diff)} chars\n")
-        log.write(f"{'=' * 60}\n\n")
-        log.flush()
+        log_format.write_review_message(log, f"Base: {base_commit[:12]} | Diff: {len(diff):,} chars")
+        log_format.write_review_input(log, full_input)
 
         process = subprocess.Popen(
             ["claude", "-p", "--dangerously-skip-permissions"],
@@ -98,23 +96,22 @@ def review_changes(dir_path, base_commit, log_file=None):
         output_parts = []
         for line in process.stdout:
             print(line, end="")
-            log.write(line)
+            log_format.write_review_output(log, line)
             output_parts.append(line)
 
         process.wait()
-        log.flush()
 
         accumulated = "".join(output_parts)
         if process.returncode == 0:
             if "NO_ISSUES_FOUND" in accumulated:
-                log.write("\n[Review: no issues found]\n")
+                log_format.write_review_message(log, "Review: no issues found")
             elif "<promise>COMPLETE</promise>" in accumulated:
-                log.write("\n[Review: issues found and fixed]\n")
+                log_format.write_review_message(log, "Review: issues found and fixed")
             else:
-                log.write("\n[Review: completed]\n")
+                log_format.write_review_message(log, "Review: completed")
             return True
 
-        log.write(f"\n[Review: failed with exit code {process.returncode}]\n")
+        log_format.write_review_message(log, f"Review: failed with exit code {process.returncode}")
         return False
     finally:
         log.close()

@@ -31,9 +31,9 @@ blink              # 启动 TUI
 blink -R           # 强制重新扫描后启动（--rescan 的简写）
 blink -v           # 显示版本号（--version 的简写）
 blink run          # 执行 tasks.yaml 中定义的任务
-blink run -s       # 查看任务状态（--status 的简写）
-blink edit [path]  # 编辑任务文件，可选添加指定目录的任务
-blink config-task -a [path]  # 添加任务配置到 tasks.yaml（--add 的简写）
+blink run --status # 查看任务状态
+blink edit          # 编辑任务文件
+blink edit --add [path]  # 添加指定目录的任务并打开编辑器
 blink commit -p .  # 自动提交当前目录的变更
 blink log [N]      # 查看任务日志
 blink review <branch>          # AI code review（自动检测 main/master 作为 base 分支）

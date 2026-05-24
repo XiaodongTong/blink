@@ -26,6 +26,5 @@ Thumbs.db
 # Tool artifacts
 .cybervisor/
 cybervisor.yaml
-.claude/
 uv.lock
 docs/blink/code-review/

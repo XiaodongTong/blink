@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from blink.loop import config
+from blink.loop import log_format
 from blink.loop.git_ops import ensure_clean_git, create_task_branch
 from blink.loop.review import get_head_commit, review_changes
 from blink.loop.runner.cybervisor import CybervisorRunner
@@ -28,6 +29,14 @@ def resolve_prompt_file(prompt_file, dir_path):
     if candidate.exists():
         return candidate
     return Path(prompt_file)
+
+
+def _runner_info(task):
+    runner_name = task.get("use", "cybervisor")
+    if runner_name == "claude":
+        max_rounds = task.get("max_rounds", 5)
+        return f"ClaudeRunner (max_rounds={max_rounds})", "claude -p --dangerously-skip-permissions --model opus"
+    return "CybervisorRunner", "cybervisor run"
 
 
 def run_task(task, index, state, review_enabled=False):
@@ -68,12 +77,16 @@ def run_task(task, index, state, review_enabled=False):
 
     config.LOGS_DIR.mkdir(exist_ok=True)
     safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
-    log_file = config.LOGS_DIR / f"{index + 1:03d}-{safe_name}.log"
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_file = config.LOGS_DIR / f"{timestamp}-{safe_name}.log"
+
+    runner_label, command_label = _runner_info(task)
+
+    started_dt = datetime.now()
+    started = started_dt.isoformat()
 
     with open(log_file, "w") as log:
-        log.write(f"Task: {name}\n")
-        log.write(f"Directory: {dir_path}\n")
-        log.write("-" * 60 + "\n\n")
+        log_format.write_header(log, name, dir_path, runner_label, command_label)
 
     if not ensure_clean_git(dir_path, name, log_file, model=commit_model):
         state.setdefault("tasks", {})[str(index)] = {
@@ -84,7 +97,8 @@ def run_task(task, index, state, review_enabled=False):
         save_state(state)
         return False
 
-    if not create_task_branch(dir_path, branch_config):
+    branch_name = create_task_branch(dir_path, branch_config)
+    if branch_name is None:
         state.setdefault("tasks", {})[str(index)] = {
             "status": "failed",
             "error": "Failed to create task branch",
@@ -92,10 +106,12 @@ def run_task(task, index, state, review_enabled=False):
         }
         save_state(state)
         return False
+    if branch_name:
+        with open(log_file, "a") as log:
+            log_format.write_branch(log, branch_name)
 
     base_commit = get_head_commit(dir_path) if review_enabled else None
 
-    started = datetime.now().isoformat()
     state.setdefault("tasks", {})[str(index)] = {
         "status": "running",
         "started_at": started,
@@ -103,30 +119,19 @@ def run_task(task, index, state, review_enabled=False):
     save_state(state)
 
     try:
-        with open(log_file, "a") as log:
-            log.write(f"Started: {started}\n")
-            log.flush()
-
-            runner_name = task.get("use", "cybervisor")
-            if runner_name == "claude":
-                runner = ClaudeRunner()
-                max_rounds = task.get("max_rounds", 5)
-                log.write(f"Runner: ClaudeRunner (max_rounds={max_rounds})\n")
-                log.write(f"Command: claude -p --dangerously-skip-permissions\n")
-                log.write("-" * 60 + "\n\n")
-                log.flush()
-                returncode = runner.run(prompt, dir_path, log_file=log_file, max_rounds=max_rounds, prompt_file=resolved_pf)
-            else:
-                runner = CybervisorRunner()
-                log.write(f"Runner: CybervisorRunner\n")
-                log.write(f"Command: cybervisor run < {'<prompt_file>' if resolved_pf else '<prompt>'}\n")
-                log.write("-" * 60 + "\n\n")
-                log.flush()
-                returncode = runner.run(prompt, dir_path, log_file=log_file, prompt_file=resolved_pf)
+        runner_name = task.get("use", "cybervisor")
+        if runner_name == "claude":
+            runner = ClaudeRunner()
+            max_rounds = task.get("max_rounds", 5)
+            returncode = runner.run(prompt, dir_path, log_file=log_file, max_rounds=max_rounds, prompt_file=resolved_pf)
+        else:
+            runner = CybervisorRunner()
+            returncode = runner.run(prompt, dir_path, log_file=log_file, prompt_file=resolved_pf)
 
         if returncode == 0:
+            status = "done"
             state["tasks"][str(index)] = {
-                "status": "done",
+                "status": status,
                 "started_at": started,
                 "finished_at": datetime.now().isoformat(),
             }
@@ -141,8 +146,9 @@ def run_task(task, index, state, review_enabled=False):
                 else:
                     print(f"{config.YELLOW}[review] Finished with warnings{config.RESET}")
         else:
+            status = "failed"
             state["tasks"][str(index)] = {
-                "status": "failed",
+                "status": status,
                 "started_at": started,
                 "finished_at": datetime.now().isoformat(),
                 "returncode": returncode,
@@ -152,6 +158,11 @@ def run_task(task, index, state, review_enabled=False):
                 f"\n{config.RED}❌ Task [{index + 1}] failed (exit code: {returncode}){config.RESET}"
             )
             print(f"   Log: {log_file}")
+
+        with open(log_file, "a") as log:
+            log_format.write_footer(log, started_dt, status)
+
+        if returncode != 0:
             return False
 
     except Exception as e:
@@ -161,6 +172,8 @@ def run_task(task, index, state, review_enabled=False):
             "error": str(e),
         }
         save_state(state)
+        with open(log_file, "a") as log:
+            log_format.write_footer(log, started_dt, "failed")
         print(f"\n{config.RED}❌ Task [{index + 1}] error: {e}{config.RESET}")
         return False
 

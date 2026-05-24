@@ -2,6 +2,7 @@
 
 import subprocess
 
+from blink.loop import log_format
 from blink.loop.runner import Runner
 
 
@@ -23,10 +24,11 @@ class CybervisorRunner(Runner):
                 if not stdin_fh:
                     process.stdin.write(prompt)
                     process.stdin.close()
+
                 for line in process.stdout:
                     print(line, end="")
-                    log.write(line)
-                log.flush()
+                    log_format.write_implement_output(log, line)
+
                 process.wait()
             finally:
                 if stdin_fh:

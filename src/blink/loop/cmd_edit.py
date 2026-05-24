@@ -1,4 +1,4 @@
-"""blink edit — open ~/.blink/loop/tasks.yaml in editor, optionally add a task."""
+"""blink edit — open ~/.blink/loop/tasks.yaml in editor, optionally add a task via --add PATH."""
 
 import argparse
 import re
@@ -76,7 +76,8 @@ def add_parser(subparsers):
         description=EDIT_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p.add_argument("path", nargs="?", help="Add a task with this dir and open the file")
+    p.add_argument("--add", dest="add_path", metavar="PATH",
+                   help="Add a task entry for PATH to tasks.yaml, then open editor")
     p.set_defaults(func=handle)
 
 
@@ -131,9 +132,9 @@ def handle(args):
     from blink.config import Config
     from blink.tui.actions import detect_editors, open_in_editor
 
-    path = getattr(args, "path", None)
-    if path:
-        msg = _add_task(path)
+    add_path = getattr(args, "add_path", None)
+    if add_path:
+        msg = _add_task(add_path)
         if msg:
             print(f"{config.GREEN}{msg}{config.RESET}")
 
