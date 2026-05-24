@@ -109,3 +109,13 @@ def log(task_number: int | None) -> None:
         task_number=task_number,
     )
     handle(args)
+
+
+@main.command("config-task")
+@click.option("--add", "add_path", required=False, default=None, metavar="PATH",
+              help="Add a task entry to tasks.yaml for the given repo path")
+def config_task(add_path: str | None) -> None:
+    """Configure blink loop tasks."""
+    if add_path:
+        from blink.loop.cmd_edit import _add_task
+        _add_task(add_path)

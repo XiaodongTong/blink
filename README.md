@@ -32,6 +32,7 @@ blink --rescan     # 强制重新扫描后启动
 blink run          # 执行 tasks.yaml 中定义的任务
 blink run --status # 查看任务状态
 blink edit [path]  # 编辑任务文件，可选添加指定目录的任务
+blink config-task --add [path]  # 添加任务配置到 tasks.yaml
 blink commit -p .  # 自动提交当前目录的变更
 blink log [N]      # 查看任务日志
 ```

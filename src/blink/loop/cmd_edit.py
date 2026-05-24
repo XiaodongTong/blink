@@ -36,6 +36,7 @@ Task file format (~/.blink/loop/tasks.yaml):
       review: false          # true=post-task self-review for code quality
       use: cybervisor        # cybervisor (default) or claude
       max_rounds: 5          # only for use: claude
+      commit-model: haiku    # haiku, sonnet, or opus
 
   Each task runs in the specified directory. Completed tasks are
   archived to ~/.blink/loop/archive/ after each run cycle.
@@ -140,12 +141,12 @@ def _add_task(path):
         f"{inner}dir: {path}\n"
         f"{inner}prompt: |\n"
         f"{inner}  Describe what Claude should do.\n"
-        f"{inner}# prompt or prompt_file\n"
         f"{inner}# prompt_file: ./prompts/my-task.md\n"
         f"{inner}branch: true           # true=auto, \"custom/name\", false=skip\n"
         f"{inner}review: false          # true=post-task self-review for code quality\n"
         f"{inner}use: cybervisor        # cybervisor (default) or claude\n"
         f"{inner}max_rounds: 5          # only for use: claude\n"
+        f"{inner}commit-model: haiku    # haiku, sonnet, or opus\n"
     )
 
     stripped = raw.rstrip()
