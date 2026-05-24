@@ -75,12 +75,13 @@ def run(status: bool, reset: bool, only: int | None, continue_on_fail: bool, rev
 
 
 @main.command()
-@click.argument("path", required=False, default=None)
-def edit(path: str | None) -> None:
+@click.option("--add", "add_path", metavar="PATH", default=None,
+              help="Add a task entry for PATH to tasks.yaml, then open editor")
+def edit(add_path: str | None) -> None:
     """Open ~/.blink/loop/tasks.yaml in editor, optionally add a task."""
     from blink.loop.cmd_edit import handle
     args = argparse.Namespace(
-        path=path,
+        add_path=add_path,
     )
     handle(args)
 
@@ -108,15 +109,3 @@ def log(task_number: int | None) -> None:
     )
     handle(args)
 
-
-@main.command("config-task")
-@click.option("--add", "add_path", required=False, default=None, metavar="PATH",
-              help="Add a task entry to tasks.yaml for the given repo path")
-def config_task(add_path: str | None) -> None:
-    """Configure blink loop tasks."""
-    if add_path:
-        from blink.loop.cmd_edit import _add_task
-        from blink.loop import config as loop_config
-        msg = _add_task(add_path)
-        if msg:
-            print(f"{loop_config.GREEN}{msg}{loop_config.RESET}")

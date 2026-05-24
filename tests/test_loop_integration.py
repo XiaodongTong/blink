@@ -121,7 +121,7 @@ class TestCLIHelp:
             capture_output=True, text=True,
         )
         assert result.returncode == 0
-        assert "--editor" in result.stdout
+        assert "--add" in result.stdout
 
     def test_log_help(self):
         result = subprocess.run(

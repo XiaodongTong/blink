@@ -17,8 +17,8 @@ uv sync                    # Install dependencies
 uv run blink               # Launch the TUI
 uv run blink --rescan      # Force full rescan before TUI
 uv run blink run --status  # Show task status
-uv run blink edit [path]   # Edit tasks.yaml / add task
-uv run blink config-task --add [path]  # Add a task entry to tasks.yaml
+uv run blink edit            # Edit tasks.yaml
+uv run blink edit --add [path]  # Add a task entry and open editor
 uv run blink commit -p .   # Auto-commit changes
 uv run blink log [N]       # View task logs
 uv run pytest              # Run all tests
@@ -31,7 +31,7 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 
 ## Architecture
 
-**Entry point**: `src/blink/cli.py` — click group with `invoke_without_command=True`. When no subcommand is given, launches TUI. Five subcommands (`run`, `edit`, `config-task`, `commit`, `log`) delegate to `blink.loop` handler functions via argparse.Namespace shim objects.
+**Entry point**: `src/blink/cli.py` — click group with `invoke_without_command=True`. When no subcommand is given, launches TUI. Four subcommands (`run`, `edit`, `commit`, `log`) delegate to `blink.loop` handler functions via argparse.Namespace shim objects.
 
 **Core modules** (all in `src/blink/`):
 
@@ -49,7 +49,7 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 - `review.py` — Post-task code review via self-critique. `review_changes()` diffs against base commit and sends to Claude.
 - `task.py` — `run_task()` executes a single task: auto-commit, branch creation, runner selection (cybervisor/claude), state updates.
 - `cmd_run.py` — `handle()` for `blink run` subcommand: runs tasks from `tasks.yaml`.
-- `cmd_edit.py` — `handle()` for `blink edit`: unified IDE selection (uses `Config.preferred_ide` and `IDE_CHOICES` from `actions.py`), task file editing. `_add_task(path)` appends task entry and returns confirmation message string. Both TUI and `blink config-task --add` call `_add_task()` directly. TUI opens tasks.yaml in IDE after adding; CLI callers print the returned message.
+- `cmd_edit.py` — `handle()` for `blink edit`: unified IDE selection (uses `Config.preferred_ide` and `IDE_CHOICES` from `actions.py`), task file editing. `_add_task(path)` appends task entry and returns confirmation message string. `blink edit --add PATH` calls `_add_task()` to add a task then opens tasks.yaml in IDE. TUI Shift+T also calls `_add_task()` then opens tasks.yaml via unified `_open_with_ide()` flow.
 - `cmd_commit.py` — `handle()` for `blink commit`: auto-commits dirty working tree via Claude.
 - `cmd_log.py` — `handle()` for `blink log`: lists and displays task log files.
 - `runner/` — `Runner` ABC with `ClaudeRunner` (round-loop execution) and `CybervisorRunner` backends.
@@ -63,7 +63,7 @@ Insert `breakpoint()` in source code and run `uv run blink` for pdb debugging.
 - `detail.py` — `DetailPanel` class rendering repo info in three sections: Metadata (Name/Path/Repo/Status, read-only, with CJK-aware line wrapping for long values), Actions (IDE/Git/Commit/Task/Finder/Path, cursor-navigable indices 0–5), and Local Markers (Pinned/Alias/Tags/Desc, cursor-navigable indices 6–9). 10 cursor-navigable rows (MAX_LINE=9). Supports `set_repo(repo)` for real-time sync, inline alias/desc edit, tag management, pin toggle, and action callbacks. `_wrap_value()` performs CJK-aware word wrapping; `_build_info_lines()` produces one or more lines per metadata field. `_remote_to_https()` at module level converts SSH URLs to HTTPS for browser opening.
 - `icons.py` — Nerd Font icon constants with ASCII fallbacks. `get_icon(nerd_fonts, nf_char, ascii_char)` selects the appropriate character.
 
-**Data flow**: Scanner finds git dirs → creates `ScanResult(repo, remotes)` → Store upserts into SQLite → TUI loads from Store for display/search. StatusFetcher fetches git status → Store upserts into `repo_status` → TUI reloads repos (with status via LEFT JOIN) for badge display. List navigation triggers `_sync_detail_panel()` which calls `detail_panel.set_repo(repo)` for real-time right-panel updates. TUI Shift+C calls `blink.loop.git_ops.ensure_clean_git()` in background thread; Shift+T calls `blink.loop.cmd_edit._add_task()` then opens tasks.yaml via unified `_open_with_ide()` flow. `config-task --add` also calls `_add_task()` to append task entries. CLI subcommands delegate to `blink.loop.cmd_*` handlers. All loop data stored under `~/.blink/loop/`.
+**Data flow**: Scanner finds git dirs → creates `ScanResult(repo, remotes)` → Store upserts into SQLite → TUI loads from Store for display/search. StatusFetcher fetches git status → Store upserts into `repo_status` → TUI reloads repos (with status via LEFT JOIN) for badge display. List navigation triggers `_sync_detail_panel()` which calls `detail_panel.set_repo(repo)` for real-time right-panel updates. TUI Shift+C calls `blink.loop.git_ops.ensure_clean_git()` in background thread; Shift+T calls `blink.loop.cmd_edit._add_task()` then opens tasks.yaml via unified `_open_with_ide()` flow. CLI `blink edit --add PATH` also calls `_add_task()` to append task entries then opens editor. All loop data stored under `~/.blink/loop/`.
 
 ## UI Terminology
 
@@ -179,7 +179,7 @@ The TUI uses a **双栏联动布局**（two-column linked layout）.
 - Style class names avoid prompt_toolkit built-in names (e.g. `repo-selected` instead of `selected`) to prevent style conflicts
 - Tests create real git repos via subprocess in `tmp_path` fixtures
 - Narrow terminal degradation (<80 cols) hides right panel via `ConditionalContainer` with `_is_wide_enough()` check
-- CLI uses `click.group(invoke_without_command=True)` — `--rescan` stays on the group, subcommands (`run`/`edit`/`commit`/`log`) use lazy imports to avoid loading loop modules for TUI-only use
+- CLI uses `click.group(invoke_without_command=True)` — `--rescan` stays on the group, subcommands (`run`/`edit`/`commit`/`log`) use lazy imports to avoid loading loop modules for TUI-only use. `blink edit --add PATH` adds a task entry to tasks.yaml then opens the file in IDE.
 - TUI commit action (`_run_commit`) calls `blink.loop.git_ops.ensure_clean_git()` directly in a background thread with `quiet=True` — no subprocess, no PATH dependency on `tloop`, no stdout pollution
-- TUI task action (`_run_add_task`) calls `blink.loop.cmd_edit._add_task()` which returns a message string, then opens tasks.yaml via unified `_open_with_ide()` (status bar shows success message with 2-second timeout). `blink config-task --add` also calls `_add_task()` and prints the returned message.
+- TUI task action (`_run_add_task`) calls `blink.loop.cmd_edit._add_task()` which returns a message string, then opens tasks.yaml via unified `_open_with_ide()` (status bar shows success message with 2-second timeout). CLI `blink edit --add PATH` calls `_add_task()` and opens the file in IDE.
 - Loop data directory is `~/.blink/loop/` (not `~/.tloop/`). Contains `tasks.yaml`, `state.json`, `logs/`, `archive/`
