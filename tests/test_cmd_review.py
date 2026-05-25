@@ -173,8 +173,8 @@ class TestSaveReport:
         assert report.exists()
         content = report.read_text()
         assert "feature/auth" in content
-        assert "**Base**: `main`" in content
-        assert "**Verdict**: APPROVE" in content
+        assert "**基准**: `main`" in content
+        assert "**结论**: ✓ 通过" in content
         assert "LGTM" in content
 
     def test_filename_uses_slug(self, tmp_path):

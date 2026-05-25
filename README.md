@@ -45,7 +45,7 @@ blink review <branch> -p ~/proj  # 指定项目目录（默认当前目录）
 blink review -i                # 创建 review-rules.md 模板
 ```
 
-> Review 报告保存至 `<project>/docs/blink/code-review/<branch>-<date>.md`，结论为 APPROVE / APPROVE_WITH_NOTES / REQUEST_CHANGES。可通过 `-i` 创建 `docs/blink/review-rules.md` 定义项目特定的 review 规则。
+> Review 报告以中文输出，保存至 `<project>/docs/blink/code-review/<branch>-<date>.md`，结论为 APPROVE / APPROVE_WITH_NOTES / REQUEST_CHANGES。可通过 `-i` 创建 `docs/blink/review-rules.md` 定义项目特定的 review 规则。
 
 > 自动提交功能（`blink commit` 和 TUI Shift+C）以及 Code Review 功能（`blink review` 和 TUI Shift+V）需要已安装 [Claude CLI](https://docs.anthropic.com/en/docs/claude-code)（`claude` 命令）。
 

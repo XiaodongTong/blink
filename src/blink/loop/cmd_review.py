@@ -13,7 +13,7 @@ from blink.loop.claude_runner import run_claude_text
 DIFF_SIZE_LIMIT = 100 * 1024  # 100KB
 
 REVIEW_PROMPT = """\
-You are performing a structured code review of changes in a git repository.
+你正在对 git 仓库中的代码变更进行结构化 code review。
 
 <rules>
 {rules}
@@ -31,36 +31,36 @@ You are performing a structured code review of changes in a git repository.
 {diff}
 </diff>
 
-Review the changes above. Produce a report with this EXACT structure:
+请审查以上变更，生成一份中文报告，结构如下：
 
 VERDICT: <APPROVE|APPROVE_WITH_NOTES|REQUEST_CHANGES>
 
-## Summary
-<overall quality assessment in 2-3 sentences>
+## 总结
+<2-3 句话的整体质量评估>
 
-## Issues
-<for each issue found, format as:>
-### [CRITICAL|MAJOR|MINOR] <file:line> — <title>
-<description>
-Suggestion: <concrete suggestion or code example>
+## 问题
+<对发现的每个问题，按以下格式输出：>
+### [CRITICAL|MAJOR|MINOR] <文件:行号> — <标题>
+<问题描述>
+建议：<具体的修改建议或代码示例>
 
-## Required Changes
-<only if VERDICT is REQUEST_CHANGES — list actionable items with before/after code examples>
+## 必须修改
+<仅当 VERDICT 为 REQUEST_CHANGES 时 — 列出可操作的修改项，附带修改前后的代码示例>
 
-## Improvement Notes
-<only if VERDICT is APPROVE_WITH_NOTES — follow-up suggestions>
+## 改进建议
+<仅当 VERDICT 为 APPROVE_WITH_NOTES 时 — 后续改进建议>
 
-VERDICT RULES:
-- Any CRITICAL issue → REQUEST_CHANGES
-- Any MAJOR without CRITICAL → APPROVE_WITH_NOTES
-- Only MINOR or no issues → APPROVE
+VERDICT 规则：
+- 存在任何 CRITICAL 问题 → REQUEST_CHANGES
+- 存在 MAJOR 但无 CRITICAL → APPROVE_WITH_NOTES
+- 仅 MINOR 或无问题 → APPROVE
 
-If no issues are found:
+如果没有发现问题：
 VERDICT: APPROVE
-## Summary
-<summary>
-## Issues
-None found.
+## 总结
+<总结>
+## 问题
+未发现问题。
 """
 
 
@@ -153,13 +153,18 @@ def save_report(dir_path, branch, base, verdict, content):
     filename = f"{slug}-{date_str}.md"
     report_path = review_dir / filename
 
+    verdict_labels = {
+        "APPROVE": "✓ 通过",
+        "APPROVE_WITH_NOTES": "⚠ 有建议",
+        "REQUEST_CHANGES": "✗ 需修改",
+    }
     header = (
         f"# Code Review: {branch}\n"
         f"\n"
-        f"- **Branch**: `{branch}`\n"
-        f"- **Base**: `{base}`\n"
-        f"- **Date**: {now.strftime('%Y-%m-%d %H:%M')}\n"
-        f"- **Verdict**: {verdict}\n"
+        f"- **分支**: `{branch}`\n"
+        f"- **基准**: `{base}`\n"
+        f"- **日期**: {now.strftime('%Y-%m-%d %H:%M')}\n"
+        f"- **结论**: {verdict_labels.get(verdict, verdict)}\n"
         f"\n"
         f"---\n"
         f"\n"
