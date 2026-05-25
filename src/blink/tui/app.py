@@ -359,7 +359,7 @@ class BlinkApp:
             try:
                 from blink.loop.cmd_review import (
                     collect_context, build_review_prompt, parse_verdict,
-                    save_report,
+                    save_report, setup_review_branch, cleanup_review_branch,
                 )
                 from blink.loop.claude_runner import run_claude_text
                 from blink.loop import git_ops
@@ -375,29 +375,45 @@ class BlinkApp:
                 logger.log("review", f"TUI review 开始: branch={branch}, base={base}, dir={dir_path}")
 
                 context = collect_context(dir_path, branch, base)
-                prompt = build_review_prompt(context)
 
-                logger.log("review", f"TUI AI 输入 prompt ({len(prompt):,} chars)")
-                logger.log_lines("review.input", prompt)
+                review_branch = None
+                original_branch = None
+                stashed = False
 
-                output = run_claude_text(
-                    prompt,
-                    cwd=dir_path,
-                    model="sonnet",
-                    quiet=True,
-                )
+                review_branch, original_branch, stashed = setup_review_branch(dir_path, branch, base)
+                if review_branch is None:
+                    logger.log("review", "TUI 合并冲突，使用 diff-only 模式")
+                else:
+                    logger.log("review", f"TUI 临时分支创建: {review_branch}")
 
-                if not output:
-                    logger.log("review", "TUI AI 返回空结果")
-                    return False, "✗ Claude 返回空结果"
+                try:
+                    prompt = build_review_prompt(context)
 
-                logger.log("review", f"TUI AI 输出 ({len(output):,} chars)")
-                logger.log_lines("review.output", output)
+                    logger.log("review", f"TUI AI 输入 prompt ({len(prompt):,} chars)")
+                    logger.log_lines("review.input", prompt)
 
-                verdict, full_output = parse_verdict(output)
-                report_path = save_report(dir_path, branch, base, verdict, full_output)
-                logger.log("review", f"TUI review 完成: verdict={verdict}, report={report_path}")
-                return True, (verdict, report_path)
+                    output = run_claude_text(
+                        prompt,
+                        cwd=dir_path,
+                        model="sonnet",
+                        quiet=True,
+                    )
+
+                    if not output:
+                        logger.log("review", "TUI AI 返回空结果")
+                        return False, "✗ Claude 返回空结果"
+
+                    logger.log("review", f"TUI AI 输出 ({len(output):,} chars)")
+                    logger.log_lines("review.output", output)
+
+                    verdict, full_output = parse_verdict(output)
+                    report_path = save_report(dir_path, branch, base, verdict, full_output)
+                    logger.log("review", f"TUI review 完成: verdict={verdict}, report={report_path}")
+                    return True, (verdict, report_path)
+                finally:
+                    if review_branch:
+                        cleanup_review_branch(dir_path, original_branch, review_branch, stashed, base=base)
+                        logger.log("review", f"TUI 临时分支已清理: {review_branch}")
 
             except FileNotFoundError:
                 return False, "✗ claude CLI 未安装"

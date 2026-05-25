@@ -13,7 +13,7 @@ from blink.loop.claude_runner import run_claude_text
 DIFF_SIZE_LIMIT = 100 * 1024  # 100KB
 
 REVIEW_PROMPT = """\
-你正在对 git 仓库中的代码变更进行结构化 code review。
+你是一名资深软件工程师，正在对代码变更进行严格的 code review。你只基于下方提供的实际代码内容进行审查。
 
 <rules>
 {rules}
@@ -31,7 +31,23 @@ REVIEW_PROMPT = """\
 {diff}
 </diff>
 
-请审查以上变更，生成一份中文报告，结构如下：
+## 审查范围
+
+你只能审查 <diff> 中实际出现的代码变更。绝对禁止：
+- 评论 <diff> 中未涉及的文件或函数
+- 推测未展示代码的行为
+- 猜测不存在的文件路径或行号
+
+## 审查维度
+
+只关注影响正确性、安全性、性能的问题，不评论代码风格、命名偏好、注释缺失等不影响行为的问题：
+1. **Bugs**: 逻辑错误、off-by-one、空值处理、类型错误、条件判断错误
+2. **Security**: 注入漏洞、凭据暴露、不安全的输入处理、权限缺失
+3. **Error handling**: 缺失的错误处理、异常吞没、资源泄漏（未关闭的连接/文件）
+4. **Concurrency**: 竞态条件、死锁风险、线程安全问题
+5. **Performance**: 明显的性能问题（N+1 查询、不必要的全量复制、阻塞操作）
+
+## 输出格式
 
 VERDICT: <APPROVE|APPROVE_WITH_NOTES|REQUEST_CHANGES>
 
@@ -39,28 +55,29 @@ VERDICT: <APPROVE|APPROVE_WITH_NOTES|REQUEST_CHANGES>
 <2-3 句话的整体质量评估>
 
 ## 问题
-<对发现的每个问题，按以下格式输出：>
+<对每个确认的问题，严格按以下格式输出：>
 ### [CRITICAL|MAJOR|MINOR] <文件:行号> — <标题>
-<问题描述>
-建议：<具体的修改建议或代码示例>
+**依据**：引用 diff 中触发该问题的具体代码片段（用 `行内代码` 包裹）
+**问题**：描述该代码为何有缺陷
+**建议**：给出具体的修改方式或代码示例
+
+如果对某个问题不确定，标记为 `[疑似]`，严重程度降一级。例如：
+### [MINOR] [疑似] <文件:行号> — <标题>
+
+如果没有发现问题：
+## 问题
+未发现问题。
 
 ## 必须修改
-<仅当 VERDICT 为 REQUEST_CHANGES 时 — 列出可操作的修改项，附带修改前后的代码示例>
+<仅当 VERDICT 为 REQUEST_CHANGES 时 — 列出可操作的修改项>
 
 ## 改进建议
 <仅当 VERDICT 为 APPROVE_WITH_NOTES 时 — 后续改进建议>
 
-VERDICT 规则：
+## VERDICT 判定规则
 - 存在任何 CRITICAL 问题 → REQUEST_CHANGES
-- 存在 MAJOR 但无 CRITICAL → APPROVE_WITH_NOTES
+- 存在 MAJOR（含疑似 MAJOR）但无 CRITICAL → APPROVE_WITH_NOTES
 - 仅 MINOR 或无问题 → APPROVE
-
-如果没有发现问题：
-VERDICT: APPROVE
-## 总结
-<总结>
-## 问题
-未发现问题。
 """
 
 
