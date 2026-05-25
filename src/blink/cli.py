@@ -118,7 +118,7 @@ def log(task_number: int | None) -> None:
 @click.option("-d", "--diff-only", is_flag=True, help="Skip temporary branch creation (faster, less context)")
 @click.option("-l", "--list", "list_reports", is_flag=True, help="List existing review reports")
 @click.option("-p", "--dir", "project_dir", default=".", help="Project directory (default: current directory)")
-@click.option("-m", "--model", type=click.Choice(["haiku", "sonnet", "opus"]), default="sonnet", help="Claude model to use (default: sonnet)")
+@click.option("-m", "--model", type=click.Choice(["haiku", "sonnet", "opus"]), default="opus", help="Claude model to use (default: opus)")
 @click.option("-i", "--init-rules", is_flag=True, help="Create review-rules.md template in project")
 def review(branch: str | None, against: str | None, diff_only: bool, list_reports: bool, project_dir: str, model: str, init_rules: bool) -> None:
     """AI-assisted code review of a colleague branch."""

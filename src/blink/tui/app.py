@@ -380,9 +380,24 @@ class BlinkApp:
                 original_branch = None
                 stashed = False
 
-                review_branch, original_branch, stashed = setup_review_branch(dir_path, branch, base)
-                if review_branch is None:
-                    logger.log("review", "TUI 合并冲突，使用 diff-only 模式")
+                review_branch, original_branch, stashed, merge_error = setup_review_branch(dir_path, branch, base)
+                if merge_error is not None:
+                    error_type, error_msg = merge_error
+                    if error_type == "conflict":
+                        from blink.loop.cmd_review import save_report as _save_report
+                        logger.log("review", f"TUI 合并冲突: {error_msg}")
+                        conflict_report = (
+                            f"## 合并冲突\n\n"
+                            f"分支 `{branch}` 无法合并到 `{base}`，存在合并冲突。\n"
+                            f"必须先解决冲突后才能继续。\n\n"
+                            f"```\n{error_msg}\n```\n"
+                        )
+                        report_path = _save_report(dir_path, branch, base, "DENY", conflict_report)
+                        self._last_report_paths[repo.path] = report_path
+                        logger.log("review", f"TUI review 完成(冲突): verdict=DENY, report={report_path}")
+                        return True, ("DENY", report_path)
+                    else:
+                        logger.log("review", f"TUI 合并失败(非冲突): {error_msg}，使用 diff-only 模式")
                 else:
                     logger.log("review", f"TUI 临时分支创建: {review_branch}")
 
@@ -395,7 +410,7 @@ class BlinkApp:
                     output = run_claude_text(
                         prompt,
                         cwd=dir_path,
-                        model="sonnet",
+                        model="opus",
                         quiet=True,
                     )
 
@@ -429,7 +444,7 @@ class BlinkApp:
                 badges = {
                     "APPROVE": "✅ APPROVE",
                     "APPROVE_WITH_NOTES": "⚠️ APPROVE_WITH_NOTES",
-                    "REQUEST_CHANGES": "❌ REQUEST_CHANGES",
+                    "DENY": "❌ DENY",
                 }
                 badge = badges.get(verdict, verdict)
                 self._set_scan_status(f"{badge}  {branch}", timeout=5.0)

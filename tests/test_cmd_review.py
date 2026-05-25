@@ -148,12 +148,12 @@ class TestParseVerdict:
         assert v == "APPROVE_WITH_NOTES"
 
     def test_request_changes(self):
-        v, _ = parse_verdict("VERDICT: REQUEST_CHANGES\n## Summary\nProblems found")
-        assert v == "REQUEST_CHANGES"
+        v, _ = parse_verdict("VERDICT: DENY\n## Summary\nProblems found")
+        assert v == "DENY"
 
     def test_uses_last_verdict(self):
-        v, _ = parse_verdict("VERDICT: APPROVE\n...\nVERDICT: REQUEST_CHANGES")
-        assert v == "REQUEST_CHANGES"
+        v, _ = parse_verdict("VERDICT: APPROVE\n...\nVERDICT: DENY")
+        assert v == "DENY"
 
     def test_none_defaults_to_approve_with_notes(self):
         v, out = parse_verdict(None)
@@ -405,7 +405,7 @@ class TestGitOpsReview:
         _commit_file(repo, "b.txt", "world")
         _checkout(repo, "main")
 
-        review_name, saved_ref, stashed = git_ops.create_review_branch(repo, "feature/x", "main")
+        review_name, saved_ref, stashed, error = git_ops.create_review_branch(repo, "feature/x", "main")
         assert review_name is not None
         assert review_name.startswith("review/")
         assert "feature-x" in review_name
@@ -432,7 +432,7 @@ class TestGitOpsReview:
         _commit_file(repo, "b.txt", "world")
         _checkout(repo, "main")
 
-        review_name, original_branch, stashed = git_ops.create_review_branch(repo, "feature/x", "main")
+        review_name, original_branch, stashed, error = git_ops.create_review_branch(repo, "feature/x", "main")
         assert review_name is not None
         assert review_name.startswith("review/")
 
@@ -449,7 +449,7 @@ class TestGitOpsReview:
         _commit_file(repo, "b.txt", "world")
         _checkout(repo, "master")
 
-        review_name, original_branch, stashed = git_ops.create_review_branch(repo, "feature/x", "master")
+        review_name, original_branch, stashed, error = git_ops.create_review_branch(repo, "feature/x", "master")
         assert review_name is not None
 
         cleanup_review_branch(repo, original_branch, review_name, stashed, base="master")
@@ -481,11 +481,13 @@ class TestGitOpsReview:
         _checkout(repo, "main")
         _commit_file(repo, "a.txt", "from-main", "main change")
 
-        review_name, _, stashed = git_ops.create_review_branch(repo, "feature/x", "main")
+        review_name, _, stashed, error = git_ops.create_review_branch(repo, "feature/x", "main")
         assert review_name is None
+        assert error is not None
+        assert error[0] == "conflict"
         assert git_ops.get_current_branch(repo) == "main"
 
-    def test_handle_merge_conflict_falls_back_to_diff_only(self, tmp_path, capsys):
+    def test_handle_merge_conflict_direct_request_changes(self, tmp_path, capsys):
         repo = str(tmp_path / "repo")
         _init_git_repo(repo)
         _commit_file(repo, "a.txt", "hello", "initial")
@@ -496,15 +498,17 @@ class TestGitOpsReview:
         _checkout(repo, "main")
         _commit_file(repo, "a.txt", "from-main", "main change")
 
-        mock_output = "VERDICT: APPROVE\n## Summary\nOK\n## Issues\nNone found.\n"
-        with patch("blink.loop.cmd_review.run_claude_text", return_value=mock_output):
-            args = MagicMock(
-                list=False, init_rules=False, branch="feature/x",
-                dir=repo, against=None, diff_only=False, model="sonnet",
-            )
-            handle(args)
+        args = MagicMock(
+            list=False, init_rules=False, branch="feature/x",
+            dir=repo, against=None, diff_only=False, model="sonnet",
+        )
+        handle(args)
 
         captured = capsys.readouterr()
         assert "merge conflict" in captured.out.lower()
+        assert "DENY" in captured.out
         reports = list((Path(repo) / "docs" / "blink" / "code-review").glob("*.md"))
         assert len(reports) == 1
+        content = reports[0].read_text()
+        assert "需修改" in content
+        assert "合并冲突" in content

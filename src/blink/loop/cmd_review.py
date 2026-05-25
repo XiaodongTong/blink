@@ -49,7 +49,7 @@ REVIEW_PROMPT = """\
 
 ## 输出格式
 
-VERDICT: <APPROVE|APPROVE_WITH_NOTES|REQUEST_CHANGES>
+VERDICT: <APPROVE|APPROVE_WITH_NOTES|DENY>
 
 ## 总结
 <2-3 句话的整体质量评估>
@@ -69,13 +69,13 @@ VERDICT: <APPROVE|APPROVE_WITH_NOTES|REQUEST_CHANGES>
 未发现问题。
 
 ## 必须修改
-<仅当 VERDICT 为 REQUEST_CHANGES 时 — 列出可操作的修改项>
+<仅当 VERDICT 为 DENY 时 — 列出可操作的修改项>
 
 ## 改进建议
 <仅当 VERDICT 为 APPROVE_WITH_NOTES 时 — 后续改进建议>
 
 ## VERDICT 判定规则
-- 存在任何 CRITICAL 问题 → REQUEST_CHANGES
+- 存在任何 CRITICAL 问题 → DENY
 - 存在 MAJOR（含疑似 MAJOR）但无 CRITICAL → APPROVE_WITH_NOTES
 - 仅 MINOR 或无问题 → APPROVE
 """
@@ -130,10 +130,10 @@ def build_review_prompt(context):
 
 def setup_review_branch(dir_path, branch, base):
     current = git_ops.get_current_branch(dir_path)
-    review_name, saved_ref, stashed = git_ops.create_review_branch(dir_path, branch, base)
-    if review_name is None:
-        return None, current, stashed
-    return review_name, current, stashed
+    review_name, saved_ref, stashed, error = git_ops.create_review_branch(dir_path, branch, base)
+    if error is not None:
+        return None, current, stashed, error
+    return review_name, current, stashed, None
 
 
 def cleanup_review_branch(dir_path, original_branch, review_branch, stashed=False, base="main"):
@@ -150,7 +150,7 @@ def cleanup_review_branch(dir_path, original_branch, review_branch, stashed=Fals
 def parse_verdict(output):
     if not output:
         return "APPROVE_WITH_NOTES", output
-    matches = re.findall(r"VERDICT:\s*(APPROVE_WITH_NOTES|REQUEST_CHANGES|APPROVE)", output)
+    matches = re.findall(r"VERDICT:\s*(APPROVE_WITH_NOTES|DENY|APPROVE)", output)
     if matches:
         return matches[-1], output
     return "APPROVE_WITH_NOTES", output
@@ -173,7 +173,7 @@ def save_report(dir_path, branch, base, verdict, content):
     verdict_labels = {
         "APPROVE": "✓ 通过",
         "APPROVE_WITH_NOTES": "⚠ 有建议",
-        "REQUEST_CHANGES": "✗ 需修改",
+        "DENY": "✗ 需修改",
     }
     header = (
         f"# Code Review: {branch}\n"
@@ -227,7 +227,7 @@ def handle(args):
             return
 
     diff_only = getattr(args, "diff_only", False)
-    model = getattr(args, "model", "sonnet")
+    model = getattr(args, "model", "opus")
 
     logger.log("review", f"开始 review: branch={branch}, base={base}, dir={dir_path}, model={model}, diff_only={diff_only}")
 
@@ -240,11 +240,27 @@ def handle(args):
 
     if not diff_only:
         print("Creating temporary review branch...")
-        review_branch, original_branch, stashed = setup_review_branch(dir_path, branch, base)
-        if review_branch is None:
-            print("\033[93mWarning: merge conflict detected. Falling back to diff-only mode.\033[0m")
-            diff_only = True
-            logger.log("review", "合并冲突，回退到 diff-only 模式")
+        review_branch, original_branch, stashed, merge_error = setup_review_branch(dir_path, branch, base)
+        if merge_error is not None:
+            error_type, error_msg = merge_error
+            if error_type == "conflict":
+                print(f"\033[91mMerge conflict detected between {base} and {branch}.\033[0m")
+                logger.log("review", f"合并冲突: {error_msg}")
+                conflict_report = (
+                    f"## 合并冲突\n\n"
+                    f"分支 `{branch}` 无法合并到 `{base}`，存在合并冲突。\n"
+                    f"必须先解决冲突后才能继续。\n\n"
+                    f"```\n{error_msg}\n```\n"
+                )
+                report_path = save_report(dir_path, branch, base, "DENY", conflict_report)
+                print(f"\033[91mVerdict: DENY\033[0m")
+                print(f"Report saved: {report_path}")
+                logger.log("review", f"Review 完成(冲突): verdict=DENY, report={report_path}")
+                return
+            else:
+                print(f"\033[93mWarning: merge failed: {error_msg}. Falling back to diff-only mode.\033[0m")
+                diff_only = True
+                logger.log("review", f"合并失败(非冲突): {error_msg}，回退到 diff-only 模式")
         else:
             print(f"Review branch created: {review_branch}")
             logger.log("review", f"临时分支创建: {review_branch}")
@@ -277,7 +293,7 @@ def handle(args):
         verdict_colors = {
             "APPROVE": "\033[92m",
             "APPROVE_WITH_NOTES": "\033[93m",
-            "REQUEST_CHANGES": "\033[91m",
+            "DENY": "\033[91m",
         }
         color = verdict_colors.get(verdict, "")
         reset = "\033[0m"
@@ -311,12 +327,12 @@ def _handle_list(args):
     print(f"Code reviews in {dir_path.name}:\n")
     for report in reports:
         content = report.read_text()
-        matches = re.findall(r"VERDICT:\s*(APPROVE|APPROVE_WITH_NOTES|REQUEST_CHANGES)", content)
+        matches = re.findall(r"VERDICT:\s*(APPROVE|APPROVE_WITH_NOTES|DENY)", content)
         verdict = matches[-1] if matches else "UNKNOWN"
         badges = {
             "APPROVE": "\033[92m✓ APPROVE\033[0m",
             "APPROVE_WITH_NOTES": "\033[93m⚠ APPROVE_WITH_NOTES\033[0m",
-            "REQUEST_CHANGES": "\033[91m✗ REQUEST_CHANGES\033[0m",
+            "DENY": "\033[91m✗ DENY\033[0m",
             "UNKNOWN": "\033[90m? UNKNOWN\033[0m",
         }
         print(f"  {badges.get(verdict, verdict)}  {report.stem}")

@@ -153,6 +153,8 @@ def create_review_branch(dir_path, colleague_branch, base):
 
     merge_result = _git(dir_path, "merge", colleague_branch, "--no-edit")
     if merge_result.returncode != 0:
+        merge_output = (merge_result.stdout or "") + (merge_result.stderr or "")
+        has_conflict = "CONFLICT" in merge_output
         _git(dir_path, "merge", "--abort")
         if current:
             _git(dir_path, "checkout", current, "--quiet")
@@ -161,9 +163,10 @@ def create_review_branch(dir_path, colleague_branch, base):
         _git(dir_path, "branch", "-D", review_name)
         if stashed:
             _git(dir_path, "stash", "pop", "--quiet")
-        return None, f"Merge conflict between {base} and {colleague_branch}", stashed
+        error_type = "conflict" if has_conflict else "error"
+        return None, current, stashed, (error_type, merge_output.strip())
 
-    return review_name, current, stashed
+    return review_name, current, stashed, None
 
 
 def delete_branch(dir_path, branch_name, force=True):
