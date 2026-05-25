@@ -18,6 +18,7 @@ from prompt_toolkit.layout.dimension import D
 from prompt_toolkit.styles import Style
 
 from blink.models import Repo, RepoStatus
+from blink import logger
 from blink.config import Config
 from blink.store import Store
 from blink.scanner import Scanner, ScanResult, StatusFetcher, check_pull_prereqs, parse_pull_output
@@ -109,6 +110,7 @@ class BlinkApp:
 
         self._load_repos()
         self._init_detail_panel()
+        logger.log("tui", "Blink TUI 启动")
 
         layout = self._build_layout()
         self._app = Application(
@@ -270,8 +272,10 @@ class BlinkApp:
             try:
                 from blink.loop.cmd_edit import _add_task
                 from blink.loop.config import TASKS_FILE
+                logger.log("task", f"添加任务: path={repo.path}")
                 msg = _add_task(repo.path)
                 if msg:
+                    logger.log("task", f"任务添加成功: {msg}")
                     task_file = str(TASKS_FILE)
                     def on_success():
                         self._set_scan_status(f"✓ {msg}", timeout=2.0)
@@ -368,8 +372,13 @@ class BlinkApp:
                 if not git_ops.branch_exists(dir_path, branch):
                     return False, f"✗ 分支 '{branch}' 不存在"
 
+                logger.log("review", f"TUI review 开始: branch={branch}, base={base}, dir={dir_path}")
+
                 context = collect_context(dir_path, branch, base)
                 prompt = build_review_prompt(context)
+
+                logger.log("review", f"TUI AI 输入 prompt ({len(prompt):,} chars)")
+                logger.log_lines("review.input", prompt)
 
                 output = run_claude_text(
                     prompt,
@@ -379,10 +388,15 @@ class BlinkApp:
                 )
 
                 if not output:
+                    logger.log("review", "TUI AI 返回空结果")
                     return False, "✗ Claude 返回空结果"
+
+                logger.log("review", f"TUI AI 输出 ({len(output):,} chars)")
+                logger.log_lines("review.output", output)
 
                 verdict, full_output = parse_verdict(output)
                 report_path = save_report(dir_path, branch, base, verdict, full_output)
+                logger.log("review", f"TUI review 完成: verdict={verdict}, report={report_path}")
                 return True, (verdict, report_path)
 
             except FileNotFoundError:
@@ -1115,6 +1129,7 @@ class BlinkApp:
 
         def do_pull() -> None:
             try:
+                logger.log("pull", f"开始拉取: path={repo.path}")
                 result = sp.run(
                     ["git", "pull"],
                     cwd=repo.path,
@@ -1123,10 +1138,13 @@ class BlinkApp:
                     timeout=30,
                 )
                 success, message = parse_pull_output(result.stdout, result.returncode, result.stderr)
+                logger.log("pull", f"拉取{'成功' if success else '失败'}: path={repo.path}, msg={message}")
             except sp.TimeoutExpired:
                 success, message = False, "✗ Pull timed out"
+                logger.log("pull", f"拉取超时: path={repo.path}")
             except Exception as exc:
                 success, message = False, f"✗ Pull failed: {exc}"
+                logger.log("pull", f"拉取异常: path={repo.path}, error={exc}")
 
             def on_done():
                 self._pulling_paths.discard(repo.path)
@@ -1170,6 +1188,7 @@ class BlinkApp:
     def _start_background_scan(self) -> None:
         self._scanning = True
         self._scan_status = "Scanning..."
+        logger.log("scanner", "开始后台扫描")
         self._app.invalidate()
 
         def on_result(sr: ScanResult) -> None:
@@ -1183,6 +1202,7 @@ class BlinkApp:
         def done(results: List[ScanResult]) -> None:
             self._scanning = False
             self._scan_status = f"Scan complete — {len(results)} repos found"
+            logger.log("scanner", f"扫描完成: {len(results)} repos")
             self._app.invalidate()
             self._start_background_status_fetch()
 
@@ -1207,13 +1227,17 @@ class BlinkApp:
         def do_commit():
             try:
                 from blink.loop.git_ops import is_git_repo, is_git_clean, ensure_clean_git
+                logger.log("commit", f"开始自动提交: path={repo.path}")
                 if not is_git_repo(repo.path):
                     return False, "✗ 不是 Git 仓库"
                 if is_git_clean(repo.path):
+                    logger.log("commit", f"工作树已干净: path={repo.path}")
                     return True, "✓ 工作树已干净"
                 success = ensure_clean_git(repo.path, "manual commit", model="haiku", quiet=True)
                 if success:
+                    logger.log("commit", f"提交成功: path={repo.path}")
                     return True, "✓ 提交完成"
+                logger.log("commit", f"提交失败: path={repo.path}")
                 return False, "✗ 提交失败"
             except FileNotFoundError:
                 return False, "✗ claude CLI 未安装"

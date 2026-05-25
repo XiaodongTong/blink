@@ -2,6 +2,7 @@
 
 import subprocess
 
+from blink import logger
 from blink.loop import log_format
 
 GREEN = "\033[92m"
@@ -38,6 +39,8 @@ def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log
     """
     enriched_prompt = prompt + EXECUTION_SUFFIX
 
+    logger.log("claude", f"run_claude: model={model}, attempt=1/{max_retries}, cwd={cwd}")
+
     if verbose and not quiet:
         print(f"{CYAN}--- claude input ---{RESET}")
         print(prompt)
@@ -47,6 +50,7 @@ def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log
 
     for attempt in range(1, max_retries + 1):
         if attempt > 1:
+            logger.log("claude", f"重试: attempt={attempt}/{max_retries}, model={model}")
             hint = (
                 f"This is attempt {attempt}/{max_retries}. "
                 "The previous attempt did not complete the task. "
@@ -92,6 +96,7 @@ def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log
         if result.returncode != 0:
             if not quiet:
                 print(f"{YELLOW}  Claude exited with code {result.returncode} (attempt {attempt}/{max_retries}){RESET}")
+            logger.log("claude", f"退出码异常: exit={result.returncode}, attempt={attempt}/{max_retries}")
             if attempt < max_retries:
                 continue
             return False
@@ -104,6 +109,7 @@ def run_claude(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, verify_fn=None, log
             print(f"{CYAN}--- end ---{RESET}")
 
         if verify_fn is None:
+            logger.log("claude", f"完成: exit=0, stdout={len(result.stdout) if result.stdout else 0} chars")
             return True
 
         if verify_fn(cwd):
@@ -128,6 +134,8 @@ def run_claude_text(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, log_file=None,
     - Has no verify_fn (output IS the result)
     - Defaults to sonnet model (analysis needs deeper reasoning)
     """
+    logger.log("claude", f"run_claude_text: model={model}, prompt={len(prompt):,} chars, cwd={cwd}")
+
     if verbose and not quiet:
         print(f"{CYAN}--- claude input (text mode) ---{RESET}")
         print(prompt)
@@ -167,6 +175,7 @@ def run_claude_text(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, log_file=None,
         if result.returncode != 0:
             if not quiet:
                 print(f"{YELLOW}  Claude exited with code {result.returncode} (attempt {attempt}/{max_retries}){RESET}")
+            logger.log("claude", f"退出码异常(text): exit={result.returncode}, attempt={attempt}/{max_retries}")
             if attempt < max_retries:
                 continue
             return None
@@ -179,6 +188,7 @@ def run_claude_text(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, log_file=None,
             print(f"{CYAN}--- end ---{RESET}")
 
         if result.stdout and result.stdout.strip():
+            logger.log("claude", f"完成(text): exit=0, stdout={len(result.stdout)} chars")
             return result.stdout.strip()
 
         if not quiet:

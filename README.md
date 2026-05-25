@@ -148,6 +148,28 @@ Blink 采用双栏联动布局：左侧为仓库列表，右侧为详情面板�
 - `config.json` — 用户配置
 - `blink.db` — SQLite 数据库，存储仓库和远程信息
 - `loop/` — 任务运行相关数据（`tasks.yaml`、`state.json`、`logs/`、`archive/`）
+- `logs/` — 应用运行日志（按天分割，文件名 `blink-YYYY-MM-DD.log`）
+
+### 日志
+
+Blink 将运行日志写入 `~/.blink/logs/` 目录，按天自动分割。日志格式为 `[时间]-[模块]-内容`，主要记录：
+
+- **review** — AI code review 的完整输入 prompt 和输出结果
+- **claude** — Claude CLI 调用跟踪（模型、参数、退出码）
+- **commit** — 自动提交操作
+- **pull** — 拉取操作
+- **scanner** — 仓库扫描
+- **task** — 任务添加
+- **tui** — TUI 启动
+
+日志文件示例：
+```
+[13:55:01]-[review] TUI review 开始: branch=feature-x, base=main, dir=/path/to/repo
+[13:55:01]-[review] TUI AI 输入 prompt (1,233 chars)
+[13:55:01]-[review.input] You are performing a structured code review...
+[13:55:01]-[review.output] VERDICT: APPROVE
+[13:55:01]-[review] TUI review 完成: verdict=APPROVE, report=/path/to/report.md
+```
 
 ## 开发
 

@@ -1,0 +1,94 @@
+{
+    "models": {
+        "mode": "merge",
+        "providers": {
+            "chatling": {
+                "models": [
+                    {
+                        "input": ["text"],
+                        "contextWindow": 96000,
+                        "cost": { "output": 0.001, "input": 0.0005, "cacheRead": 0, "cacheWrite": 0 },
+                        "reasoning": false,
+                        "name": "MiniMax M2.5 ailab",
+                        "maxTokens": 8192,
+                        "id": "MiniMax-M2.5-ailab"
+                    },
+                    {
+                        "input": ["text"],
+                        "contextWindow": 96000,
+                        "cost": { "output": 0.001, "input": 0.0005, "cacheRead": 0, "cacheWrite": 0 },
+                        "reasoning": false,
+                        "name": "Qwen3.5-Flash-ailab",
+                        "maxTokens": 8192,
+                        "id": "Qwen3.5-Flash-ailab"
+                    }
+                ],
+                "baseUrl": "http://chatgpt.58corp.com/api/v2",
+                "apiKey": "93ee38cf79c544a7a92f3a31cc76fae7",
+                "api": "openai-completions"
+            }
+        }
+    },
+    "auth": { "profiles": { "chatling:default": { "mode": "api_key", "provider": "chatling" } } },
+    "plugins": {
+        "allow": ["meishi"],
+        "entries": { "meishi": { "enabled": true } },
+        "load": { "paths": ["/root/.openclaw/extensions/meishi"] },
+        "enabled": true
+    },
+    "agents": {
+        "defaults": {
+            "models": {
+                "chatling/Qwen3.5-Flash-ailab": { "alias": "Qwen3.5 flash ailab" },
+                "chatling/MiniMax-M2.5-ailab": { "alias": "MiniMax M2.5 ailab" }
+            },
+            "workspace": "/root/.openclaw/mainworkspace ",
+            "maxConcurrent": 4,
+            "subagents": { "maxConcurrent": 8 },
+            "compaction": { "mode": "safeguard" },
+            "timeoutSeconds": 300,
+            "model": { "primary": "chatling/Qwen3.5-Flash-ailab" }
+        }
+    },
+    "skills": { "entries": { "wuba-skill-market": { "enabled": true } } },
+    "channels": {
+        "meishi": {
+            "secKey": "2b31ad4ca987ae7ee580639653e519e7",
+            "pairing": "pairing",
+            "appId": "claw202604249cd861",
+            "host": "https://openapi-mism.58.com",
+            "robotId": "MIS_ROBOT_claw202604249cd861",
+            "enabled": true
+        }
+    },
+    "web": {},
+    "meta": { "lastTouchedAt": "2026-05-23T09:28:21.365Z", "lastTouchedVersion": "2026.3.13" },
+    "browser": {
+        "headless": true,
+        "executablePath": "/usr/bin/google-chrome-stable",
+        "noSandbox": true,
+        "profiles": { "openclaw": { "color": "#FF4500", "cdpPort": 18800 } },
+        "defaultProfile": "openclaw",
+        "enabled": true
+    },
+    "logging": { "file": "/var/log/openclaw/openclaw.log", "level": "info", "consoleLevel": "info" },
+    "messages": { "ackReactionScope": "group-mentions" },
+    "wizard": {
+        "lastRunAt": "2026-05-23T09:28:21.311Z",
+        "lastRunVersion": "2026.3.13",
+        "lastRunMode": "local",
+        "lastRunCommand": "doctor"
+    },
+    "commands": { "nativeSkills": "auto", "native": "auto", "restart": true, "ownerDisplay": "raw" },
+    "gateway": {
+        "mode": "local",
+        "controlUi": {
+            "allowedOrigins": ["http://localhost:18789", "http://127.0.0.1:18789"],
+            "dangerouslyAllowHostHeaderOriginFallback": false
+        },
+        "bind": "lan",
+        "port": 18789,
+        "auth": { "mode": "token", "token": "e0783f0e4f24459c863c943b0e6cef" },
+        "tailscale": { "mode": "off", "resetOnExit": false }
+    }
+}

@@ -6,6 +6,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from blink import logger
 from blink.loop import git_ops
 from blink.loop.claude_runner import run_claude_text
 
@@ -206,6 +207,8 @@ def handle(args):
     diff_only = getattr(args, "diff_only", False)
     model = getattr(args, "model", "sonnet")
 
+    logger.log("review", f"开始 review: branch={branch}, base={base}, dir={dir_path}, model={model}, diff_only={diff_only}")
+
     print(f"Collecting context: {base}..{branch}")
     context = collect_context(dir_path, branch, base)
 
@@ -219,12 +222,17 @@ def handle(args):
         if review_branch is None:
             print("\033[93mWarning: merge conflict detected. Falling back to diff-only mode.\033[0m")
             diff_only = True
+            logger.log("review", "合并冲突，回退到 diff-only 模式")
         else:
             print(f"Review branch created: {review_branch}")
+            logger.log("review", f"临时分支创建: {review_branch}")
 
     try:
         prompt = build_review_prompt(context)
         print(f"Running Claude review (model={model})...")
+
+        logger.log("review", f"AI 输入 prompt ({len(prompt):,} chars)")
+        logger.log_lines("review.input", prompt)
 
         output = run_claude_text(
             prompt,
@@ -235,7 +243,11 @@ def handle(args):
 
         if not output:
             print("\033[91mError: Claude returned no output.\033[0m", file=sys.stderr)
+            logger.log("review", "AI 返回空结果")
             return
+
+        logger.log("review", f"AI 输出 ({len(output):,} chars)")
+        logger.log_lines("review.output", output)
 
         verdict, full_output = parse_verdict(output)
         report_path = save_report(dir_path, branch, base, verdict, full_output)
@@ -251,11 +263,14 @@ def handle(args):
         print(f"\n{color}Verdict: {verdict}{reset}")
         print(f"Report saved: {report_path}")
 
+        logger.log("review", f"Review 完成: verdict={verdict}, report={report_path}")
+
     finally:
         if review_branch:
             print("Cleaning up review branch...")
             cleanup_review_branch(dir_path, original_branch, review_branch, stashed, base=base)
             print("Cleanup complete.")
+            logger.log("review", f"临时分支已清理: {review_branch}")
 
 
 def _handle_list(args):
