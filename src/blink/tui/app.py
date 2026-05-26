@@ -410,7 +410,7 @@ class BlinkApp:
                     output = run_claude_text(
                         prompt,
                         cwd=dir_path,
-                        model="opus",
+                        model=self._config.model_review,
                         quiet=True,
                     )
 
@@ -1264,7 +1264,7 @@ class BlinkApp:
                 if is_git_clean(repo.path):
                     logger.log("commit", f"工作树已干净: path={repo.path}")
                     return True, "✓ 工作树已干净"
-                success = ensure_clean_git(repo.path, "manual commit", model="haiku", quiet=True)
+                success = ensure_clean_git(repo.path, "manual commit", model=self._config.model_commit, quiet=True)
                 if success:
                     logger.log("commit", f"提交成功: path={repo.path}")
                     return True, "✓ 提交完成"

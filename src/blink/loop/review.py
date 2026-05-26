@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 from blink.loop import log_format
+from blink.config import get_default_model
 
 REVIEW_PROMPT = """\
 You are performing a critical self-review of code changes just made in this project.
@@ -82,7 +83,7 @@ def review_changes(dir_path, base_commit, log_file=None):
         log_format.write_review_input(log, full_input)
 
         process = subprocess.Popen(
-            ["claude", "-p", "--dangerously-skip-permissions"],
+            ["claude", "-p", "--dangerously-skip-permissions", "--model", get_default_model("review")],
             cwd=dir_path,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,

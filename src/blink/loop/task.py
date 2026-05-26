@@ -11,6 +11,7 @@ from blink.loop.review import get_head_commit, review_changes
 from blink.loop.runner.cybervisor import CybervisorRunner
 from blink.loop.runner.claude import ClaudeRunner
 from blink.loop.state import save_state
+from blink.config import get_default_model
 
 
 def expand_dir(d):
@@ -45,7 +46,7 @@ def run_task(task, index, state, review_enabled=False):
     prompt = task.get("prompt", "")
     prompt_file = task.get("prompt_file")
     branch_config = task.get("branch", True)
-    commit_model = task.get("commit-model", "haiku")
+    commit_model = task.get("commit-model", get_default_model("commit"))
 
     if not os.path.isdir(dir_path):
         print(f"{config.RED}  Directory not found: {dir_path}{config.RESET}")
@@ -123,7 +124,8 @@ def run_task(task, index, state, review_enabled=False):
         if runner_name == "claude":
             runner = ClaudeRunner()
             max_rounds = task.get("max_rounds", 5)
-            returncode = runner.run(prompt, dir_path, log_file=log_file, max_rounds=max_rounds, prompt_file=resolved_pf)
+            task_model = task.get("model", get_default_model("task"))
+            returncode = runner.run(prompt, dir_path, log_file=log_file, max_rounds=max_rounds, prompt_file=resolved_pf, model=task_model)
         else:
             runner = CybervisorRunner()
             returncode = runner.run(prompt, dir_path, log_file=log_file, prompt_file=resolved_pf)

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from blink.loop import log_format
 from blink.loop.runner import Runner
+from blink.config import get_default_model
 
 COMPLETION_SUFFIX = (
 
@@ -19,7 +20,7 @@ COMPLETION_SUFFIX = (
 
 
 class ClaudeRunner(Runner):
-    def run(self, prompt, cwd, log_file=None, max_rounds=5, prompt_file=None):
+    def run(self, prompt, cwd, log_file=None, max_rounds=5, prompt_file=None, model=None):
         """
         Run Claude Code in a loop with configurable round limit.
 
@@ -29,10 +30,12 @@ class ClaudeRunner(Runner):
             log_file: Optional path to log file
             max_rounds: Maximum number of loop iterations (default 5)
             prompt_file: Optional path to prompt file (used as stdin like CybervisorRunner)
+            model: Claude model to use (default: from config)
 
         Returns:
             0 on success (completion signal detected), non-zero on failure
         """
+        resolved_model = model or get_default_model("task")
         enriched_prompt = prompt + COMPLETION_SUFFIX
 
         constitution_path = Path(cwd) / "docs" / "blink" / "constitution.md"
@@ -71,7 +74,7 @@ class ClaudeRunner(Runner):
                 print(f"{'─' * 60}\n")
 
                 process = subprocess.Popen(
-                    ["claude", "-p", "--dangerously-skip-permissions", "--model", "opus"],
+                    ["claude", "-p", "--dangerously-skip-permissions", "--model", resolved_model],
                     cwd=cwd,
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,

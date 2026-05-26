@@ -15,6 +15,11 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "preferred_ide": None,
     "auto_sync_days": 0,
     "nerd_fonts": False,
+    "models": {
+        "commit": "haiku",
+        "review": "opus",
+        "task": "opus",
+    },
 }
 
 
@@ -73,9 +78,43 @@ class Config:
     def nerd_fonts(self) -> bool:
         return bool(self._data.get("nerd_fonts", _DEFAULT_CONFIG["nerd_fonts"]))
 
+    @property
+    def models(self) -> Dict[str, str]:
+        defaults = _DEFAULT_CONFIG["models"]
+        configured = self._data.get("models", {})
+        return {**defaults, **configured}
+
+    @property
+    def model_commit(self) -> str:
+        return self.models["commit"]
+
+    @property
+    def model_review(self) -> str:
+        return self.models["review"]
+
+    @property
+    def model_task(self) -> str:
+        return self.models["task"]
+
     def db_path(self) -> Path:
         return self._path.parent / "blink.db"
 
     def set(self, key: str, value: Any) -> None:
         self._data[key] = value
         self._save()
+
+
+_MODEL_DEFAULTS = {"commit": "haiku", "review": "opus", "task": "opus"}
+
+
+def get_default_model(purpose: str) -> str:
+    """Read default model for a purpose from ~/.blink/config.json.
+
+    purpose: "commit", "review", or "task"
+    """
+    try:
+        with open(DEFAULT_CONFIG_PATH, "r") as f:
+            data = json.load(f)
+        return data.get("models", {}).get(purpose, _MODEL_DEFAULTS[purpose])
+    except Exception:
+        return _MODEL_DEFAULTS[purpose]
