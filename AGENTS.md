@@ -8,9 +8,30 @@ AI 协作入口文档。详细内容按渐进式披露原则拆分至 `docs/agen
 - **CLI 参数简写**：所有 CLI 参数必须同时提供长参数（`--`）和短参数（`-`）形式
 - **本文件不超过 200 行**：超出时必须将内容拆分至 `docs/agents/`
 
-## 项目概述
+## 产品定位
 
-Blink 是轻量级终端 TUI 工具，用于扫描、搜索和管理本地 git 仓库。Python 编写，使用 `prompt-toolkit`（TUI）和 `click`（CLI），数据存储在 SQLite（`~/.blink/`）。
+Blink 是面向开发者的终端工具集，提供两大核心能力：
+
+### TUI — 仓库管理器
+
+交互式终端界面（`prompt-toolkit`），帮助开发者快速定位和管理本地 git 仓库。
+
+- **仓库发现**：扫描文件系统，自动发现 git 仓库并持久化到 SQLite
+- **实时状态**：并行获取分支、dirty 文件数、ahead/behind 等状态
+- **快捷工具**：IDE 打开、浏览器跳转远程仓库、路径复制、自动提交、AI Code Review
+- **全文搜索**：按名称/路径/远程 URL/标签/描述过滤仓库
+
+### Loop — AI 任务引擎
+
+CLI 任务编排系统，按 `tasks.yaml` 顺序执行 AI 驱动的自动化任务。
+
+- **多 Runner 支持**：CybervisorRunner（默认）和 ClaudeRunner（多轮循环模式）
+- **Git 安全**：任务前自动提交脏工作树、自动创建 feature 分支、支持 post-task 自审
+- **状态管理**：JSON 状态追踪、已完成任务自动归档
+- **AI Code Review**：对同事分支进行自动化 review，支持临时分支合并、项目规则、结构化报告
+- **工具命令**：`run`（执行任务）、`edit`（编辑任务）、`commit`（AI 自动提交）、`log`（查看日志）、`review`（AI review）
+
+> 技术细节见 [Loop 模块文档](docs/agents/loop.md)。
 
 ## CLI 命令速查
 
@@ -47,20 +68,6 @@ uv build                   # 构建分发包
 | `scanner.py` | `Scanner` 仓库扫描 + `StatusFetcher` git 状态并行获取 |
 | `store.py` | SQLite 持久化（WAL），全文搜索，schema 迁移 |
 
-### 循环任务（`src/blink/loop/`）
-
-| 模块 | 职责 |
-|------|------|
-| `config.py` | 常量、目录初始化、`load_config()` |
-| `state.py` | JSON 状态管理，任务追踪与归档 |
-| `git_ops.py` | Git 安全检查、auto-commit、分支创建 |
-| `log_format.py` | 结构化日志格式化 |
-| `claude_runner.py` | 封装 Claude CLI 调用 |
-| `review.py` | AI code review（diff + 合并分支 + 项目规则） |
-| `task.py` | 单任务执行编排 |
-| `cmd_*.py` | CLI 子命令处理（run/edit/commit/log） |
-| `runner/` | `Runner` ABC + ClaudeRunner/CybervisorRunner |
-
 ### TUI（`src/blink/tui/`）
 
 | 模块 | 职责 |
@@ -72,11 +79,16 @@ uv build                   # 构建分发包
 | `actions.py` | IDE 检测/启动、剪贴板（TUI 和 CLI 共用） |
 | `icons.py` | Nerd Font 图标常量 + ASCII 回退 |
 
+### Loop（`src/blink/loop/`）
+
+> 完整文档见 [Loop 模块文档](docs/agents/loop.md)。
+
 ## 详细文档
 
 | 文档 | 内容 |
 |------|------|
-| [架构与数据流](docs/agents/architecture.md) | 入口点、模块详细职责、完整数据流、code review 规则 |
+| [Loop 模块文档](docs/agents/loop.md) | Loop 产品定位、架构、任务配置、Runner、状态管理、Code Review |
+| [架构与数据流](docs/agents/architecture.md) | 入口点、模块详细职责、完整数据流 |
 | [TUI 详细说明](docs/agents/tui.md) | 各 TUI 模块详细职责、焦点管理、编辑模式、退出机制 |
 | [UI 术语与快捷键](docs/agents/ui-spec.md) | 布局图、各区域规范、快捷键表、窄终端降级 |
 | [关键开发模式](docs/agents/key-patterns.md) | Store 懒连接、扫描模式、IDE 选择、提交/拉取、测试 |

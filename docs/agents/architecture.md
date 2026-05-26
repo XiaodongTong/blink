@@ -63,9 +63,11 @@ TUI Shift+T → blink.loop.cmd_edit._add_task() → _open_with_ide()
 CLI blink edit --add PATH → _add_task() → 打开 IDE
 ```
 
-## 循环任务包
+## 循环任务包（Loop）
 
-`src/blink/loop/` 目录，数据存储在 `~/.blink/loop/`。
+> 详细文档见 [Loop 模块文档](loop.md)。
+
+`src/blink/loop/` 目录，数据存储在 `~/.blink/loop/`。模块速查：
 
 | 模块 | 职责 |
 |------|------|
@@ -73,13 +75,10 @@ CLI blink edit --add PATH → _add_task() → 打开 IDE
 | `state.py` | JSON 状态文件管理（`state.json`），任务状态追踪与归档 |
 | `git_ops.py` | Git 安全检查、auto-commit（`ensure_clean_git`）、分支创建 |
 | `log_format.py` | 结构化日志格式化（标签行格式 `[HH:MM:SS]-[phase]-[tag]`） |
-| `claude_runner.py` | `run_claude()` 封装 `claude --dangerously-skip-permissions --print` |
-| `review.py` | 代码 review：diff → Claude 自评，报告中文输出 |
+| `claude_runner.py` | `run_claude()` / `run_claude_text()` 封装 Claude CLI |
+| `review.py` | Post-task 代码自审：diff → Claude 自评 |
 | `task.py` | `run_task()`：auto-commit → 分支 → runner 选择 → 状态更新 |
-| `cmd_run.py` | `blink run` 子命令处理 |
-| `cmd_edit.py` | `blink edit` 处理，`_add_task(path)` 追加任务条目 |
-| `cmd_commit.py` | `blink commit` 处理 |
-| `cmd_log.py` | `blink log` 处理 |
+| `cmd_*.py` | CLI 子命令处理（run/edit/commit/log/review） |
 | `runner/` | `Runner` ABC + `ClaudeRunner`/`CybervisorRunner` 实现 |
 
 ## Code Review 详细规则
