@@ -9,6 +9,7 @@ from blink.config import Config
 from blink.store import Store
 from blink.scanner import Scanner
 from blink.tui.app import BlinkApp
+from blink.tui.app_review import ReviewOrchestrator
 
 
 @pytest.fixture
@@ -48,10 +49,5 @@ def app_with_store():
     app._ide_pending_path = None
     app._committing_paths = set()
     app._pulling_paths = set()
-    app._reviewing_paths = set()
-    app._review_branch_loading = False
-    app._review_selecting = False
-    app._review_branches = []
-    app._review_branch_cursor = 0
-    app._last_report_paths = {}
+    app._review = ReviewOrchestrator(app)
     yield app, store, rid

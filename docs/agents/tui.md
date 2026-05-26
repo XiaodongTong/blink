@@ -2,15 +2,11 @@
 
 ## app.py — BlinkApp 主类
 
-- 双栏 `VSplit` 布局（左列表 ~48% + 右详情 ~52%）
+- 初始化协调，组装各子模块
 - 三态焦点管理：`_focus_pane` = `"list"` / `"detail"` / `"edit"`
-- 所有按键绑定、搜索状态机、退出机制、编辑态输入路由、后台扫描/状态获取均在此
-- `_open_with_ide(path)` 统一 IDE 打开逻辑，`_trigger_open_ide(repo)` 委托给它
-- 操作回调：`_open_git_in_browser()`、`_run_add_task()`、`_copy_repo_path()`、`_open_finder()`、`_run_review()`
-- Shift+V 触发 review 分支选择：获取最近 5 分支（`git_ops.get_recent_branches()`），←→ 导航，Enter 确认
-- Shift+L 打开最近 review 报告到 IDE
-- 样式定义在 `_build_style()`，使用 GitHub dark 主题色
-- 窄终端（<80列）通过 `ConditionalContainer` 隐藏右面板
+- 后台操作（scan/commit/pull/status fetch）的线程管理和回调调度
+- 操作回调：`_open_git_in_browser()`、`_run_add_task()`、`_copy_repo_path()`、`_open_finder()`
+- 所有状态栏通知通过 `_set_scan_status(msg, timeout)` 自动消失（默认 3s，task 通知 2s）
 
 ### 焦点与编辑
 - `_set_focus(pane)` 更新 `_focus_pane` 并调用 `detail.set_focused()` 和边框样式
@@ -20,7 +16,43 @@
 ### 后台操作
 - Status fetch：启动时和 Shift+R rescan 完成后触发
 - Commit/Pull：后台线程，状态栏显示"正在提交..."/"正在拉取..."
-- 所有状态栏通知通过 `_set_scan_status(msg, timeout)` 自动消失（默认 3s，task 通知 2s）
+
+## styles.py
+
+样式定义（GitHub dark 主题色），`build_style()` 返回 `Style` 实例。纯数据模块，无状态依赖。
+
+## layout.py
+
+- `build_layout(app)` 构建双栏 `VSplit` 布局（左列表 ~48% + 右详情 ~52%）
+- `EditStatusControl`：编辑模式状态栏的自定义 UIControl（支持光标位置显示）
+- 窄终端（<80列）通过 `ConditionalContainer` 隐藏右面板
+
+## key_bindings.py
+
+`build_key_bindings(app)` 注册所有按键绑定：
+- IDE 选择模式（最高优先级）
+- Review 分支选择模式
+- Ctrl+C 双击退出、Esc 取消链
+- 焦点切换（Tab/←→）
+- 列表/详情导航（↑↓）
+- 搜索（/）、Shift+I/O/P/C/G/T/U/V/L/R
+- 编辑态字符路由（可打印字符、Backspace、CJK 输入）
+
+## status_bar.py
+
+状态栏和页脚文本渲染：
+- `build_status_text(app)`：根据当前状态返回 FormattedText（IDE 选择、pull、review、commit、搜索、扫描等）
+- `build_footer_text(app)`：页脚快捷键提示，支持高亮动画
+- `build_search_prefix_text(app)`：搜索前缀显示
+
+## app_review.py — ReviewOrchestrator
+
+TUI Review 编排（`ReviewOrchestrator` 类）：
+- `start_branch_select(repo)`：获取最近 5 分支（`git_ops.get_recent_branches()`），←→ 导航
+- `confirm_branch()`：确认后执行 review
+- `cancel()`：取消分支选择
+- `_run_review(repo, branch)`：完整 review 流程（collect_context → setup_review_branch → AI → save_report）
+- Shift+L 打开最近 review 报告到 IDE
 
 ## repo_list.py
 

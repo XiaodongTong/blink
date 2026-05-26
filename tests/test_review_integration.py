@@ -1,4 +1,4 @@
-"""Tests for blink.loop.cmd_review — AI-assisted code review pipeline."""
+"""Tests for blink.loop.cmd_review — integration tests (handle pipeline, git ops)."""
 from __future__ import annotations
 
 import subprocess
@@ -9,14 +9,8 @@ import pytest
 
 from blink.loop import git_ops
 from blink.loop.cmd_review import (
-    REVIEW_PROMPT,
-    _branch_slug,
-    build_review_prompt,
     cleanup_review_branch,
-    collect_context,
-    ensure_review_dir,
     handle,
-    parse_verdict,
     save_report,
 )
 
@@ -41,168 +35,6 @@ def _create_branch(path, branch, base="main"):
 
 def _checkout(path, branch):
     subprocess.run(["git", "checkout", branch], cwd=path, capture_output=True, check=True)
-
-
-# ── ensure_review_dir ─────────────────────────────────────────────────────
-
-class TestEnsureReviewDir:
-    def test_creates_nested_directory(self, tmp_path):
-        review_dir = ensure_review_dir(str(tmp_path))
-        assert review_dir.exists()
-        assert review_dir == tmp_path / "docs" / "blink" / "code-review"
-
-    def test_idempotent(self, tmp_path):
-        ensure_review_dir(str(tmp_path))
-        ensure_review_dir(str(tmp_path))
-        assert (tmp_path / "docs" / "blink" / "code-review").exists()
-
-
-# ── collect_context ───────────────────────────────────────────────────────
-
-class TestCollectContext:
-    def test_collects_diff_log_stat(self, tmp_path):
-        repo = str(tmp_path / "repo")
-        _init_git_repo(repo)
-        _commit_file(repo, "a.txt", "hello", "initial")
-        _create_branch(repo, "feature/test")
-        _checkout(repo, "feature/test")
-        _commit_file(repo, "b.txt", "world", "add b")
-
-        ctx = collect_context(repo, "feature/test", "main")
-        assert "b.txt" in ctx["diff"]
-        assert "add b" in ctx["log"]
-        assert "b.txt" in ctx["stat"]
-
-    def test_no_rules_when_file_absent(self, tmp_path):
-        repo = str(tmp_path / "repo")
-        _init_git_repo(repo)
-        _commit_file(repo, "a.txt", "hello")
-        _create_branch(repo, "feature/x")
-        _checkout(repo, "feature/x")
-        _commit_file(repo, "b.txt", "world")
-
-        ctx = collect_context(repo, "feature/x", "main")
-        assert ctx["rules"] == ""
-
-    def test_loads_rules_file(self, tmp_path):
-        repo = str(tmp_path / "repo")
-        _init_git_repo(repo)
-        _commit_file(repo, "a.txt", "hello")
-        _create_branch(repo, "feature/x")
-        _checkout(repo, "feature/x")
-        _commit_file(repo, "b.txt", "world")
-
-        rules_path = Path(repo) / "docs" / "blink" / "review-rules.md"
-        rules_path.parent.mkdir(parents=True, exist_ok=True)
-        rules_path.write_text("# Rules\n- Check security")
-
-        ctx = collect_context(repo, "feature/x", "main")
-        assert "Check security" in ctx["rules"]
-
-    def test_truncates_large_diff(self, tmp_path):
-        repo = str(tmp_path / "repo")
-        _init_git_repo(repo)
-        _commit_file(repo, "a.txt", "hello")
-        _create_branch(repo, "big")
-        _checkout(repo, "big")
-        # Create a file larger than 100KB
-        big_content = "x" * (110 * 1024)
-        _commit_file(repo, "big.txt", big_content, "big file")
-
-        ctx = collect_context(repo, "big", "main")
-        assert ctx["truncated"] is True
-        assert len(ctx["diff"]) <= 100 * 1024
-
-
-# ── build_review_prompt ───────────────────────────────────────────────────
-
-class TestBuildReviewPrompt:
-    def test_includes_rules_block(self):
-        ctx = {"diff": "diff content", "log": "abc123 commit", "stat": "1 file", "rules": "No hardcoded secrets", "truncated": False}
-        prompt = build_review_prompt(ctx)
-        assert "No hardcoded secrets" in prompt
-        assert "abc123 commit" in prompt
-        assert "1 file" in prompt
-        assert "diff content" in prompt
-
-    def test_rules_placeholder_when_empty(self):
-        ctx = {"diff": "d", "log": "l", "stat": "s", "rules": "", "truncated": False}
-        prompt = build_review_prompt(ctx)
-        assert "No project-specific review rules defined" in prompt
-
-    def test_truncation_notice(self):
-        ctx = {"diff": "d", "log": "l", "stat": "s", "rules": "", "truncated": True}
-        prompt = build_review_prompt(ctx)
-        assert "DIFF TRUNCATED" in prompt
-
-
-# ── parse_verdict ─────────────────────────────────────────────────────────
-
-class TestParseVerdict:
-    def test_approve(self):
-        v, _ = parse_verdict("VERDICT: APPROVE\n## Summary\nLGTM")
-        assert v == "APPROVE"
-
-    def test_approve_with_notes(self):
-        v, _ = parse_verdict("VERDICT: APPROVE_WITH_NOTES\n## Summary\nLooks good")
-        assert v == "APPROVE_WITH_NOTES"
-
-    def test_request_changes(self):
-        v, _ = parse_verdict("VERDICT: DENY\n## Summary\nProblems found")
-        assert v == "DENY"
-
-    def test_uses_last_verdict(self):
-        v, _ = parse_verdict("VERDICT: APPROVE\n...\nVERDICT: DENY")
-        assert v == "DENY"
-
-    def test_none_defaults_to_approve_with_notes(self):
-        v, out = parse_verdict(None)
-        assert v == "APPROVE_WITH_NOTES"
-
-    def test_no_verdict_defaults_to_approve_with_notes(self):
-        v, _ = parse_verdict("Just some text without a verdict line")
-        assert v == "APPROVE_WITH_NOTES"
-
-
-# ── save_report ───────────────────────────────────────────────────────────
-
-class TestSaveReport:
-    def test_creates_file_with_metadata_header(self, tmp_path):
-        path = save_report(str(tmp_path), "feature/auth", "main", "APPROVE", "LGTM")
-        report = Path(path)
-        assert report.exists()
-        content = report.read_text()
-        assert "feature/auth" in content
-        assert "**基准**: `main`" in content
-        assert "**结论**: ✓ 通过" in content
-        assert "LGTM" in content
-
-    def test_filename_uses_slug(self, tmp_path):
-        path = save_report(str(tmp_path), "feature/auth", "main", "APPROVE", "ok")
-        assert "feature-auth-" in Path(path).name
-
-    def test_slug_collapses_dashes(self, tmp_path):
-        path = save_report(str(tmp_path), "feature//auth", "main", "APPROVE", "ok")
-        filename = Path(path).name
-        assert "feature-auth-" in filename
-        assert "---" not in filename
-
-    def test_saves_to_correct_directory(self, tmp_path):
-        path = save_report(str(tmp_path), "bugfix/x", "main", "APPROVE", "ok")
-        assert "docs/blink/code-review" in path
-
-
-# ── _branch_slug ──────────────────────────────────────────────────────────
-
-class TestBranchSlug:
-    def test_slash_to_dash(self):
-        assert _branch_slug("feature/auth") == "feature-auth"
-
-    def test_collapse_dashes(self):
-        assert _branch_slug("feature///auth") == "feature-auth"
-
-    def test_no_slash(self):
-        assert _branch_slug("main") == "main"
 
 
 # ── handle integration (mocked claude) ────────────────────────────────────
@@ -284,7 +116,7 @@ class TestHandleIntegration:
             assert len(list(review_dir.glob("*.md"))) == 0
 
 
-# ── git_ops additions ─────────────────────────────────────────────────────
+# ── handle list & init-rules ─────────────────────────────────────────────
 
 class TestHandleList:
     def test_list_no_reports(self, tmp_path, capsys):
@@ -350,6 +182,8 @@ class TestHandleInitRules:
         assert "already exists" in capsys.readouterr().out
 
 
+# ── git_ops for review ───────────────────────────────────────────────────
+
 class TestGitOpsReview:
     def test_get_current_branch(self, tmp_path):
         repo = str(tmp_path / "repo")
@@ -361,7 +195,6 @@ class TestGitOpsReview:
         repo = str(tmp_path / "repo")
         _init_git_repo(repo)
         _commit_file(repo, "a.txt", "hello")
-        # Get HEAD hash and checkout detached
         result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True)
         subprocess.run(["git", "checkout", result.stdout.strip()], cwd=repo, capture_output=True, check=True)
         assert git_ops.get_current_branch(repo) is None
@@ -410,7 +243,6 @@ class TestGitOpsReview:
         assert review_name.startswith("review/")
         assert "feature-x" in review_name
 
-        # Cleanup
         subprocess.run(["git", "checkout", "main"], cwd=repo, capture_output=True)
         subprocess.run(["git", "branch", "-D", review_name], cwd=repo, capture_output=True)
 
@@ -472,12 +304,10 @@ class TestGitOpsReview:
         _init_git_repo(repo)
         _commit_file(repo, "a.txt", "hello", "initial")
 
-        # Create conflicting changes on feature branch
         _create_branch(repo, "feature/x")
         _checkout(repo, "feature/x")
         _commit_file(repo, "a.txt", "from-feature", "feature change")
 
-        # Create conflicting changes on main
         _checkout(repo, "main")
         _commit_file(repo, "a.txt", "from-main", "main change")
 

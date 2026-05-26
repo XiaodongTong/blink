@@ -8,6 +8,7 @@ from blink.models import Remote, Repo, RepoStatus
 from blink.store import Store
 from blink.scanner import Scanner
 from blink.tui.app import BlinkApp
+from blink.tui.app_review import ReviewOrchestrator
 from blink.tui.detail import DetailPanel
 
 
@@ -50,12 +51,7 @@ def _make_app():
     app._ide_pending_path = None
     app._committing_paths = set()
     app._pulling_paths = set()
-    app._reviewing_paths = set()
-    app._review_branch_loading = False
-    app._review_selecting = False
-    app._review_branches = []
-    app._review_branch_cursor = 0
-    app._last_report_paths = {}
+    app._review = ReviewOrchestrator(app)
     return app, store, rid
 
 

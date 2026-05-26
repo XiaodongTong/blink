@@ -35,6 +35,9 @@ def _make_detail_panel(repo: Repo = None) -> DetailPanel:
     )
 
 
+# ── rendering ───────────────────────────────────────────────────────────
+
+
 def test_detail_panel_renders_fields():
     panel = _make_detail_panel()
     text = panel._formatted_text()
@@ -74,235 +77,6 @@ def test_detail_panel_renders_no_remotes():
     assert "(none)" in t
 
 
-# ── line selection ─────────────────────────────────────────────────────────
-
-def test_cursor_starts_at_zero():
-    panel = _make_detail_panel()
-    assert panel._cursor_index == 0
-
-
-def test_cursor_down_moves():
-    panel = _make_detail_panel()
-    panel.cursor_down()
-    assert panel._cursor_index == 1
-
-
-def test_cursor_up_moves():
-    panel = _make_detail_panel()
-    panel.cursor_down()
-    panel.cursor_up()
-    assert panel._cursor_index == 0
-
-
-def test_cursor_down_at_max():
-    panel = _make_detail_panel()
-    for _ in range(15):
-        panel.cursor_down()
-    assert panel._cursor_index == 10
-
-
-def test_cursor_up_at_zero():
-    panel = _make_detail_panel()
-    panel.cursor_up()
-    assert panel._cursor_index == 0
-
-
-def test_cursor_blocked_during_edit():
-    panel = _make_detail_panel()
-    panel._edit_mode = "alias"
-    panel.cursor_down()
-    assert panel._cursor_index == 0
-
-
-# ── alias edit ─────────────────────────────────────────────────────────────
-
-def test_handle_enter_alias_starts_edit():
-    panel = _make_detail_panel()
-    panel._cursor_index = DetailPanel.LINE_ALIAS
-    panel.handle_enter()
-    assert panel._edit_mode == "alias"
-
-
-def test_alias_edit_buffer_prepopulated():
-    repo = _make_repo(alias="existing")
-    panel = _make_detail_panel(repo)
-    panel._start_alias_edit()
-    assert panel.alias_buffer.text == "existing"
-
-
-def test_handle_enter_confirm_alias():
-    store = Store(":memory:")
-    store.init_db()
-    repo = _make_repo()
-    rid = store.upsert_repo(repo)
-    repo = _make_repo(id=rid)
-
-    panel = DetailPanel(
-        repo=repo, store=store, editors={},
-        on_back=lambda: None,
-        on_alias_change=lambda a: None,
-        on_tags_change=lambda: None,
-    )
-    panel._start_alias_edit()
-    panel._alias_buffer.text = "new-alias"
-    panel.handle_enter()
-    assert repo.alias == "new-alias"
-    assert panel._edit_mode is None
-
-
-def test_handle_enter_alias_with_empty_buffer():
-    store = Store(":memory:")
-    store.init_db()
-    repo = _make_repo()
-    rid = store.upsert_repo(repo)
-    repo = _make_repo(id=rid, alias="old-alias")
-
-    panel = DetailPanel(
-        repo=repo, store=store, editors={},
-        on_back=lambda: None,
-        on_alias_change=lambda a: None,
-        on_tags_change=lambda: None,
-    )
-    panel._start_alias_edit()
-    panel._alias_buffer.text = ""
-    panel.handle_enter()
-    assert repo.alias == ""
-
-
-# ── description edit ─────────────────────────────────────────────────────
-
-def test_handle_enter_desc_starts_edit():
-    panel = _make_detail_panel()
-    panel._cursor_index = DetailPanel.LINE_DESC
-    panel.handle_enter()
-    assert panel._edit_mode == "description"
-
-
-def test_desc_edit_buffer_prepopulated():
-    repo = _make_repo(description="existing desc")
-    panel = _make_detail_panel(repo)
-    panel._start_desc_edit()
-    assert panel.desc_buffer.text == "existing desc"
-
-
-def test_handle_enter_confirm_description():
-    store = Store(":memory:")
-    store.init_db()
-    repo = _make_repo(description="original")
-    rid = store.upsert_repo(repo)
-    repo = _make_repo(id=rid, description="original")
-
-    panel = DetailPanel(
-        repo=repo, store=store, editors={},
-        on_back=lambda: None,
-        on_alias_change=lambda a: None,
-        on_tags_change=lambda: None,
-    )
-    panel._start_desc_edit()
-    panel._desc_buffer.text = "new description"
-    panel.handle_enter()
-    assert repo.description == "new description"
-    assert panel._edit_mode is None
-
-
-# ── tags edit ─────────────────────────────────────────────────────────────
-
-def test_handle_enter_tags_starts_edit():
-    panel = _make_detail_panel()
-    panel._cursor_index = DetailPanel.LINE_TAGS
-    panel.handle_enter()
-    assert panel._edit_mode == "tags"
-
-
-def test_handle_enter_tags_adds_tag():
-    store = Store(":memory:")
-    store.init_db()
-    repo = _make_repo()
-    rid = store.upsert_repo(repo)
-    repo = _make_repo(id=rid, path="/x", alias="", description="A test repo")
-
-    panel = DetailPanel(
-        repo=repo, store=store, editors={},
-        on_back=lambda: None,
-        on_alias_change=lambda a: None,
-        on_tags_change=lambda: None,
-    )
-    panel._start_tags_edit()
-    panel._tag_buffer.text = "python"
-    panel.handle_enter()
-    assert "python" in repo.tags
-    assert panel._edit_mode == "tags"
-
-
-def test_handle_key_number_removes_tag():
-    store = Store(":memory:")
-    store.init_db()
-    repo = _make_repo()
-    rid = store.upsert_repo(repo)
-    store.add_tag(rid, "alpha")
-    store.add_tag(rid, "beta")
-    repo = _make_repo(id=rid, path="/x", alias="", description="A test repo")
-    repo.tags = store.get_tags_for_repo(rid)
-
-    panel = DetailPanel(
-        repo=repo, store=store, editors={},
-        on_back=lambda: None,
-        on_alias_change=lambda a: None,
-        on_tags_change=lambda: None,
-    )
-    panel._start_tags_edit()
-    panel.handle_key("1")
-    assert "alpha" not in repo.tags
-    assert "beta" in repo.tags
-
-
-def test_handle_enter_confirm_description_clears_edit_mode():
-    store = Store(":memory:")
-    store.init_db()
-    repo = _make_repo(description="original")
-    rid = store.upsert_repo(repo)
-    repo = _make_repo(id=rid, description="original")
-
-    panel = DetailPanel(
-        repo=repo, store=store, editors={},
-        on_back=lambda: None,
-        on_alias_change=lambda a: None,
-        on_tags_change=lambda: None,
-    )
-    panel._start_desc_edit()
-    panel._desc_buffer.text = "new description"
-    panel.handle_enter()
-    assert repo.description == "new description"
-    assert panel._edit_mode is None
-
-
-# ── is_editing ─────────────────────────────────────────────────────────────
-
-def test_is_editing_false_by_default():
-    panel = _make_detail_panel()
-    assert not panel.is_editing
-
-
-def test_is_editing_true_when_alias():
-    panel = _make_detail_panel()
-    panel._edit_mode = "alias"
-    assert panel.is_editing
-
-
-def test_is_editing_true_when_description():
-    panel = _make_detail_panel()
-    panel._edit_mode = "description"
-    assert panel.is_editing
-
-
-def test_is_editing_true_when_tags():
-    panel = _make_detail_panel()
-    panel._edit_mode = "tags"
-    assert panel.is_editing
-
-
-# ── pinned toggle ─────────────────────────────────────────────────────────
-
 def test_detail_panel_shows_pinned_row():
     panel = _make_detail_panel()
     t = _to_plain(panel._formatted_text())
@@ -316,31 +90,6 @@ def test_detail_panel_shows_pinned_yes():
     t = _to_plain(panel._formatted_text())
     assert "Pinned" in t
     assert "Yes" in t
-
-
-def test_handle_enter_pinned_toggles():
-    store = Store(":memory:")
-    store.init_db()
-    repo = _make_repo()
-    rid = store.upsert_repo(repo)
-    repo = _make_repo(id=rid)
-
-    pin_changed = []
-    panel = DetailPanel(
-        repo=repo, store=store, editors={},
-        on_back=lambda: None,
-        on_alias_change=lambda a: None,
-        on_tags_change=lambda: None,
-        on_pin_change=lambda: pin_changed.append(True),
-    )
-    panel._cursor_index = DetailPanel.LINE_PINNED
-    panel.handle_enter()
-    assert repo.pinned == 1
-    assert pin_changed == [True]
-
-    panel.handle_enter()
-    assert repo.pinned == 0
-    assert len(pin_changed) == 2
 
 
 def test_detail_panel_line_constants():
@@ -363,7 +112,7 @@ def test_detail_panel_action_line_constants():
         assert hasattr(DetailPanel, attr)
 
 
-# ── status row ─────────────────────────────────────────────────────────────
+# ── status row ──────────────────────────────────────────────────────────
 
 
 def test_detail_panel_shows_status_row():
@@ -391,7 +140,7 @@ def test_detail_panel_status_before_pinned():
     assert status_pos < pinned_pos
 
 
-# ── shortcut hints ───────────────────────────────────────────────────────
+# ── shortcut hints ──────────────────────────────────────────────────────
 
 
 def test_detail_panel_renders_action_shortcuts():
@@ -418,7 +167,7 @@ def test_detail_panel_renders_action_rows():
     assert "Copy repo path" in t
 
 
-# ── set_repo ──────────────────────────────────────────────────────────────
+# ── set_repo ────────────────────────────────────────────────────────────
 
 
 def test_set_repo_updates_display():
@@ -461,7 +210,7 @@ def test_set_repo_preserves_edit_mode_on_same_repo():
     assert panel.is_editing
 
 
-# ── on_action callback ────────────────────────────────────────────────────
+# ── on_action callback ──────────────────────────────────────────────────
 
 
 def test_on_action_called_on_pin_toggle():
@@ -501,7 +250,7 @@ def test_on_action_called_on_desc_edit():
     assert actions == [True]
 
 
-# ── actions section ────────────────────────────────────────────────────────
+# ── actions section ─────────────────────────────────────────────────────
 
 
 def test_actions_section_renders_action_rows():
@@ -584,18 +333,3 @@ def test_marker_cursor_indices():
     assert DetailPanel.LINE_ALIAS == 8
     assert DetailPanel.LINE_TAGS == 9
     assert DetailPanel.LINE_DESC == 10
-
-
-def test_cursor_navigates_full_range():
-    panel = _make_detail_panel()
-    assert panel._cursor_index == 0
-    for expected in range(1, 11):
-        panel.cursor_down()
-        assert panel._cursor_index == expected
-    panel.cursor_down()
-    assert panel._cursor_index == 10
-    for expected in range(9, -1, -1):
-        panel.cursor_up()
-        assert panel._cursor_index == expected
-    panel.cursor_up()
-    assert panel._cursor_index == 0

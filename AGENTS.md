@@ -72,7 +72,12 @@ uv build                   # 构建分发包
 
 | 模块 | 职责 |
 |------|------|
-| `app.py` | 主应用，双栏布局，焦点管理，按键绑定，后台操作 |
+| `app.py` | 主应用类，初始化协调，焦点管理，后台操作 |
+| `styles.py` | 样式定义（GitHub dark 主题色） |
+| `layout.py` | 双栏布局构建，`EditStatusControl` |
+| `key_bindings.py` | 所有按键绑定注册 |
+| `status_bar.py` | 状态栏和页脚文本渲染 |
+| `app_review.py` | TUI Review 编排（分支选择 + AI 执行） |
 | `repo_list.py` | 两行式列表控件，状态徽标 |
 | `detail.py` | 详情面板（Metadata/Actions/Local Markers 三区） |
 | `search.py` | 搜索栏控件 |
