@@ -2,13 +2,13 @@
 
 ## 入口点
 
-`src/blink/cli.py` — click group，`invoke_without_command=True`。无子命令时启动 TUI。
+`src/cli.py` — click group，`invoke_without_command=True`。无子命令时启动 TUI。
 
 子命令（`run` / `edit` / `commit` / `log` / `review`）通过 argparse.Namespace shim 委托给 `blink.loop` 处理函数。`--rescan` 挂在 group 上。子命令使用懒加载避免 TUI 启动时加载 loop 模块。
 
 ## 核心模块
 
-所有模块位于 `src/blink/`。
+所有模块位于 `src/`。
 
 ### models.py
 - `Repo` 数据类：含 `pinned`、`view_count`、`status` 字段
@@ -67,7 +67,7 @@ CLI blink edit --add PATH → _add_task() → 打开 IDE
 
 > 详细文档见 [Loop 模块文档](loop.md)。
 
-`src/blink/loop/` 目录，数据存储在 `~/.blink/loop/`。模块速查：
+`src/loop/` 目录，数据存储在 `~/.blink/loop/`。模块速查：
 
 | 模块 | 职责 |
 |------|------|

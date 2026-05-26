@@ -57,7 +57,7 @@ uv build                   # 构建分发包
 
 ## 模块索引
 
-### 核心模块（`src/blink/`）
+### 核心模块（`src/`）
 
 | 模块 | 职责 |
 |------|------|
@@ -68,7 +68,7 @@ uv build                   # 构建分发包
 | `scanner.py` | `Scanner` 仓库扫描 + `StatusFetcher` git 状态并行获取 |
 | `store.py` | SQLite 持久化（WAL），全文搜索，schema 迁移 |
 
-### TUI（`src/blink/tui/`）
+### TUI（`src/tui/`）
 
 | 模块 | 职责 |
 |------|------|
@@ -84,7 +84,7 @@ uv build                   # 构建分发包
 | `actions.py` | IDE 检测/启动、剪贴板（TUI 和 CLI 共用） |
 | `icons.py` | Nerd Font 图标常量 + ASCII 回退 |
 
-### Loop（`src/blink/loop/`）
+### Loop（`src/loop/`）
 
 > 完整文档见 [Loop 模块文档](docs/agents/loop.md)。
 

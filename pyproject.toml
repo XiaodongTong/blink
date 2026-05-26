@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "blink-repo"
@@ -13,7 +13,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
@@ -34,15 +33,16 @@ blink = "blink.cli:main"
 [project.urls]
 Homepage = "https://github.com/russell/blink"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/blink"]
+[tool.setuptools]
+packages = ["blink", "blink.tui", "blink.loop", "blink.loop.runner"]
 
-[tool.hatch.build.targets.sdist]
-include = ["src/blink", "tests"]
+[tool.setuptools.package-dir]
+blink = "src"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.hatch.envs.default]
-run-events = ["build"]
-clean = true
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]

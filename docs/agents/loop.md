@@ -86,7 +86,7 @@ tasks:
 
 ## Runner 系统
 
-Loop 通过 Runner ABC 抽象不同的 AI 执行后端，位于 `src/blink/loop/runner/`。
+Loop 通过 Runner ABC 抽象不同的 AI 执行后端，位于 `src/loop/runner/`。
 
 ### CybervisorRunner（默认）
 
