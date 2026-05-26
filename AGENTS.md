@@ -97,6 +97,7 @@ uv build                   # 构建分发包
 | [TUI 详细说明](docs/agents/tui.md) | 各 TUI 模块详细职责、焦点管理、编辑模式、退出机制 |
 | [UI 术语与快捷键](docs/agents/ui-spec.md) | 布局图、各区域规范、快捷键表、窄终端降级 |
 | [关键开发模式](docs/agents/key-patterns.md) | Store 懒连接、扫描模式、IDE 选择、提交/拉取、测试 |
+| [Review 流程图](docs/agents/review-flow.md) | AI Code Review 完整流程（CLI/TUI 入口、核心步骤、TaskReview） |
 
 ## 数据目录
 
