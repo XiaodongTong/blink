@@ -62,8 +62,8 @@ def main(ctx: click.Context, rescan: bool) -> None:
 @click.option("-e", "--reset", is_flag=True, help="Reset all tasks to pending")
 @click.option("-o", "--only", type=int, default=None, help="Run only task #N (1-based)")
 @click.option("-c", "--continue", "continue_on_fail", is_flag=True, help="Continue even if a task fails")
-@click.option("-r", "--review", is_flag=True, help="Run post-task code review after each task")
-def run(status: bool, reset: bool, only: int | None, continue_on_fail: bool, review: bool) -> None:
+@click.option("-r", "--task-review", "task_review", is_flag=True, help="Run TaskReview after each task")
+def run(status: bool, reset: bool, only: int | None, continue_on_fail: bool, task_review: bool) -> None:
     """Run tasks defined in ~/.blink/loop/tasks.yaml."""
     from blink.loop.cmd_run import handle
     args = argparse.Namespace(
@@ -71,7 +71,7 @@ def run(status: bool, reset: bool, only: int | None, continue_on_fail: bool, rev
         reset=reset,
         only=only,
         continue_on_fail=continue_on_fail,
-        review=review,
+        task_review=task_review,
     )
     handle(args)
 

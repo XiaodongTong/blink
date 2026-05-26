@@ -68,17 +68,17 @@ def write_implement_message(log, message):
     log.flush()
 
 
-def write_review_input(log, content):
-    _write_section(log, "review", "input", content)
+def write_task_review_input(log, content):
+    _write_section(log, "task-review", "input", content)
 
 
-def write_review_output(log, line):
-    log.write(f"[{_ts()}]-[review]-[output] {line.rstrip(chr(10))}\n")
+def write_task_review_output(log, line):
+    log.write(f"[{_ts()}]-[task-review]-[output] {line.rstrip(chr(10))}\n")
     log.flush()
 
 
-def write_review_message(log, message):
-    log.write(f"[{_ts()}]-[review] {message}\n")
+def write_task_review_message(log, message):
+    log.write(f"[{_ts()}]-[task-review] {message}\n")
     log.flush()
 
 

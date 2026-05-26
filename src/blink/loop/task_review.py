@@ -1,4 +1,4 @@
-"""Post-task code review via self-critique to improve generated code quality."""
+"""TaskReview — post-task self-critique to improve generated code quality."""
 
 import subprocess
 from pathlib import Path
@@ -6,7 +6,7 @@ from pathlib import Path
 from blink.loop import log_format
 from blink.config import get_default_model
 
-REVIEW_PROMPT = """\
+TASK_REVIEW_PROMPT = """\
 You are performing a critical self-review of code changes just made in this project.
 
 <diff>
@@ -55,8 +55,8 @@ def get_diff(dir_path, base_commit):
     return ""
 
 
-def review_changes(dir_path, base_commit, log_file=None):
-    """Run post-task code review on all changes since base_commit.
+def run_task_review(dir_path, base_commit, log_file=None):
+    """Run TaskReview on all changes since base_commit.
 
     Non-blocking: returns True/False to indicate review outcome, but
     the calling code should not treat a review failure as a task failure.
@@ -74,16 +74,16 @@ def review_changes(dir_path, base_commit, log_file=None):
             + "\n</constitution>\n\n"
         )
 
-    prompt = REVIEW_PROMPT.format(diff=diff)
+    prompt = TASK_REVIEW_PROMPT.format(diff=diff)
     full_input = constitution_content + prompt
 
     log = open(log_file, "a") if log_file else open("/dev/null", "a")
     try:
-        log_format.write_review_message(log, f"Base: {base_commit[:12]} | Diff: {len(diff):,} chars")
-        log_format.write_review_input(log, full_input)
+        log_format.write_task_review_message(log, f"Base: {base_commit[:12]} | Diff: {len(diff):,} chars")
+        log_format.write_task_review_input(log, full_input)
 
         process = subprocess.Popen(
-            ["claude", "-p", "--dangerously-skip-permissions", "--model", get_default_model("review")],
+            ["claude", "-p", "--dangerously-skip-permissions", "--model", get_default_model("task_review")],
             cwd=dir_path,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -97,7 +97,7 @@ def review_changes(dir_path, base_commit, log_file=None):
         output_parts = []
         for line in process.stdout:
             print(line, end="")
-            log_format.write_review_output(log, line)
+            log_format.write_task_review_output(log, line)
             output_parts.append(line)
 
         process.wait()
@@ -105,14 +105,14 @@ def review_changes(dir_path, base_commit, log_file=None):
         accumulated = "".join(output_parts)
         if process.returncode == 0:
             if "NO_ISSUES_FOUND" in accumulated:
-                log_format.write_review_message(log, "Review: no issues found")
+                log_format.write_task_review_message(log, "TaskReview: no issues found")
             elif "<promise>COMPLETE</promise>" in accumulated:
-                log_format.write_review_message(log, "Review: issues found and fixed")
+                log_format.write_task_review_message(log, "TaskReview: issues found and fixed")
             else:
-                log_format.write_review_message(log, "Review: completed")
+                log_format.write_task_review_message(log, "TaskReview: completed")
             return True
 
-        log_format.write_review_message(log, f"Review: failed with exit code {process.returncode}")
+        log_format.write_task_review_message(log, f"TaskReview: failed with exit code {process.returncode}")
         return False
     finally:
         log.close()

@@ -23,7 +23,7 @@ Task file format (~/.blink/loop/tasks.yaml):
       # OR:
       prompt_file: ./prompts/my-task.md
       branch: true           # true=auto, "custom/name", false=skip
-      review: false          # true=post-task self-review for code quality
+      task_review: false     # true=post-task self-review for code quality
       use: cybervisor        # cybervisor (default) or claude
       max_rounds: 5          # only for use: claude
       commit-model: haiku    # haiku, sonnet, or opus
@@ -35,8 +35,8 @@ Task file format (~/.blink/loop/tasks.yaml):
   within the project directory. If present, blink will auto-load them as
   constitutional rules when running tasks with the claude runner.
 
-  Use --review (or -r) flag to enable post-task code review for all tasks,
-  or set review: true on individual tasks.
+  Use --task-review (or -r) flag to enable post-task code review for all tasks,
+  or set task_review: true on individual tasks.
 """
 
 
@@ -111,7 +111,7 @@ def _add_task(path):
         f"{inner}  Describe what Claude should do.\n"
         f"{inner}# prompt_file: ./prompts/my-task.md\n"
         f"{inner}branch: true           # true=auto, \"custom/name\", false=skip\n"
-        f"{inner}review: false          # true=post-task self-review for code quality\n"
+        f"{inner}task_review: false     # true=post-task self-review for code quality\n"
         f"{inner}use: cybervisor        # cybervisor (default) or claude\n"
         f"{inner}max_rounds: 5          # only for use: claude\n"
         f"{inner}commit-model: haiku    # haiku, sonnet, or opus\n"

@@ -7,7 +7,7 @@ from pathlib import Path
 from blink.loop import config
 from blink.loop import log_format
 from blink.loop.git_ops import ensure_clean_git, create_task_branch
-from blink.loop.review import get_head_commit, review_changes
+from blink.loop.task_review import get_head_commit, run_task_review
 from blink.loop.runner.cybervisor import CybervisorRunner
 from blink.loop.runner.claude import ClaudeRunner
 from blink.loop.state import save_state
@@ -40,7 +40,7 @@ def _runner_info(task):
     return "CybervisorRunner", "cybervisor run"
 
 
-def run_task(task, index, state, review_enabled=False):
+def run_task(task, index, state, task_review_enabled=False):
     name = task.get("name", f"Task {index + 1}")
     dir_path = expand_dir(task.get("dir", "."))
     prompt = task.get("prompt", "")
@@ -111,7 +111,7 @@ def run_task(task, index, state, review_enabled=False):
         with open(log_file, "a") as log:
             log_format.write_branch(log, branch_name)
 
-    base_commit = get_head_commit(dir_path) if review_enabled else None
+    base_commit = get_head_commit(dir_path) if task_review_enabled else None
 
     state.setdefault("tasks", {})[str(index)] = {
         "status": "running",
@@ -141,12 +141,12 @@ def run_task(task, index, state, review_enabled=False):
             print(f"\n{config.GREEN}✅ Task [{index + 1}] done{config.RESET}")
 
             if base_commit:
-                print(f"\n{config.CYAN}[review] Running post-task code review...{config.RESET}")
-                review_ok = review_changes(dir_path, base_commit, log_file)
+                print(f"\n{config.CYAN}[task-review] Running post-task code review...{config.RESET}")
+                review_ok = run_task_review(dir_path, base_commit, log_file)
                 if review_ok:
-                    print(f"{config.GREEN}[review] Complete{config.RESET}")
+                    print(f"{config.GREEN}[task-review] Complete{config.RESET}")
                 else:
-                    print(f"{config.YELLOW}[review] Finished with warnings{config.RESET}")
+                    print(f"{config.YELLOW}[task-review] Finished with warnings{config.RESET}")
         else:
             status = "failed"
             state["tasks"][str(index)] = {

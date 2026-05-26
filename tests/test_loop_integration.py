@@ -34,9 +34,9 @@ class TestLoopImports:
         from blink.loop import claude_runner
         assert hasattr(claude_runner, "run_claude")
 
-    def test_review_imports(self):
-        from blink.loop import review
-        assert hasattr(review, "review_changes")
+    def test_task_review_imports(self):
+        from blink.loop import task_review
+        assert hasattr(task_review, "run_task_review")
 
     def test_cmd_handlers_import(self):
         from blink.loop.cmd_run import handle as run_handle

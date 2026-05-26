@@ -12,9 +12,9 @@ Loop 提供三组 CLI 命令，覆盖 AI 任务的全生命周期：
 | `blink edit` | 编辑任务文件，支持 `--add` 快速添加 |
 | `blink commit` | AI 自动提交（独立于任务系统，可单独使用） |
 | `blink log` | 查看任务执行日志 |
-| `blink review` | AI Code Review（独立于任务系统，可单独使用） |
+| `blink review` | AI Code Review — 同事分支合并审查（独立于任务系统） |
 
-其中 `commit` 和 `review` 可在 TUI 中通过快捷键（Shift+C / Shift+V）触发，也可作为 CLI 命令独立使用。
+其中 `commit` 和 `review` 可在 TUI 中通过快捷键（Shift+C / Shift+V）触发，也可作为 CLI 命令独立使用。`run --task-review` 用于任务执行后的自审。
 
 ## 架构概览
 
@@ -30,7 +30,7 @@ task.py ── 逐任务编排
     ├── git_ops.py ─── ensure_clean_git() → claude_runner.py (auto-commit)
     ├── git_ops.py ─── create_task_branch()
     ├── runner/ ────── ClaudeRunner 或 CybervisorRunner 执行 AI 任务
-    └── review.py ──── post-task 自审（可选）
+    └── task_review.py ─ TaskReview：post-task 自审（可选）
     │
     ▼
 state.py ─── 更新状态 + 归档已完成任务
@@ -60,7 +60,7 @@ tasks:
     # 或者使用外部 prompt 文件：
     # prompt_file: ./prompts/auth-task.md
     branch: true           # true=自动创建 feature 分支
-    review: true           # 任务完成后执行 post-task 自审
+    task_review: true      # 任务完成后执行 TaskReview 自审
     use: claude            # claude 或 cybervisor（默认）
     max_rounds: 5          # ClaudeRunner 最大循环轮数
     commit-model: haiku    # auto-commit 使用的模型
@@ -75,7 +75,7 @@ tasks:
 | `prompt` | 二选一 | 内联 prompt 文本 |
 | `prompt_file` | 二选一 | 外部 prompt 文件路径（优先级：绝对路径 → `~/.blink/loop/` 相对 → `dir` 相对） |
 | `branch` | 否 | 分支策略：`true` 自动创建 `feature-YYYYMMDD-N`、字符串指定分支名、`false` 跳过 |
-| `review` | 否 | `true` 任务完成后自动执行 post-task 代码自审 |
+| `task_review` | 否 | `true` 任务完成后自动执行 TaskReview 代码自审 |
 | `use` | 否 | Runner 选择：`cybervisor`（默认）或 `claude` |
 | `max_rounds` | 否 | ClaudeRunner 最大循环轮数（默认 5） |
 | `commit-model` | 否 | auto-commit 使用的 Claude 模型（默认 `haiku`） |
@@ -131,7 +131,7 @@ class Runner(ABC):
    ├── use=cybervisor → CybervisorRunner.run()
    └── use=claude → ClaudeRunner.run()（多轮循环）
 6. 更新 state.json（running → done/failed）
-7. 如果 review=true → review.review_changes()
+7. 如果 task_review=true → task_review.run_task_review()
    └── 对比 base_commit 与当前 HEAD 的 diff → Claude 自审
 ```
 
@@ -190,16 +190,16 @@ class Runner(ABC):
 
 Loop 提供两种 review 能力：
 
-### Post-task 自审（`review.py`）
+### TaskReview（`task_review.py`）
 
 任务完成后可选执行，对比任务前后 diff，让 Claude 自行检查代码质量：
 - 检查维度：Bugs、Security、Error handling、Edge cases
 - 发现问题则自动修复，无问题输出 `NO_ISSUES_FOUND`
-- 通过任务配置 `review: true` 或 `blink run -r` 启用
+- 通过任务配置 `task_review: true` 或 `blink run --task-review` 启用
 
 ### 同事分支 Review（`cmd_review.py`）
 
-独立的 AI Code Review 命令，对指定分支进行结构化审查：
+独立的 AI Code Review 命令，对指定分支进行结构化审查（`blink review`）：
 
 ```bash
 blink review <branch>          # 完整模式：创建临时分支 + 合并 + review
@@ -260,7 +260,7 @@ Started:    2026-05-26 14:30:00
 - Header：任务名、目录、Runner 信息、启动时间
 - Branch：分支创建记录
 - Implement：AI 输入/输出（ClaudeRunner 按轮次记录）
-- Review：post-task 自审记录（如果启用）
+- TaskReview：post-task 自审记录（如果启用）
 - Auto-commit：自动提交记录
 - Footer：完成时间、耗时、状态
 
@@ -274,7 +274,7 @@ blink run -s           # 查看任务状态
 blink run -e           # 重置所有任务为 pending
 blink run -o 2         # 仅执行第 2 个任务
 blink run -c           # 任务失败后继续执行
-blink run -r           # 每个任务完成后执行 post-task review
+blink run -r           # 每个任务完成后执行 TaskReview
 ```
 
 ### `blink edit` — 编辑任务

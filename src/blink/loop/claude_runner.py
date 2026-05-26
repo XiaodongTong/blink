@@ -129,7 +129,7 @@ def run_claude_text(prompt, cwd, max_retries=DEFAULT_MAX_RETRIES, log_file=None,
     """Run `claude -p` and return stdout text. No EXECUTION_SUFFIX — for analysis tasks.
 
     Unlike run_claude(), this function:
-    - Does NOT append EXECUTION_SUFFIX (review is analysis, not execution)
+    - Does NOT append EXECUTION_SUFFIX (TaskReview is analysis, not execution)
     - Returns the stdout string on success, None on failure
     - Has no verify_fn (output IS the result)
     - Defaults to sonnet model (analysis needs deeper reasoning)

@@ -17,6 +17,7 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "nerd_fonts": False,
     "models": {
         "commit": "haiku",
+        "task_review": "opus",
         "review": "opus",
         "task": "opus",
     },
@@ -104,13 +105,13 @@ class Config:
         self._save()
 
 
-_MODEL_DEFAULTS = {"commit": "haiku", "review": "opus", "task": "opus"}
+_MODEL_DEFAULTS = {"commit": "haiku", "task_review": "opus", "review": "opus", "task": "opus"}
 
 
 def get_default_model(purpose: str) -> str:
     """Read default model for a purpose from ~/.blink/config.json.
 
-    purpose: "commit", "review", or "task"
+    purpose: "commit", "task_review", "review", or "task"
     """
     try:
         with open(DEFAULT_CONFIG_PATH, "r") as f:
