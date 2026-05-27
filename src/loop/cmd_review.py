@@ -288,7 +288,6 @@ def cleanup_review_branch(dir_path, original_branch, review_branch, stashed=Fals
             git_ops._git(dir_path, "checkout", original_branch, "--quiet")
         else:
             git_ops._git(dir_path, "checkout", base, "--quiet")
-        git_ops.delete_branch(dir_path, review_branch)
     if stashed:
         git_ops._git(dir_path, "stash", "pop", "--quiet")
 
