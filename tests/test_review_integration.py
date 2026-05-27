@@ -9,8 +9,10 @@ import pytest
 
 from blink.loop import git_ops
 from blink.loop.cmd_review import (
+    ReviewResult,
     cleanup_review_branch,
     handle,
+    run_review,
     save_report,
 )
 
@@ -54,6 +56,8 @@ class TestHandleIntegration:
             args = MagicMock(
                 list=False, init_rules=False, branch="feature/test",
                 dir=repo, against=None, diff_only=True, model="sonnet",
+                no_verify=True, no_lint=True, no_test=True, no_context=True,
+                strict=False, keep_branch=False,
             )
             handle(args)
 
@@ -71,6 +75,8 @@ class TestHandleIntegration:
         args = MagicMock(
             list=False, init_rules=False, branch="nonexistent",
             dir=repo, against=None, diff_only=True, model="sonnet",
+            no_verify=True, no_lint=True, no_test=True, no_context=True,
+            strict=False, keep_branch=False,
         )
         handle(args)
         captured = capsys.readouterr()
@@ -88,6 +94,8 @@ class TestHandleIntegration:
         args = MagicMock(
             list=False, init_rules=False, branch="feature/x",
             dir=repo, against=None, diff_only=True, model="sonnet",
+            no_verify=True, no_lint=True, no_test=True, no_context=True,
+            strict=False, keep_branch=False,
         )
         handle(args)
         captured = capsys.readouterr()
@@ -106,6 +114,8 @@ class TestHandleIntegration:
             args = MagicMock(
                 list=False, init_rules=False, branch="feature/x",
                 dir=repo, against=None, diff_only=True, model="sonnet",
+                no_verify=True, no_lint=True, no_test=True, no_context=True,
+                strict=False, keep_branch=False,
             )
             handle(args)
 
@@ -114,6 +124,24 @@ class TestHandleIntegration:
         review_dir = Path(repo) / "docs" / "blink" / "code-review"
         if review_dir.exists():
             assert len(list(review_dir.glob("*.md"))) == 0
+
+    def test_empty_diff_returns_error(self, tmp_path, capsys):
+        repo = str(tmp_path / "repo")
+        _init_git_repo(repo)
+        _commit_file(repo, "a.txt", "hello")
+        _create_branch(repo, "feature/empty")
+        _checkout(repo, "main")
+
+        args = MagicMock(
+            list=False, init_rules=False, branch="feature/empty",
+            dir=repo, against=None, diff_only=True, model="sonnet",
+            no_verify=True, no_lint=True, no_test=True, no_context=True,
+            strict=False, keep_branch=False,
+        )
+        handle(args)
+
+        captured = capsys.readouterr()
+        assert "No changes" in captured.out or "No changes" in captured.err
 
 
 # ── handle list & init-rules ─────────────────────────────────────────────
@@ -127,6 +155,8 @@ class TestHandleList:
         args = MagicMock(
             list=True, init_rules=False, branch=None,
             dir=repo, against=None, diff_only=False, model="sonnet",
+            no_verify=True, no_lint=True, no_test=True, no_context=True,
+            strict=False, keep_branch=False,
         )
         handle(args)
         assert "No reviews found" in capsys.readouterr().out
@@ -141,6 +171,8 @@ class TestHandleList:
         args = MagicMock(
             list=True, init_rules=False, branch=None,
             dir=repo, against=None, diff_only=False, model="sonnet",
+            no_verify=True, no_lint=True, no_test=True, no_context=True,
+            strict=False, keep_branch=False,
         )
         handle(args)
         out = capsys.readouterr().out
@@ -156,6 +188,8 @@ class TestHandleInitRules:
         args = MagicMock(
             list=False, init_rules=True, branch=None,
             dir=repo, against=None, diff_only=False, model="sonnet",
+            no_verify=True, no_lint=True, no_test=True, no_context=True,
+            strict=False, keep_branch=False,
         )
         handle(args)
 
@@ -177,6 +211,8 @@ class TestHandleInitRules:
         args = MagicMock(
             list=False, init_rules=True, branch=None,
             dir=repo, against=None, diff_only=False, model="sonnet",
+            no_verify=True, no_lint=True, no_test=True, no_context=True,
+            strict=False, keep_branch=False,
         )
         handle(args)
         assert "already exists" in capsys.readouterr().out
@@ -268,9 +304,29 @@ class TestGitOpsReview:
         assert review_name is not None
         assert review_name.startswith("review/")
 
+        # Default: cleanup deletes the review branch
         cleanup_review_branch(repo, original_branch, review_name, stashed, base="main")
+        assert not git_ops.branch_exists(repo, review_name)
+        assert git_ops.get_current_branch(repo) == "main"
+
+    def test_create_review_branch_and_cleanup_keep(self, tmp_path):
+        repo = str(tmp_path / "repo")
+        _init_git_repo(repo)
+        _commit_file(repo, "a.txt", "hello")
+        _create_branch(repo, "feature/x")
+        _checkout(repo, "feature/x")
+        _commit_file(repo, "b.txt", "world")
+        _checkout(repo, "main")
+
+        review_name, original_branch, stashed, error = git_ops.create_review_branch(repo, "feature/x", "main")
+        assert review_name is not None
+
+        # keep_branch=True preserves the review branch
+        cleanup_review_branch(repo, original_branch, review_name, stashed, base="main", keep_branch=True)
         assert git_ops.branch_exists(repo, review_name)
         assert git_ops.get_current_branch(repo) == "main"
+
+        subprocess.run(["git", "branch", "-D", review_name], cwd=repo, capture_output=True)
 
     def test_create_review_branch_with_master_base(self, tmp_path):
         repo = str(tmp_path / "repo")
@@ -285,7 +341,7 @@ class TestGitOpsReview:
         assert review_name is not None
 
         cleanup_review_branch(repo, original_branch, review_name, stashed, base="master")
-        assert git_ops.branch_exists(repo, review_name)
+        assert not git_ops.branch_exists(repo, review_name)
         assert git_ops.get_current_branch(repo) == "master"
 
     def test_get_branch_list(self, tmp_path):
@@ -331,6 +387,8 @@ class TestGitOpsReview:
         args = MagicMock(
             list=False, init_rules=False, branch="feature/x",
             dir=repo, against=None, diff_only=False, model="sonnet",
+            no_verify=True, no_lint=True, no_test=True, no_context=True,
+            strict=False, keep_branch=False,
         )
         handle(args)
 
@@ -342,3 +400,94 @@ class TestGitOpsReview:
         content = reports[0].read_text()
         assert "需修改" in content
         assert "合并冲突" in content
+
+
+# ── run_review core function ─────────────────────────────────────────────
+
+class TestRunReview:
+    def test_returns_review_result(self, tmp_path):
+        repo = str(tmp_path / "repo")
+        _init_git_repo(repo)
+        _commit_file(repo, "a.txt", "hello")
+        _create_branch(repo, "feature/test")
+        _checkout(repo, "feature/test")
+        _commit_file(repo, "b.txt", "world")
+        _checkout(repo, "main")
+
+        mock_output = "VERDICT: APPROVE\n## Summary\nLGTM\n"
+        stages = []
+        with patch("blink.loop.cmd_review.run_claude_text", return_value=mock_output):
+            result = run_review(
+                repo, "feature/test", "main",
+                diff_only=True,
+                no_verify=True,
+                no_lint=True,
+                no_test=True,
+                no_context=True,
+                stage_fn=stages.append,
+            )
+
+        assert isinstance(result, ReviewResult)
+        assert result.success
+        assert result.verdict == "APPROVE"
+        assert result.report_path
+        assert "collecting" in stages
+
+    def test_empty_diff_returns_failure(self, tmp_path):
+        repo = str(tmp_path / "repo")
+        _init_git_repo(repo)
+        _commit_file(repo, "a.txt", "hello")
+        _create_branch(repo, "feature/empty")
+        _checkout(repo, "main")
+
+        result = run_review(
+            repo, "feature/empty", "main",
+            diff_only=True,
+            no_verify=True,
+        )
+
+        assert not result.success
+        assert "No changes" in result.error
+
+    def test_claude_failure_returns_error(self, tmp_path):
+        repo = str(tmp_path / "repo")
+        _init_git_repo(repo)
+        _commit_file(repo, "a.txt", "hello")
+        _create_branch(repo, "feature/x")
+        _checkout(repo, "feature/x")
+        _commit_file(repo, "b.txt", "world")
+        _checkout(repo, "main")
+
+        with patch("blink.loop.cmd_review.run_claude_text", return_value=None):
+            result = run_review(
+                repo, "feature/x", "main",
+                diff_only=True,
+                no_verify=True,
+            )
+
+        assert not result.success
+        assert result.error
+
+    def test_branch_cleanup_after_non_diff_only(self, tmp_path):
+        repo = str(tmp_path / "repo")
+        _init_git_repo(repo)
+        _commit_file(repo, "a.txt", "hello")
+        _create_branch(repo, "feature/x")
+        _checkout(repo, "feature/x")
+        _commit_file(repo, "b.txt", "world")
+        _checkout(repo, "main")
+
+        mock_output = "VERDICT: APPROVE\n## Summary\nOK\n"
+        with patch("blink.loop.cmd_review.run_claude_text", return_value=mock_output):
+            result = run_review(
+                repo, "feature/x", "main",
+                diff_only=False,
+                no_verify=True,
+                no_lint=True,
+                no_test=True,
+                no_context=True,
+            )
+
+        assert result.success
+        # Review branch should be cleaned up
+        assert git_ops.get_current_branch(repo) == "main"

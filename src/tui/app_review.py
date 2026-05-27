@@ -91,125 +91,44 @@ class ReviewOrchestrator:
         self._app._app.invalidate()
 
         def do_review():
-            try:
-                from blink.loop.cmd_review import (
-                    collect_context, build_review_prompt, parse_verdict,
-                    save_report, setup_review_branch, cleanup_review_branch,
-                )
-                from blink.loop.claude_runner import run_claude_text
-                from blink.loop import git_ops
-                from blink import logger
+            from blink.loop.cmd_review import run_review
+            from blink.loop import git_ops
+            from blink import logger
 
-                dir_path = repo.path
-                base = git_ops.detect_main_branch(dir_path)
-                if not base:
-                    return False, "✗ 无法检测主分支，请用 CLI --against 指定"
+            dir_path = repo.path
+            base = git_ops.detect_main_branch(dir_path)
+            if not base:
+                from blink.loop.cmd_review import ReviewResult
+                return ReviewResult(False, error="✗ 无法检测主分支，请用 CLI --against 指定")
 
-                if not git_ops.branch_exists(dir_path, branch):
-                    return False, f"✗ 分支 '{branch}' 不存在"
+            if not git_ops.branch_exists(dir_path, branch):
+                from blink.loop.cmd_review import ReviewResult
+                return ReviewResult(False, error=f"✗ 分支 '{branch}' 不存在")
 
-                logger.log("review", f"TUI review 开始: branch={branch}, base={base}, dir={dir_path}")
+            logger.log("review", f"TUI review 开始: branch={branch}, base={base}, dir={dir_path}")
 
-                self._set_stage("collecting")
-                context = collect_context(
-                    dir_path, branch, base,
-                    with_lint=True, with_test=True, with_context=True,
-                )
-
-                review_branch = None
-                original_branch = None
-                stashed = False
-
-                self._set_stage("merging")
-                review_branch, original_branch, stashed, merge_error = setup_review_branch(dir_path, branch, base)
-                if merge_error is not None:
-                    error_type, error_msg = merge_error
-                    if error_type == "conflict":
-                        logger.log("review", f"TUI 合并冲突: {error_msg}")
-                        conflict_report = (
-                            f"## 合并冲突\n\n"
-                            f"分支 `{branch}` 无法合并到 `{base}`，存在合并冲突。\n"
-                            f"必须先解决冲突后才能继续。\n\n"
-                            f"```\n{error_msg}\n```\n"
-                        )
-                        report_path = save_report(dir_path, branch, base, "DENY", conflict_report)
-                        self.last_report_paths[repo.path] = report_path
-                        logger.log("review", f"TUI review 完成(冲突): verdict=DENY, report={report_path}")
-                        return True, ("DENY", report_path)
-                    else:
-                        logger.log("review", f"TUI 合并失败(非冲突): {error_msg}，使用 diff-only 模式")
-                else:
-                    logger.log("review", f"TUI 临时分支创建: {review_branch}")
-
-                try:
-                    prompt = build_review_prompt(context)
-
-                    self._set_stage("reviewing")
-                    logger.log("review", f"TUI AI 输入 prompt ({len(prompt):,} chars)")
-                    logger.log_lines("review.input", prompt)
-
-                    output = run_claude_text(
-                        prompt,
-                        cwd=dir_path,
-                        model=self._app._config.model_review,
-                        quiet=True,
-                    )
-
-                    if not output:
-                        logger.log("review", "TUI AI 返回空结果")
-                        return False, "✗ Claude 返回空结果"
-
-                    logger.log("review", f"TUI AI 输出 ({len(output):,} chars)")
-                    logger.log_lines("review.output", output)
-
-                    # Verification pass
-                    self._set_stage("verifying")
-                    from blink.loop.review_verifier import verify_findings
-                    verified_output = verify_findings(
-                        dir_path, output, context["diff"], context["lint_result"],
-                        model=self._app._config.model_review, quiet=True,
-                    )
-                    if verified_output:
-                        logger.log("review", f"TUI 验证输出 ({len(verified_output):,} chars)")
-                        final_output = verified_output
-                    else:
-                        final_output = output
-
-                    verdict, full_output = parse_verdict(final_output)
-
-                    extra_sections = []
-                    if verified_output:
-                        extra_sections.append(("验证结果", verified_output + "\n"))
-
-                    report_path = save_report(dir_path, branch, base, verdict, full_output, extra_sections)
-                    logger.log("review", f"TUI review 完成: verdict={verdict}, report={report_path}")
-                    return True, (verdict, report_path)
-                finally:
-                    if review_branch:
-                        cleanup_review_branch(dir_path, original_branch, review_branch, stashed, base=base)
-                        logger.log("review", f"TUI 临时分支已清理: {review_branch}")
-
-            except FileNotFoundError:
-                return False, "✗ claude CLI 未安装"
-            except Exception as exc:
-                return False, f"✗ Review 失败: {exc}"
+            result = run_review(
+                dir_path, branch, base,
+                model=self._app._config.model_review,
+                stage_fn=self._set_stage,
+            )
+            return result
 
         def on_done():
-            success, result = do_review()
+            result = do_review()
             self.reviewing_paths.discard(repo.path)
             self.review_stage = ""
-            if success:
-                verdict, report_path = result
-                self.last_report_paths[repo.path] = report_path
+            if result.success:
+                self.last_report_paths[repo.path] = result.report_path
                 badges = {
                     "APPROVE": "✅ APPROVE",
                     "APPROVE_WITH_NOTES": "⚠️ APPROVE_WITH_NOTES",
                     "DENY": "❌ DENY",
                 }
-                badge = badges.get(verdict, verdict)
+                badge = badges.get(result.verdict, result.verdict)
                 self._app._set_scan_status(f"{badge}  {branch}", timeout=5.0)
             else:
-                self._app._set_scan_status(result, timeout=5.0)
+                self._app._set_scan_status(f"{result.error}", timeout=5.0)
             self._app._app.invalidate()
 
         t = threading.Thread(target=on_done, daemon=True)

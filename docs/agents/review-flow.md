@@ -38,11 +38,34 @@ AI Code Review 的完整执行流程，涵盖 CLI 和 TUI 两条入口路径。
 ## 核心 Review 流程
 
 ```
-1. 收集上下文 (collect_context)
+1. 收集基础上下文 (collect_context)
    ├─ git diff <base>..<branch>          → 获取 diff（截断上限 100KB）
    ├─ git log --oneline <base>..<branch> → 获取提交日志
    ├─ git_ops.get_diff_stat()            → 获取变更统计
    ├─ 读取 docs/blink/review-rules.md    → 项目自定义规则
+   │
+   └─ diff 为空时 → 直接返回，不继续后续步骤
+          │
+          ▼
+2. 创建临时 Review 分支 (setup_review_branch)
+   │  仅非 --diff-only 模式执行
+   │
+   ├─ 检查工作树是否干净
+   │   └─ 脏工作树 → git stash --include-untracked
+   │
+   ├─ checkout <base>
+   ├─ checkout -b review/<branch>-<date>
+   │
+   ├─ git merge <colleague_branch> --no-edit
+   │   ├─ 合并成功 → 继续后续步骤
+   │   └─ 合并失败 → 检测冲突类型
+   │       ├─ 有 CONFLICT → 立即生成 DENY 报告并返回
+   │       └─ 其他错误    → 降级为 diff-only 模式
+   │
+   ▼
+3. 在正确代码上增强上下文 (enrich after merge)
+   │  此时工作树已在合并后的临时分支上
+   │  diff-only 模式：通过 git show <branch>:<file> 读取目标分支文件
    │
    ├─ 代码上下文增强 (_enrich_context)
    │   ├─ 从 diff 提取变更文件和 hunk 位置
@@ -62,25 +85,10 @@ AI Code Review 的完整执行流程，涵盖 CLI 和 TUI 两条入口路径。
        └─ CLI: --no-test 跳过 / TUI: 始终执行
           │
           ▼
-2. 创建临时 Review 分支 (setup_review_branch)
-   │  仅非 --diff-only 模式执行
+4. 构建 Prompt (build_review_prompt)
    │
-   ├─ 检查工作树是否干净
-   │   └─ 脏工作树 → git stash --include-untracked
-   │
-   ├─ checkout <base>
-   ├─ checkout -b review/<branch>-<date>
-   │
-   ├─ git merge <colleague_branch> --no-edit
-   │   ├─ 合并成功 → 继续后续步骤
-   │   └─ 合并失败 → 检测冲突类型
-   │       ├─ 有 CONFLICT → 立即生成 DENY 报告并返回
-   │       └─ 其他错误    → 清理临时分支和 stash，降级为 diff-only 模式
-   │
-   ▼
-3. 构建 Prompt (build_review_prompt)
-   │
-   ├─ 注入 7 个上下文区块:
+   ├─ 固定指令在前（提升缓存命中率）: 审查范围、维度、置信度门控、输出格式
+   ├─ 变量内容在后:
    │   ├─ <rules>         → review-rules（无则占位提示）
    │   ├─ <commit_log>    → 提交日志
    │   ├─ <diff_stat>     → 变更统计
@@ -90,26 +98,27 @@ AI Code Review 的完整执行流程，涵盖 CLI 和 TUI 两条入口路径。
    │   └─ <test_result>   → 测试执行结果
    │
    └─ 组装为结构化 REVIEW_PROMPT
-       包含: 审查范围限定、审查维度、置信度门控、反推测规则、输出格式、VERDICT 判定规则
       │
       ▼
-4. 调用 Claude AI (run_claude_text)
+5. 调用 Claude AI (run_claude_text)
    │
    ├─ 模型选择：CLI 用 config 中 review 默认值（--model 可覆盖） / TUI 用 config.model_review
    ├─ 输入 prompt → Claude → 输出 review 结果
    │
    ▼
-5. 验证步骤 (review_verifier.verify_findings)
+6. 验证步骤 (review_verifier.verify_findings)
    │  CLI: --no-verify 跳过 / TUI: 始终执行
    │
    ├─ 将初始审核结果、原始 diff、lint 结果传入验证 prompt
    ├─ 逐条验证: 代码证据、逻辑正确性、严重度校准、lint 交叉验证
    ├─ 每条发现标记 VERIFIED / DISPUTED / UNCERTAIN
    └─ 基于验证结果重新输出 VERDICT（过滤误报）
+   │  验证输出无 VERDICT 时，fallback 到初始审查的 VERDICT
    │
    ▼
-6. 解析结果 (parse_verdict)
+7. 解析结果 (parse_verdict)
    │
+   ├─ 严格正则匹配 VERDICT（行首），宽松匹配作 fallback
    ├─ 从最终输出（验证后或初始）提取 VERDICT:
    │   ├─ APPROVE             → ✓ 通过
    │   ├─ APPROVE_WITH_NOTES  → ⚠ 有建议
@@ -120,20 +129,22 @@ AI Code Review 的完整执行流程，涵盖 CLI 和 TUI 两条入口路径。
    │   └─ APPROVE_WITH_NOTES + 有 MAJOR    → 升级为 DENY
    │
    ▼
-7. 保存报告 (save_report)
+8. 保存报告 (save_report)
    │
-   ├─ 路径: docs/blink/code-review/<branch>-<date>.md
+   ├─ 路径: docs/blink/code-review/<branch>-<date>-<HHMMSS>.md
+   ├─ 同名文件碰撞时自动追加序号
    ├─ 自动添加元数据头部（分支、基准、日期、结论）
    ├─ 如有验证结果，追加「验证结果」章节
    └─ 返回报告文件路径
    │
    ▼
-8. 恢复工作区
+9. 恢复工作区 (cleanup_review_branch)
    │  finally 块中执行，确保必定运行
    │
    ├─ checkout 回原始分支
    ├─ git stash pop（如之前 stash 了）
-   └─ review/* 临时分支保留，供用户手动验证
+   ├─ 默认删除 review/* 临时分支（--keep-branch 保留）
+   └─ 任何步骤失败时记录警告日志
 ```
 
 ## CLI 参数
@@ -146,6 +157,16 @@ review -i, --init-rules           初始化 review-rules.md 模板
                                      路径: docs/blink/review-rules.md
                                      包含：必查项 / 历史教训 / 代码风格
 review -d, --diff-only            diff-only 模式，跳过临时分支创建和合并
+                                     注意：lint/test/context 在此模式下从目标分支读取
+review -a, --against <branch>     指定 base 分支（默认自动检测 main/master）
+review -m, --model <model>        指定 Claude 模型
+review    --no-verify             跳过验证步骤（更快）
+review    --no-lint               跳过静态分析
+review    --no-test               跳过测试执行
+review    --no-context            跳过代码上下文增强
+review    --strict                严格模式：APPROVE_WITH_NOTES + MAJOR → DENY
+review    --keep-branch           保留临时 review 分支（默认自动删除）
+review -p, --dir <path>           项目目录（默认当前目录）
 review -a, --against <branch>     指定 base 分支（默认自动检测 main/master）
 review -m, --model <model>        指定 Claude 模型
 review    --no-verify             跳过验证步骤（更快）

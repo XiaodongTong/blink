@@ -5,22 +5,6 @@ from blink.loop.claude_runner import run_claude_text
 VERIFY_PROMPT = """\
 你是一名代码审查验证专家。你的任务是对另一名审查员的发现进行逐条验证，过滤误报。
 
-<diff>
-{diff}
-</diff>
-
-<lint_result>
-{lint_result}
-</lint_result>
-
-## 待验证的发现
-
-以下是初始审查员的完整输出：
-
-<initial_review>
-{initial_review}
-</initial_review>
-
 ## 验证规则
 
 对初始审查中报告的每个问题，逐一验证：
@@ -52,23 +36,29 @@ VERDICT: <APPROVE|APPROVE_WITH_NOTES|DENY>
 - 存在 VERIFIED 的 MAJOR 问题但无 CRITICAL → APPROVE_WITH_NOTES
 - 仅有 DISPUTED/UNCERTAIN 问题或 MINOR → APPROVE
 - 所有问题均被 DISPUTED → APPROVE
+
+--- 以下为待验证内容 ---
+
+<diff>
+{diff}
+</diff>
+
+<lint_result>
+{lint_result}
+</lint_result>
+
+## 待验证的发现
+
+以下是初始审查员的完整输出：
+
+<initial_review>
+{initial_review}
+</initial_review>
 """
 
 
 def verify_findings(dir_path, initial_output, diff, lint_result, model="opus", quiet=False):
-    """Run a verification pass on initial review findings.
-
-    Args:
-        dir_path: Working directory.
-        initial_output: The full text output from the initial review.
-        diff: The original diff text.
-        lint_result: The lint analysis results.
-        model: Model to use for verification.
-        quiet: Suppress print output.
-
-    Returns:
-        Verified output text, or None if verification fails.
-    """
+    """Run a verification pass on initial review findings."""
     prompt = VERIFY_PROMPT.format(
         diff=diff,
         lint_result=lint_result,
