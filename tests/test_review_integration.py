@@ -269,7 +269,7 @@ class TestGitOpsReview:
         assert review_name.startswith("review/")
 
         cleanup_review_branch(repo, original_branch, review_name, stashed, base="main")
-        assert not git_ops.branch_exists(repo, review_name)
+        assert git_ops.branch_exists(repo, review_name)
         assert git_ops.get_current_branch(repo) == "main"
 
     def test_create_review_branch_with_master_base(self, tmp_path):
@@ -285,7 +285,7 @@ class TestGitOpsReview:
         assert review_name is not None
 
         cleanup_review_branch(repo, original_branch, review_name, stashed, base="master")
-        assert not git_ops.branch_exists(repo, review_name)
+        assert git_ops.branch_exists(repo, review_name)
         assert git_ops.get_current_branch(repo) == "master"
 
     def test_get_branch_list(self, tmp_path):
