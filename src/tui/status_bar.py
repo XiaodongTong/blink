@@ -38,7 +38,15 @@ def build_status_text(app: BlinkApp) -> FormattedText:
             ("class:footer-dim", "←→:选择  Enter:确认  Esc:取消"),
         ])
     if app._review.reviewing_paths:
-        return FormattedText([("class:status-label", " 🔍 正在 review...")])
+        stage_labels = {
+            "collecting": "收集上下文...",
+            "merging": "合并分支...",
+            "reviewing": "AI 审查中...",
+            "verifying": "验证发现...",
+        }
+        stage = app._review.review_stage
+        label = stage_labels.get(stage, "正在 review...")
+        return FormattedText([("class:status-label", f" 🔍 {label}")])
     if app._committing_paths:
         return FormattedText([("class:status-label", " 正在提交...")])
     if app._detail_panel is not None and app._detail_panel.is_editing:

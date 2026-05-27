@@ -11,6 +11,7 @@ from blink.loop import git_ops
 from blink.loop.claude_runner import run_claude_text
 
 DIFF_SIZE_LIMIT = 100 * 1024  # 100KB
+CONTEXT_SIZE_LIMIT = 50 * 1024  # 50KB for enriched context
 
 REVIEW_PROMPT = """\
 你是一名资深软件工程师，正在对代码变更进行严格的 code review。你只基于下方提供的实际代码内容进行审查。
@@ -31,6 +32,18 @@ REVIEW_PROMPT = """\
 {diff}
 </diff>
 
+<code_context>
+{code_context}
+</code_context>
+
+<lint_result>
+{lint_result}
+</lint_result>
+
+<test_result>
+{test_result}
+</test_result>
+
 ## 审查范围
 
 你只能审查 <diff> 中实际出现的代码变更。绝对禁止：
@@ -47,22 +60,40 @@ REVIEW_PROMPT = """\
 4. **Concurrency**: 竞态条件、死锁风险、线程安全问题
 5. **Performance**: 明显的性能问题（N+1 查询、不必要的全量复制、阻塞操作）
 
+## 置信度门控
+
+对每个发现的问题，必须评估置信度：
+- **HIGH**: 你确信这是真实 bug，能给出具体的触发场景
+- **MEDIUM**: 有合理的怀疑依据，但无法 100% 确认
+- **LOW**: 仅基于推测，缺乏具体证据
+
+规则：
+- HIGH 置信度的问题正常报告
+- MEDIUM 置信度的问题标记 [MEDIUM_CONFIDENCE]，严重度降一级
+- LOW 置信度的问题**不报告**（宁可漏报也不误报）
+- 如果 lint 工具已报告某问题且你同意，置信度自动提升为 HIGH
+
+## 反推测规则
+
+禁止以下行为：
+- 推测变更"可能"影响未展示的代码，除非你能指出具体的受影响文件和函数
+- 对仅涉及风格、命名、注释的问题报 CRITICAL 或 MAJOR
+- 基于"如果输入是 X 就会出错"的模糊假设，除非能给出具体的触发输入
+- 将 lint 工具已覆盖的风格/格式问题重复报告
+
 ## 输出格式
 
 VERDICT: <APPROVE|APPROVE_WITH_NOTES|DENY>
 
 ## 总结
-<2-3 句话的整体质量评估>
+<2-3 句话的整体质量评估，包括 lint 和测试结果的综合判断>
 
 ## 问题
 <对每个确认的问题，严格按以下格式输出：>
-### [CRITICAL|MAJOR|MINOR] <文件:行号> — <标题>
+### [CRITICAL|MAJOR|MINOR] [HIGH|MEDIUM_CONFIDENCE] <文件:行号> — <标题>
 **依据**：引用 diff 中触发该问题的具体代码片段（用 `行内代码` 包裹）
 **问题**：描述该代码为何有缺陷
 **建议**：给出具体的修改方式或代码示例
-
-如果对某个问题不确定，标记为 `[疑似]`，严重程度降一级。例如：
-### [MINOR] [疑似] <文件:行号> — <标题>
 
 如果没有发现问题：
 ## 问题
@@ -73,11 +104,14 @@ VERDICT: <APPROVE|APPROVE_WITH_NOTES|DENY>
 
 ## 改进建议
 <仅当 VERDICT 为 APPROVE_WITH_NOTES 时 — 后续改进建议>
+<如果变更涉及核心逻辑，建议需要补充的测试场景>
 
 ## VERDICT 判定规则
-- 存在任何 CRITICAL 问题 → DENY
-- 存在 MAJOR（含疑似 MAJOR）但无 CRITICAL → APPROVE_WITH_NOTES
-- 仅 MINOR 或无问题 → APPROVE
+- 任何 HIGH 置信度的 CRITICAL → DENY
+- HIGH 置信度的 MAJOR 但无 CRITICAL → APPROVE_WITH_NOTES
+- 仅 MEDIUM 置信度问题或 MINOR → APPROVE_WITH_NOTES
+- 仅无问题或所有问题置信度为 LOW → APPROVE
+- lint 工具报错但你认为无害 → APPROVE_WITH_NOTES（附说明）
 """
 
 
@@ -87,7 +121,91 @@ def ensure_review_dir(dir_path):
     return review_dir
 
 
-def collect_context(dir_path, branch, base):
+def _extract_diff_files(diff_text):
+    """Extract changed file paths from a unified diff."""
+    files = []
+    for match in re.finditer(r"^diff --git a/(.+?) b/(.+?)$", diff_text, re.MULTILINE):
+        files.append(match.group(2))
+    return files
+
+
+def _enrich_context(dir_path, branch, diff_text):
+    """Enrich review context with surrounding code for changed files.
+
+    For each changed file, get ±20 lines around each change hunk.
+    Total context capped at CONTEXT_SIZE_LIMIT.
+    """
+    diff_files = _extract_diff_files(diff_text)
+    if not diff_files:
+        return ""
+
+    file_hunks = {}
+    current_file = None
+    for line in diff_text.splitlines():
+        m = re.match(r"^diff --git a/.+ b/(.+)$", line)
+        if m:
+            current_file = m.group(1)
+            file_hunks[current_file] = []
+            continue
+        m = re.match(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", line)
+        if m and current_file:
+            start = int(m.group(1))
+            length = int(m.group(2)) if m.group(2) else 1
+            file_hunks[current_file].append((start, length))
+
+    if not file_hunks:
+        return ""
+
+    contexts = []
+    total_size = 0
+
+    for filepath, hunks in file_hunks.items():
+        if total_size >= CONTEXT_SIZE_LIMIT:
+            break
+
+        full_path = Path(dir_path) / filepath
+        if not full_path.exists():
+            continue
+        try:
+            content = full_path.read_text(errors="replace")
+        except OSError:
+            continue
+
+        lines = content.splitlines()
+        if not lines:
+            continue
+
+        ranges = []
+        for start, length in hunks:
+            lo = max(0, start - 21)
+            hi = min(len(lines), start + length + 19)
+            ranges.append((lo, hi))
+
+        ranges.sort()
+        merged = []
+        for lo, hi in ranges:
+            if merged and lo <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
+            else:
+                merged.append((lo, hi))
+
+        file_ctx_parts = []
+        for lo, hi in merged:
+            snippet = "\n".join(lines[lo:hi])
+            file_ctx_parts.append(f"--- {filepath}:{lo+1}-{hi} ---\n{snippet}")
+
+        file_ctx = "\n".join(file_ctx_parts)
+        if total_size + len(file_ctx) > CONTEXT_SIZE_LIMIT:
+            remaining = CONTEXT_SIZE_LIMIT - total_size
+            file_ctx = file_ctx[:remaining] + "\n... (truncated)"
+
+        contexts.append(file_ctx)
+        total_size += len(file_ctx)
+
+    return "\n\n".join(contexts)
+
+
+def collect_context(dir_path, branch, base, with_lint=False, with_test=False, with_context=True):
     diff_result = git_ops._git(dir_path, "diff", f"{base}..{branch}")
     diff = diff_result.stdout.strip() if diff_result.returncode == 0 else ""
     truncated = False
@@ -105,12 +223,37 @@ def collect_context(dir_path, branch, base):
     if rules_path.exists():
         rules = rules_path.read_text()
 
+    code_context = ""
+    if with_context and diff:
+        print("  Enriching code context...")
+        code_context = _enrich_context(dir_path, branch, diff)
+
+    lint_result = "(lint not run)"
+    if with_lint and diff:
+        print("  Running static analysis...")
+        from blink.loop.review_analyzer import run_static_analysis
+        lint_result = run_static_analysis(dir_path, diff)
+
+    test_result = "(tests not run)"
+    if with_test:
+        print("  Running tests...")
+        from blink.loop.review_tester import run_tests
+        test_name, passed, output = run_tests(dir_path)
+        if test_name:
+            status = "PASSED" if passed else "FAILED"
+            test_result = f"[{test_name}] {status}\n{output}"
+        else:
+            test_result = output
+
     return {
         "diff": diff,
         "log": log,
         "stat": stat,
         "rules": rules,
         "truncated": truncated,
+        "code_context": code_context or "(no additional context)",
+        "lint_result": lint_result,
+        "test_result": test_result,
     }
 
 
@@ -122,9 +265,12 @@ def build_review_prompt(context):
 
     return REVIEW_PROMPT.format(
         rules=rules_block,
-        log=context["log"] or "(no commits in range)",
-        stat=context["stat"] or "(no changes)",
+        log=context.get("log") or "(no commits in range)",
+        stat=context.get("stat") or "(no changes)",
         diff=diff_content or "(no diff)",
+        code_context=context.get("code_context") or "(no additional context)",
+        lint_result=context.get("lint_result") or "(lint not run)",
+        test_result=context.get("test_result") or "(tests not run)",
     )
 
 
@@ -162,7 +308,7 @@ def _branch_slug(branch):
     return slug
 
 
-def save_report(dir_path, branch, base, verdict, content):
+def save_report(dir_path, branch, base, verdict, content, extra_sections=None):
     review_dir = ensure_review_dir(dir_path)
     now = datetime.now()
     date_str = now.strftime("%Y%m%d")
@@ -186,7 +332,13 @@ def save_report(dir_path, branch, base, verdict, content):
         f"---\n"
         f"\n"
     )
-    report_path.write_text(header + content)
+
+    extra = ""
+    if extra_sections:
+        for title, body in extra_sections:
+            extra += f"## {title}\n\n{body}\n\n---\n\n"
+
+    report_path.write_text(header + extra + content)
     return str(report_path)
 
 
@@ -228,11 +380,23 @@ def handle(args):
 
     diff_only = getattr(args, "diff_only", False)
     model = getattr(args, "model", "opus")
+    no_verify = getattr(args, "no_verify", False)
+    no_lint = getattr(args, "no_lint", False)
+    no_test = getattr(args, "no_test", False)
+    no_context = getattr(args, "no_context", False)
+    strict = getattr(args, "strict", False)
 
-    logger.log("review", f"开始 review: branch={branch}, base={base}, dir={dir_path}, model={model}, diff_only={diff_only}")
+    logger.log("review", f"开始 review: branch={branch}, base={base}, dir={dir_path}, "
+               f"model={model}, diff_only={diff_only}, verify={not no_verify}, "
+               f"lint={not no_lint}, test={not no_test}, context={not no_context}, strict={strict}")
 
     print(f"Collecting context: {base}..{branch}")
-    context = collect_context(dir_path, branch, base)
+    context = collect_context(
+        dir_path, branch, base,
+        with_lint=not no_lint,
+        with_test=not no_test,
+        with_context=not no_context,
+    )
 
     review_branch = None
     original_branch = None
@@ -287,8 +451,35 @@ def handle(args):
         logger.log("review", f"AI 输出 ({len(output):,} chars)")
         logger.log_lines("review.output", output)
 
-        verdict, full_output = parse_verdict(output)
-        report_path = save_report(dir_path, branch, base, verdict, full_output)
+        verified_output = None
+        if not no_verify:
+            print("Running verification pass...")
+            from blink.loop.review_verifier import verify_findings
+            verified_output = verify_findings(
+                dir_path, output, context["diff"], context["lint_result"],
+                model=model, quiet=False,
+            )
+            if verified_output:
+                logger.log("review", f"验证输出 ({len(verified_output):,} chars)")
+                logger.log_lines("review.verify_output", verified_output)
+            else:
+                print("\033[93mWarning: verification returned no output, using initial review.\033[0m")
+
+        final_output = verified_output if verified_output else output
+        verdict, full_output = parse_verdict(final_output)
+
+        if strict and verdict == "APPROVE_WITH_NOTES":
+            if re.search(r"\[CRITICAL\]", full_output):
+                verdict = "DENY"
+            elif re.search(r"\[MAJOR\]", full_output):
+                verdict = "DENY"
+                full_output += "\n\n> **Strict mode**: VERDICT upgraded to DENY due to MAJOR findings.\n"
+
+        extra_sections = []
+        if verified_output:
+            extra_sections.append(("验证结果", verified_output + "\n"))
+
+        report_path = save_report(dir_path, branch, base, verdict, full_output, extra_sections)
 
         verdict_colors = {
             "APPROVE": "\033[92m",

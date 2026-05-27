@@ -18,6 +18,7 @@ class ReviewOrchestrator:
         self.branches: list[str] = []
         self.branch_cursor: int = 0
         self.last_report_paths: dict[str, str] = {}
+        self.review_stage: str = ""  # Current review stage for status display
 
     def start_branch_select(self, repo: Repo) -> None:
         if repo.path in self.reviewing_paths:
@@ -54,6 +55,7 @@ class ReviewOrchestrator:
         self.branch_loading = False
         self.branches = []
         self.branch_cursor = 0
+        self.review_stage = ""
         self._app._set_focus("detail")
         self._app._app.layout.focus(self._app._detail_window)
         self._app._app.invalidate()
@@ -76,10 +78,16 @@ class ReviewOrchestrator:
         self._app._app.layout.focus(self._app._detail_window)
         self._run_review(repo, branch)
 
+    def _set_stage(self, stage: str) -> None:
+        """Update the current review stage and refresh the UI."""
+        self.review_stage = stage
+        self._app._app.invalidate()
+
     def _run_review(self, repo: Repo, branch: str) -> None:
         if repo.path in self.reviewing_paths:
             return
         self.reviewing_paths.add(repo.path)
+        self.review_stage = "collecting"
         self._app._app.invalidate()
 
         def do_review():
@@ -102,12 +110,17 @@ class ReviewOrchestrator:
 
                 logger.log("review", f"TUI review 开始: branch={branch}, base={base}, dir={dir_path}")
 
-                context = collect_context(dir_path, branch, base)
+                self._set_stage("collecting")
+                context = collect_context(
+                    dir_path, branch, base,
+                    with_lint=True, with_test=True, with_context=True,
+                )
 
                 review_branch = None
                 original_branch = None
                 stashed = False
 
+                self._set_stage("merging")
                 review_branch, original_branch, stashed, merge_error = setup_review_branch(dir_path, branch, base)
                 if merge_error is not None:
                     error_type, error_msg = merge_error
@@ -131,6 +144,7 @@ class ReviewOrchestrator:
                 try:
                     prompt = build_review_prompt(context)
 
+                    self._set_stage("reviewing")
                     logger.log("review", f"TUI AI 输入 prompt ({len(prompt):,} chars)")
                     logger.log_lines("review.input", prompt)
 
@@ -148,8 +162,26 @@ class ReviewOrchestrator:
                     logger.log("review", f"TUI AI 输出 ({len(output):,} chars)")
                     logger.log_lines("review.output", output)
 
-                    verdict, full_output = parse_verdict(output)
-                    report_path = save_report(dir_path, branch, base, verdict, full_output)
+                    # Verification pass
+                    self._set_stage("verifying")
+                    from blink.loop.review_verifier import verify_findings
+                    verified_output = verify_findings(
+                        dir_path, output, context["diff"], context["lint_result"],
+                        model=self._app._config.model_review, quiet=True,
+                    )
+                    if verified_output:
+                        logger.log("review", f"TUI 验证输出 ({len(verified_output):,} chars)")
+                        final_output = verified_output
+                    else:
+                        final_output = output
+
+                    verdict, full_output = parse_verdict(final_output)
+
+                    extra_sections = []
+                    if verified_output:
+                        extra_sections.append(("验证结果", verified_output + "\n"))
+
+                    report_path = save_report(dir_path, branch, base, verdict, full_output, extra_sections)
                     logger.log("review", f"TUI review 完成: verdict={verdict}, report={report_path}")
                     return True, (verdict, report_path)
                 finally:
@@ -165,6 +197,7 @@ class ReviewOrchestrator:
         def on_done():
             success, result = do_review()
             self.reviewing_paths.discard(repo.path)
+            self.review_stage = ""
             if success:
                 verdict, report_path = result
                 self.last_report_paths[repo.path] = report_path

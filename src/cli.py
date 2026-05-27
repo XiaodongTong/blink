@@ -120,7 +120,12 @@ def log(task_number: int | None) -> None:
 @click.option("-p", "--dir", "project_dir", default=".", help="Project directory (default: current directory)")
 @click.option("-m", "--model", type=click.Choice(["haiku", "sonnet", "opus"]), default=None, help="Claude model to use (default: from config)")
 @click.option("-i", "--init-rules", is_flag=True, help="Create review-rules.md template in project")
-def review(branch: str | None, against: str | None, diff_only: bool, list_reports: bool, project_dir: str, model: str, init_rules: bool) -> None:
+@click.option("--no-verify", is_flag=True, help="Skip verification pass (faster)")
+@click.option("--no-lint", is_flag=True, help="Skip static analysis")
+@click.option("--no-test", is_flag=True, help="Skip test execution")
+@click.option("--no-context", is_flag=True, help="Skip code context enrichment")
+@click.option("--strict", is_flag=True, help="Strict mode: upgrade MAJOR to DENY")
+def review(branch: str | None, against: str | None, diff_only: bool, list_reports: bool, project_dir: str, model: str, init_rules: bool, no_verify: bool, no_lint: bool, no_test: bool, no_context: bool, strict: bool) -> None:
     """AI-assisted code review of a colleague branch."""
     from blink.loop.cmd_review import handle
     args = argparse.Namespace(
@@ -131,5 +136,10 @@ def review(branch: str | None, against: str | None, diff_only: bool, list_report
         dir=project_dir,
         model=model or get_default_model("review"),
         init_rules=init_rules,
+        no_verify=no_verify,
+        no_lint=no_lint,
+        no_test=no_test,
+        no_context=no_context,
+        strict=strict,
     )
     handle(args)
