@@ -12,13 +12,16 @@
 │                      │     Repo      https://github.com/...         │
 │                      │     Status    main ●                        │
 │                      │ ─────────────────────────────────────────── │
-│                      │   ▸ IDE       Open with IDE        [Shift+I] │
-│                      │     Git       Open in browser      [Shift+G] │
-│                      │     Commit    Auto Commit Changes  [Shift+C] │
-│                      │     Task      Add todo task        [Shift+T] │
-│                      │     Finder    Open in Finder       [Shift+O] │
-│                      │     Review    AI Code Review       [Shift+V] │
-│                      │     Path      Copy repo path       [Shift+P] │
+│                      │   ▸ Terminal  Open in Terminal      [Shift+1]│
+│                      │     IDE       Open with IDE         [Shift+2]│
+│                      │     Finder    Open in Finder        [Shift+3]│
+│                      │ ─────────────────────────────────────────── │
+│                      │     Git       Open in Browser       [Shift+4]│
+│                      │     Push      Push Changes          [Shift+5]│
+│                      │     Pull      Pull Changes          [Shift+6]│
+│                      │ ─────────────────────────────────────────── │
+│                      │     Task      Add todo task         [Shift+7]│
+│                      │     Review    AI Code Review        [Shift+8]│
 │                      │ ─────────────────────────────────────────── │
 │                      │   ▸ Pinned    No        ← cursor row        │
 │                      │     Alias     (none)                        │
@@ -57,10 +60,16 @@
 
 - 右侧面板，约 52% 宽度，三个区域：
 - **Metadata**（只读）：Name / Path / Repo / Status，不可选中，CJK 感知自动换行
-- **Actions**（可选中，0-6）：
-  - 未聚焦：普通态 + 快捷键徽标（如 `[Shift+I]`）
-  - 聚焦：选中行显示 `[Enter]`，默认选中 IDE（行 0）
-- **Local Markers**（可选中，7-10）：
+  - Path 和 Repo 行支持鼠标点击交互（Path 在终端打开，Repo 在浏览器打开）
+- **Actions**（可选中，分三组 + 动态 Report 行）：
+  - Group 1: Terminal(0) / IDE(1) / Finder(2) — 快捷键 Shift+1/2/3
+  - Group 2: Git(3) / Push(4) / Pull(5) — 快捷键 Shift+4/5/6
+  - Group 3: Task(6) / Review(7) — 快捷键 Shift+7/8
+  - Report（动态，仅存在 review 报告时显示）
+  - 未聚焦：普通态 + 快捷键徽标（如 `[Shift+1]`）
+  - 聚焦：选中行显示 `[Enter]`，默认选中 Terminal（行 0）
+  - 组间分割线为通栏长线
+- **Local Markers**（可选中，紧接 Actions 后）：
   - 未聚焦：无选中效果
   - 聚焦：显示当前选中行
 
@@ -90,16 +99,15 @@
 | `/` | 进入搜索 | list, detail |
 | `Tab` / `→` | 焦点移至右侧详情面板 | list |
 | `Esc` / `←` | 焦点移回左侧列表 | detail |
-| `Shift+I` | 用 IDE 打开 | list, detail |
-| `Shift+O` | 系统默认打开 | list, detail |
-| `Shift+P` | 复制仓库路径 | list, detail |
+| `Shift+1` | 打开终端 | list, detail |
+| `Shift+2` | 用 IDE 打开 | list, detail |
+| `Shift+3` | 在 Finder 中打开 | list, detail |
+| `Shift+4` | 浏览器打开远程仓库 | list, detail |
+| `Shift+5` | 推送变更 | list, detail |
+| `Shift+6` | 拉取最新代码 | list, detail |
+| `Shift+7` | 添加 Todo 任务 | list, detail |
+| `Shift+8` | AI Code Review | list, detail |
 | `Shift+R` | 重新扫描 | list, detail |
-| `Shift+C` | 自动提交（AI） | list, detail |
-| `Shift+G` | 浏览器打开远程仓库 | list, detail |
-| `Shift+T` | 添加 Todo 任务 | list, detail |
-| `Shift+U` | 拉取最新代码 | list, detail |
-| `Shift+V` | AI Code Review | list, detail |
-| `Shift+L` | 打开最近 review 报告 | list, detail |
 | `Ctrl+C` ×2 | 退出程序 | any |
 
 - 编辑态屏蔽：全局 Shift 快捷键、↑↓

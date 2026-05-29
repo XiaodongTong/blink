@@ -210,15 +210,28 @@ blink review -l                # 列出历史报告
 blink review -i                # 创建 review-rules.md 模板
 ```
 
+高级选项：
+```bash
+blink review <branch> --no-verify   # 跳过验证 pass（更快）
+blink review <branch> --no-lint     # 跳过静态分析
+blink review <branch> --no-test     # 跳过测试执行
+blink review <branch> --no-context  # 跳过代码上下文丰富
+blink review <branch> --strict      # 严格模式：MAJOR 问题升级为 DENY
+```
+
 完整模式流程：
 1. 收集上下文：diff、commit log、stat、项目规则
-2. 创建临时 review 分支（`review/<branch-slug>-YYYYMMDD`）
-3. 合并目标分支到 base 分支
-4. 如有冲突 → 生成 DENY 报告
-5. 调用 `run_claude_text()` 执行 review
-6. 解析 VERDICT（`APPROVE` / `APPROVE_WITH_NOTES` / `DENY`）
-7. 保存报告到 `docs/blink/code-review/<branch-slug>-YYYYMMDD.md`
-8. 清理临时分支
+2. 静态分析（`review_analyzer.py`）：检测项目语言，运行 linter（ruff/eslint/golint 等），过滤 diff 相关输出
+3. 测试执行（`review_tester.py`）：检测并运行项目测试套件（pytest/npm test/go test/cargo test 等）
+4. 代码上下文丰富（`_enrich_context()`）：提取 diff 涉及文件的上下文代码
+5. 创建临时 review 分支（`review/<branch-slug>-YYYYMMDD`）
+6. 合并目标分支到 base 分支
+7. 如有冲突 → 生成 DENY 报告
+8. 调用 `run_claude_text()` 执行 review
+9. 验证 pass（`review_verifier.py`）：逐条验证初始发现，过滤误报，交叉验证 lint 结果
+10. 解析 VERDICT（`APPROVE` / `APPROVE_WITH_NOTES` / `DENY`）
+11. 保存报告到 `docs/blink/code-review/<branch-slug>-YYYYMMDD.md`
+12. 清理临时分支
 
 ### Review 规则
 
@@ -308,4 +321,14 @@ blink review feat/login -a dev  # 指定 base 分支为 dev
 blink review feat/login -m opus # 使用 opus 模型
 blink review -l                 # 列出历史报告
 blink review -i                 # 创建 review-rules.md 模板
+```
+
+高级选项：
+
+```bash
+blink review <branch> --no-verify   # 跳过验证 pass
+blink review <branch> --no-lint     # 跳过静态分析
+blink review <branch> --no-test     # 跳过测试执行
+blink review <branch> --no-context  # 跳过代码上下文丰富
+blink review <branch> --strict      # 严格模式
 ```

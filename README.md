@@ -44,14 +44,24 @@ Blink 采用双栏联动布局：左侧仓库列表，右侧详情面板。光�
 │ ── Repos ──────────   │ ── Detail ────────────────────────────── │
 │   ▸ ★ name [tag]     │     Name      repo-name                  │
 │     /path/to/repo    │     Path      /path/to/repo              │
+│                      │     Repo      https://github.com/...      │
 │                      │     Status    main ●                     │
 │                      │ ───────────────────────────────────────── │
-│                      │   ▸ IDE       Open with IDE     [Shift+I]│
-│                      │     Commit    Auto Commit       [Shift+C]│
-│                      │     Review    AI Code Review    [Shift+V]│
+│                      │   ▸ Terminal  Open in Terminal   [Shift+1]│
+│                      │     IDE       Open with IDE      [Shift+2]│
+│                      │     Finder    Open in Finder      [Shift+3]│
+│                      │ ───────────────────────────────────────── │
+│                      │     Git       Open in Browser     [Shift+4]│
+│                      │     Push      Push Changes         [Shift+5]│
+│                      │     Pull      Pull Changes         [Shift+6]│
+│                      │ ───────────────────────────────────────── │
+│                      │     Task      Add todo task        [Shift+7]│
+│                      │     Review    AI Code Review       [Shift+8]│
 │                      │ ───────────────────────────────────────── │
 │                      │   ▸ Pinned    No                         │
+│                      │     Alias     (none)                     │
 │                      │     Tags      [python] [api]             │
+│                      │     Desc      description                │
 └───────────────────────┴──────────────────────────────────────────┘
 ```
 
@@ -64,16 +74,15 @@ Blink 采用双栏联动布局：左侧仓库列表，右侧详情面板。光�
 | `/` | 搜索（任何焦点下） |
 | `Tab` / `→` | 焦点移至详情面板 |
 | `Esc` / `←` | 焦点移回列表 |
-| `Shift+I` | 用 IDE 打开 |
-| `Shift+O` | 系统默认打开（Finder） |
-| `Shift+P` | 复制仓库路径 |
+| `Shift+1` | 打开终端 |
+| `Shift+2` | 用 IDE 打开 |
+| `Shift+3` | 在 Finder 中打开 |
+| `Shift+4` | 浏览器打开远程仓库 |
+| `Shift+5` | 推送变更 |
+| `Shift+6` | 拉取最新代码 |
+| `Shift+7` | 添加 Todo 任务 |
+| `Shift+8` | AI Code Review |
 | `Shift+R` | 重新扫描 |
-| `Shift+C` | 自动提交（AI 生成 commit message） |
-| `Shift+G` | 浏览器打开远程仓库 |
-| `Shift+T` | 添加 Todo 任务 |
-| `Shift+V` | AI Code Review |
-| `Shift+L` | 打开最近 review 报告 |
-| `Shift+U` | 拉取最新代码 |
 | `Ctrl+C` ×2 | 退出（2秒内按两次） |
 
 ### 搜索
@@ -84,7 +93,7 @@ Blink 采用双栏联动布局：左侧仓库列表，右侧详情面板。光�
 
 `Tab` 移至右侧，`↑`/`↓` 选择行，`Enter` 执行：
 
-- **Actions 区**：IDE / Git（浏览器）/ Commit / Task / Finder / Review / Path
+- **Actions 区**：Terminal / IDE / Finder | Git / Push / Pull | Task / Review / Report（动态）
 - **Local Markers 区**：Pinned（切换置顶）/ Alias（编辑别名）/ Tags（管理标签）/ Description（编辑描述）
 
 ### 配置

@@ -5,12 +5,12 @@
 - 初始化协调，组装各子模块
 - 三态焦点管理：`_focus_pane` = `"list"` / `"detail"` / `"edit"`
 - 后台操作（scan/commit/pull/status fetch）的线程管理和回调调度
-- 操作回调：`_open_git_in_browser()`、`_run_add_task()`、`_copy_repo_path()`、`_open_finder()`
+- 操作回调：`_open_git_in_browser()`、`_run_add_task()`、`_open_terminal()`、`_open_finder()`
 - 所有状态栏通知通过 `_set_scan_status(msg, timeout)` 自动消失（默认 3s，task 通知 2s）
 
 ### 焦点与编辑
 - `_set_focus(pane)` 更新 `_focus_pane` 并调用 `detail.set_focused()` 和边框样式
-- 编辑态屏蔽全局快捷键（Shift+I/O/P/C/G/T/U）和 ↑↓
+- 编辑态屏蔽全局快捷键（Shift+1~8）和 ↑↓
 - IDE 选择模式（`_ide_selecting`）是状态栏临时覆盖层
 
 ### 后台操作
@@ -35,7 +35,7 @@
 - Ctrl+C 双击退出、Esc 取消链
 - 焦点切换（Tab/←→）
 - 列表/详情导航（↑↓）
-- 搜索（/）、Shift+I/O/P/C/G/T/U/V/L/R
+- 搜索（/）、Shift+1~8（Terminal/IDE/Finder/Git/Push/Pull/Task/Review）
 - 编辑态字符路由（可打印字符、Backspace、CJK 输入）
 
 ## status_bar.py
@@ -71,6 +71,9 @@ TUI Review 编排（`ReviewOrchestrator` 类）：
 ## actions.py
 
 - 编辑器检测与启动（VSCode、Cursor、Antigravity、系统 open）
+- Antigravity 兼容：`_detect_antigravity()` 检测 Antigravity IDE 变体
+- 配置的 IDE 未安装时自动清空配置
+- `open_terminal(repo_path)` 在终端中打开仓库路径
 - 剪贴板通过 `pbcopy`
 - `IDE_CHOICES` 定义三个 IDE 选项
 - TUI 和 CLI（`blink edit`）共用
@@ -81,16 +84,21 @@ TUI Review 编排（`ReviewOrchestrator` 类）：
 
 ### Metadata（只读）
 - Name / Path / Repo / Status
+- Path 和 Repo 行支持鼠标点击交互（clickable=True）
 - CJK 感知自动换行（`_wrap_value()`）
 - `_build_info_lines()` 每字段可产生多行
 
-### Actions（可选中，索引 0-6）
-- IDE(0) / Git(1) / Commit(2) / Task(3) / Finder(4) / Review(5) / Path(6)
+### Actions（可选中，分三组 + 动态 Report）
+- Group 1: Terminal(0) / IDE(1) / Finder(2) — 快捷键 Shift+1/2/3
+- Group 2: Git(3) / Push(4) / Pull(5) — 快捷键 Shift+4/5/6
+- Group 3: Task(6) / Review(7) — 快捷键 Shift+7/8
+- Report（动态行，仅存在 review 报告时显示，无快捷键）
 - 聚焦时选中行显示 `[Enter]`，未聚焦时显示快捷键徽标
-- 默认选中 IDE（行 0）
+- 默认选中 Terminal（行 0）
+- 组间分割线为通栏长线
 
-### Local Markers（可选中，索引 7-10）
-- Pinned(7) / Alias(8) / Tags(9) / Desc(10)
+### Local Markers（可选中，紧接 Actions 后）
+- Pinned / Alias / Tags / Desc
 - 仅聚焦时显示选中效果
 
 ### 编辑操作
@@ -116,8 +124,8 @@ Nerd Font 图标常量 + ASCII 回退。`get_icon(nerd_fonts, nf_char, ascii_cha
 
 在 Local Markers 区域触发：
 
-- **Pinned**（行 7）：Enter 直接切换
-- **Alias**（行 8）：Enter 进入编辑，Enter 保存，Esc/Ctrl+C 取消
-- **Tags**（行 9）：Enter 进入编辑，输入+Enter 添加，`1`~`9` 按序号删除，Esc/Ctrl+C 退出
-- **Description**（行 10）：Enter 进入编辑，Enter 保存，Esc/Ctrl+C 取消
+- **Pinned**：Enter 直接切换
+- **Alias**：Enter 进入编辑，Enter 保存，Esc/Ctrl+C 取消
+- **Tags**：Enter 进入编辑，输入+Enter 添加，`1`~`9` 按序号删除，Esc/Ctrl+C 退出
+- **Description**：Enter 进入编辑，Enter 保存，Esc/Ctrl+C 取消
 - 编辑时状态栏显示输入内容和光标，详情面板行保持原始值
