@@ -87,7 +87,7 @@ class BlinkApp:
             layout=layout,
             key_bindings=build_key_bindings(self),
             style=build_style(),
-            full_screen=True, mouse_support=False,
+            full_screen=True, mouse_support=True,
         )
 
         if self._repo_list_window is not None:
@@ -180,6 +180,7 @@ class BlinkApp:
             on_add_task=lambda: self._run_add_task(),
             on_review=lambda: self._start_review_branch_select(),
             on_open_terminal=lambda: self._open_terminal(),
+            on_copy_path=lambda: self._copy_path(),
         )
 
     def _sync_detail_panel(self) -> None:
@@ -224,6 +225,17 @@ class BlinkApp:
             return
         webbrowser.open(https)
         self._set_scan_status(f"Opened: {https}")
+
+    def _copy_path(self) -> None:
+        repo = self._get_active_repo()
+        if not repo:
+            return
+        try:
+            proc = sp.Popen(["pbcopy"], stdin=sp.PIPE)
+            proc.communicate(repo.path.encode("utf-8"))
+            self._set_scan_status(f"复制了 {repo.path}")
+        except Exception:
+            self._set_scan_status("复制失败")
 
     # ── add task ────────────────────────────────────────────────────────
 

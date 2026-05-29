@@ -53,4 +53,5 @@ def build_style() -> Style:
         "status-loading-sel": "fg:#484f58 bg:#264f78",
         "detail-shortcut-key": "bold fg:#79c0ff",
         "detail-shortcut-dim": "fg:#8b949e",
+        "detail-clickable": "fg:#79c0ff underline",
     })

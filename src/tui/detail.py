@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.data_structures import Point
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.layout.controls import UIContent, UIControl
+from prompt_toolkit.mouse_events import MouseEvent, MouseEventType
 
 from blink.models import Repo, RepoStatus, display_width
 from blink.store import Store
@@ -77,7 +78,8 @@ class DetailPanel(UIControl):
                  on_open_git: Callable[[], None] = lambda: None,
                  on_add_task: Callable[[], None] = lambda: None,
                  on_review: Callable[[], None] = lambda: None,
-                 on_open_terminal: Callable[[], None] = lambda: None) -> None:
+                 on_open_terminal: Callable[[], None] = lambda: None,
+                 on_copy_path: Callable[[], None] = lambda: None) -> None:
         self._repo = repo
         self._store = store
         self._editors = editors
@@ -95,6 +97,7 @@ class DetailPanel(UIControl):
         self._on_add_task = on_add_task
         self._on_review = on_review
         self._on_open_terminal = on_open_terminal
+        self._on_copy_path = on_copy_path
 
         self._cursor_index = 0
         self._focused = False
@@ -102,6 +105,8 @@ class DetailPanel(UIControl):
         self._alias_buffer: Optional[Buffer] = None
         self._desc_buffer: Optional[Buffer] = None
         self._tag_buffer: Optional[Buffer] = None
+        self._path_line_range: Tuple[int, int] = (0, 0)
+        self._repo_line_range: Tuple[int, int] = (0, 0)
 
     def set_repo(self, repo: Repo) -> None:
         same_repo = self._repo is not None and self._repo.path == repo.path
@@ -339,22 +344,23 @@ class DetailPanel(UIControl):
             chunks.append(current)
         return chunks
 
-    def _build_info_lines(self, label: str, value: str, width: int) -> List[List[tuple[str, str]]]:
+    def _build_info_lines(self, label: str, value: str, width: int, *, clickable: bool = False) -> List[List[tuple[str, str]]]:
         prefix_len = 4 + display_width(label)
         max_val_w = width - prefix_len
         chunks = self._wrap_value(value, max_val_w)
+        val_cls = "detail-clickable" if clickable else "normal"
         result: List[List[tuple[str, str]]] = []
         for i, chunk in enumerate(chunks):
             if i == 0:
                 result.append([
                     ("class:dim", "    "),
                     ("class:label", label),
-                    ("class:normal", chunk),
+                    ("class:" + val_cls, chunk),
                 ])
             else:
                 result.append([
                     ("class:dim", _INDENT),
-                    ("class:normal", chunk),
+                    ("class:" + val_cls, chunk),
                 ])
         return result
 
@@ -407,8 +413,12 @@ class DetailPanel(UIControl):
 
         # ── Metadata section (read-only, no cursor) ──
         lines.extend(self._build_info_lines("Name      ", self._repo.name, width))
-        lines.extend(self._build_info_lines("Path      ", self._repo.path, width))
-        lines.extend(self._build_info_lines("Repo      ", self._git_display_url(), width))
+        path_start = len(lines)
+        lines.extend(self._build_info_lines("Path      ", self._repo.path, width, clickable=True))
+        self._path_line_range = (path_start, len(lines) - 1)
+        repo_start = len(lines)
+        lines.extend(self._build_info_lines("Repo      ", self._git_display_url(), width, clickable=True))
+        self._repo_line_range = (repo_start, len(lines) - 1)
 
         # Status row (styled, but not cursor-navigable)
         status_fragments: List[tuple[str, str]] = [
@@ -452,6 +462,19 @@ class DetailPanel(UIControl):
             line_count=len(rendered),
             show_cursor=False,
         )
+
+    def mouse_handler(self, mouse_event: MouseEvent):
+        if mouse_event.event_type == MouseEventType.MOUSE_DOWN:
+            y = mouse_event.position.y
+            ps, pe = self._path_line_range
+            if ps <= y <= pe:
+                self._on_copy_path()
+                return None
+            rs, re_ = self._repo_line_range
+            if rs <= y <= re_:
+                self._on_open_git()
+                return None
+        return NotImplemented
 
     def _formatted_text(self, width: int = 80) -> FormattedText:
         parts: List[tuple[str, str]] = []
