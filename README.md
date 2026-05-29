@@ -1,43 +1,23 @@
 # Blink
 
-轻量级终端 TUI 工具，用于扫描、搜索和管理本地 git 仓库。
+**你的终端里，住着一个仓库管家。**
 
-## 使用
+Blink 是一个轻量级的终端工具集，帮助开发者高效管理本地 Git 仓库和编排 AI 自动化任务。双栏交互界面，打开即用，无需离开终端。
 
-### 安装
+---
 
-```bash
-pip install blink-repo
-```
+## 它能做什么？
 
-### 首次运行
+### 仓库管理器 (TUI)
 
-首次启动时，Blink 会扫描主目录下的 git 仓库并在终端显示进度。扫描完成后自动打开 TUI。后续启动直接使用缓存数据，同时自动清理失效条目。
+在一个漂亮的终端界面中，浏览、搜索和管理你所有的 Git 仓库：
 
-### CLI 命令
-
-```bash
-blink              # 启动 TUI
-blink -R           # 强制重新扫描后启动
-blink -v           # 显示版本号
-blink run          # 执行 tasks.yaml 中的任务
-blink run -s       # 查看任务状态
-blink edit          # 编辑任务文件
-blink edit --add [path]  # 添加任务并打开编辑器
-blink commit -p .  # 自动提交变更
-blink log [N]      # 查看任务日志
-blink review <branch>          # AI code review
-blink review <branch> -d       # 仅 diff 模式
-blink review -l                # 列出 review 报告
-blink review <branch> -a develop  # 指定 base 分支
-blink review -i                # 创建 review-rules.md 模板
-```
-
-> 自动提交和 Code Review 功能需要已安装 [Claude CLI](https://docs.anthropic.com/en/docs/claude-code)。
-
-### 布局
-
-Blink 采用双栏联动布局：左侧仓库列表，右侧详情面板。光标移动时右侧实时更新。
+- **自动发现** — 扫描指定目录，自动识别所有 Git 仓库，结果持久化到本地数据库
+- **实时状态** — 并行获取分支名、脏文件数、ahead/behind 等信息，一目了然
+- **全文搜索** — 按名称、路径、远程 URL、标签、描述实时过滤
+- **一键操作** — 打开 IDE、在终端中打开、在 Finder 中显示、浏览器跳转远程仓库
+- **快捷推送/拉取** — 无需手动输入 git 命令，一键推送或拉取代码
+- **个性化标记** — 为仓库设置置顶、别名、标签和描述，快速识别
 
 ```
 ┌───────────────────────┬──────────────────────────────────────────┐
@@ -57,23 +37,79 @@ Blink 采用双栏联动布局：左侧仓库列表，右侧详情面板。光�
 │                      │ ───────────────────────────────────────── │
 │                      │     Task      Add todo task        [Shift+7]│
 │                      │     Review    AI Code Review       [Shift+8]│
-│                      │ ───────────────────────────────────────── │
-│                      │   ▸ Pinned    No                         │
-│                      │     Alias     (none)                     │
-│                      │     Tags      [python] [api]             │
-│                      │     Desc      description                │
 └───────────────────────┴──────────────────────────────────────────┘
 ```
 
-### 快捷键
+### AI 任务引擎 (Loop)
+
+通过 YAML 配置文件编排 AI 驱动的自动化任务：
+
+- **自动提交** — AI 分析代码变更，生成语义化的 commit message，自动提交
+- **任务编排** — 在 `tasks.yaml` 中定义任务，按顺序自动执行代码编写、测试、提交
+- **AI Code Review** — 对同事的分支进行结构化审查，输出 APPROVE / DENY 报告
+- **Git 安全** — 任务前自动提交脏工作树、自动创建 feature 分支
+- **多 Runner** — 支持 Claude CLI 和 Cybervisor 两种 AI 执行后端
+
+---
+
+## 为什么用 Blink？
+
+|  |  |
+|---|---|
+| **零配置启动** | `pip install` 后直接运行，首次自动扫描，无需任何设置 |
+| **不离开终端** | 全部操作在终端内完成，无需切换窗口 |
+| **键盘优先** | 所有操作都有快捷键，`Shift+数字` 一键触发 |
+| **持久化缓存** | 仓库信息存储在本地 SQLite，二次启动瞬间加载 |
+| **AI 原生** | 自动提交、任务编排、代码审查，全部由 AI 驱动 |
+| **轻量依赖** | 核心仅依赖 prompt-toolkit、click、pyyaml |
+
+---
+
+## 快速开始
+
+### 安装
+
+```bash
+pip install blink-repo
+```
+
+### 启动
+
+```bash
+blink              # 启动仓库管理器
+```
+
+首次启动会扫描主目录下的 Git 仓库，完成后自动打开 TUI 界面。后续启动直接使用缓存，同时自动清理失效条目。
+
+### 常用命令
+
+```bash
+blink                          # 启动 TUI
+blink -R                       # 强制重新扫描
+blink commit -p .              # AI 自动提交当前目录变更
+blink review <branch>          # AI Code Review 指定分支
+blink review <branch> -d       # 仅 diff 模式（不创建临时分支）
+blink review -l                # 列出历史 review 报告
+blink run -s                   # 查看任务状态
+blink edit                     # 编辑任务文件
+blink log                      # 查看任务日志
+```
+
+> 自动提交和 Code Review 功能需要安装 [Claude CLI](https://docs.anthropic.com/en/docs/claude-code)。
+
+---
+
+## 快捷键
+
+所有快捷键在列表和详情面板中均可使用：
 
 | 按键 | 功能 |
 |------|------|
 | `↑` / `↓` | 导航 |
 | `Enter` | 打开 IDE（列表）/ 执行操作（详情） |
 | `/` | 搜索（任何焦点下） |
-| `Tab` / `→` | 焦点移至详情面板 |
-| `Esc` / `←` | 焦点移回列表 |
+| `Tab` / `→` | 切换到详情面板 |
+| `Esc` / `←` | 切换回列表 |
 | `Shift+1` | 打开终端 |
 | `Shift+2` | 用 IDE 打开 |
 | `Shift+3` | 在 Finder 中打开 |
@@ -83,20 +119,15 @@ Blink 采用双栏联动布局：左侧仓库列表，右侧详情面板。光�
 | `Shift+7` | 添加 Todo 任务 |
 | `Shift+8` | AI Code Review |
 | `Shift+R` | 重新扫描 |
-| `Ctrl+C` ×2 | 退出（2秒内按两次） |
+| `Ctrl+C` ×2 | 退出 |
 
 ### 搜索
 
-按 `/` 展开搜索框，实时过滤仓库（搜索范围：名称、别名、描述、路径、远程 URL、标签）。Enter 隐藏搜索框保留结果，Esc 清空恢复全部。
+按 `/` 展开搜索框，实时过滤仓库。搜索范围：名称、别名、描述、路径、远程 URL、标签。Enter 隐藏搜索框保留结果，Esc 清空恢复全部。
 
-### 详情面板操作
+---
 
-`Tab` 移至右侧，`↑`/`↓` 选择行，`Enter` 执行：
-
-- **Actions 区**：Terminal / IDE / Finder | Git / Push / Pull | Task / Review / Report（动态）
-- **Local Markers 区**：Pinned（切换置顶）/ Alias（编辑别名）/ Tags（管理标签）/ Description（编辑描述）
-
-### 配置
+## 配置
 
 首次运行在 `~/.blink/config.json` 创建默认配置：
 
@@ -113,55 +144,31 @@ Blink 采用双栏联动布局：左侧仓库列表，右侧详情面板。光�
 
 | 字段 | 说明 |
 |------|------|
-| `scan_paths` | 扫描 git 仓库的根目录列表 |
+| `scan_paths` | 扫描 Git 仓库的根目录列表 |
 | `exclude_dirs` | 扫描时跳过的目录名 |
 | `editor` | 默认编辑器 |
 | `preferred_ide` | 首选 IDE（`v` VSCode / `u` Cursor / `a` Antigravity） |
-| `auto_sync_days` | 自动重新扫描间隔（0 禁用） |
+| `auto_sync_days` | 自动重新扫描间隔天数（0 禁用） |
 | `nerd_fonts` | 启用 Nerd Font 图标 |
 
-数据存储在 `~/.blink/`：`config.json`、`blink.db`（SQLite）、`loop/`（任务数据）、`logs/`（应用日志）。
+所有数据存储在 `~/.blink/` 目录下。
 
-## 开发调试
+---
 
-### 环境要求
+## 开发
 
-- Python 3.9+
-- [uv](https://docs.astral.sh/uv/)
-- [git](https://git-scm.com/)
-- [Claude CLI](https://docs.anthropic.com/en/docs/claude-code)（可选，用于自动提交和 Code Review）
+Blink 使用 Python 3.9+ 和 [uv](https://docs.astral.sh/uv/) 构建。开发环境搭建、测试、调试等详细信息请参阅 [开发指南](docs/development.md)。
 
-### 初始化
+快速上手：
 
 ```bash
 git clone <repo-url> blink && cd blink
-uv sync
+uv sync                    # 安装依赖
+uv run blink               # 启动 TUI
+uv run pytest              # 运行测试
 ```
 
-### 运行
-
-```bash
-uv run blink              # 启动 TUI
-uv run blink -R           # 强制重新扫描
-```
-
-### 测试
-
-```bash
-uv run pytest                              # 全部测试
-uv run pytest tests/test_scanner.py        # 单文件
-uv run pytest -k test_scan_paths_finds_git_repos  # 单测试
-```
-
-### 调试
-
-在源码任意位置插入 `breakpoint()`，运行 `uv run blink`，程序会在断点处进入 pdb。
-
-### 构建
-
-```bash
-uv build    # 构建分发包
-```
+---
 
 ## 许可证
 
