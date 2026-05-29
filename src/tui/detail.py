@@ -55,10 +55,10 @@ class DetailPanel(UIControl):
     }
 
     _ACTION_ITEMS = [
-        ("Terminal  ", "Open Terminal Here"),
+        ("Terminal  ", "Open in Terminal"),
         ("IDE       ", "Open with IDE"),
         ("Finder    ", "Open in Finder"),
-        ("Git       ", "Open in browser"),
+        ("Git       ", "Open in Browser"),
         ("Push      ", "Push Changes"),
         ("Pull      ", "Pull Changes"),
         ("Task      ", "Add todo task"),

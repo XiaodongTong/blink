@@ -17,22 +17,37 @@ class EditorInfo:
         return self.command is not None
 
 
-IDE_CHOICES = [("v", "VSCode"), ("u", "Cursor"), ("a", "Antigravity IDE")]
+IDE_CHOICES = [("v", "VSCode"), ("u", "Cursor"), ("a", "Antigravity")]
+
+
+def _detect_antigravity() -> tuple[str, str]:
+    """Return (app_name, command) for Antigravity, preferring IDE variant."""
+    if shutil.which("open"):
+        result = subprocess.run(
+            ["osascript", "-e", 'id of app "Antigravity IDE"'],
+            capture_output=True, text=True, timeout=3,
+        )
+        if result.returncode == 0:
+            return "Antigravity IDE", "open"
+        result = subprocess.run(
+            ["osascript", "-e", 'id of app "Antigravity"'],
+            capture_output=True, text=True, timeout=3,
+        )
+        if result.returncode == 0:
+            return "Antigravity", "open"
+    return "Antigravity IDE", "none"
 
 
 def detect_editors() -> Dict[str, EditorInfo]:
     editors: Dict[str, EditorInfo] = {}
+    anti_name, anti_cmd = _detect_antigravity()
     for key, name, cmd in [
         ("v", "VSCode", "code"),
         ("u", "Cursor", "cursor"),
-        ("a", "Antigravity IDE", None),
-        ("o", "default", None),
+        ("a", anti_name, anti_cmd if anti_cmd != "none" else None),
+        ("o", "default", "open"),
     ]:
         found = shutil.which(cmd) if cmd else None
-        if name == "Antigravity IDE":
-            found = shutil.which("open")
-        if name == "default":
-            found = shutil.which("open")
         editors[key] = EditorInfo(key=key, name=name, command=found)
     return editors
 
@@ -42,7 +57,7 @@ def open_in_editor(repo_path: str, editor_key: str, editors: Dict[str, EditorInf
     if info is None or not info.available:
         return
     if editor_key == "a":
-        subprocess.Popen(["open", "-a", "Antigravity IDE", repo_path],
+        subprocess.Popen(["open", "-a", info.name, repo_path],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     elif editor_key == "o":
         subprocess.Popen(["open", repo_path],
