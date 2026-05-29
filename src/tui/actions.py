@@ -17,7 +17,39 @@ class EditorInfo:
         return self.command is not None
 
 
-IDE_CHOICES = [("v", "VSCode"), ("u", "Cursor"), ("a", "Antigravity")]
+IDE_CHOICES = [
+    ("v", "VSCode"),
+    ("u", "Cursor"),
+    ("a", "Antigravity"),
+    ("i", "IntelliJ"),
+    ("p", "PyCharm"),
+    ("w", "WebStorm"),
+    ("g", "GoLand"),
+    ("s", "Sublime"),
+    ("z", "Zed"),
+    ("x", "Xcode"),
+    ("n", "Neovim"),
+    ("o", "System"),
+]
+
+# IDEs that open via `open -a <AppName>` on macOS
+_MAC_OPEN_APPS: dict[str, str] = {
+    "a": "Antigravity IDE",
+    "x": "Xcode",
+}
+
+# IDEs detected via CLI command (`shutil.which`)
+_CLI_EDITORS: list[tuple[str, str, str]] = [
+    ("v", "VSCode",    "code"),
+    ("u", "Cursor",    "cursor"),
+    ("i", "IntelliJ",  "idea"),
+    ("p", "PyCharm",   "pycharm"),
+    ("w", "WebStorm",  "wstorm"),
+    ("g", "GoLand",    "goland"),
+    ("s", "Sublime",   "subl"),
+    ("z", "Zed",       "zed"),
+    ("n", "Neovim",    "nvim"),
+]
 
 
 def _detect_antigravity() -> tuple[str, str]:
@@ -38,17 +70,43 @@ def _detect_antigravity() -> tuple[str, str]:
     return "Antigravity IDE", "none"
 
 
+def _detect_mac_open_ide(key: str, app_name: str) -> str | None:
+    """Return 'open' if the macOS app is installed, else None."""
+    if not shutil.which("open"):
+        return None
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", f'id of app "{app_name}"'],
+            capture_output=True, text=True, timeout=3,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None
+    return "open" if result.returncode == 0 else None
+
+
 def detect_editors() -> Dict[str, EditorInfo]:
     editors: Dict[str, EditorInfo] = {}
     anti_name, anti_cmd = _detect_antigravity()
-    for key, name, cmd in [
-        ("v", "VSCode", "code"),
-        ("u", "Cursor", "cursor"),
-        ("a", anti_name, anti_cmd if anti_cmd != "none" else None),
-        ("o", "default", "open"),
-    ]:
-        found = shutil.which(cmd) if cmd else None
+
+    for key, name, cmd in _CLI_EDITORS:
+        found = shutil.which(cmd)
         editors[key] = EditorInfo(key=key, name=name, command=found)
+
+    # Antigravity — macOS app detection
+    editors["a"] = EditorInfo(
+        key="a", name=anti_name,
+        command=anti_cmd if anti_cmd != "none" else None,
+    )
+
+    # Xcode — macOS app detection
+    xcode_cmd = _detect_mac_open_ide("x", "Xcode")
+    editors["x"] = EditorInfo(key="x", name="Xcode", command=xcode_cmd)
+
+    # System default (`open`)
+    editors["o"] = EditorInfo(
+        key="o", name="System",
+        command=shutil.which("open"),
+    )
     return editors
 
 
@@ -56,13 +114,14 @@ def open_in_editor(repo_path: str, editor_key: str, editors: Dict[str, EditorInf
     info = editors.get(editor_key)
     if info is None or not info.available:
         return
-    if editor_key == "a":
-        subprocess.Popen(["open", "-a", info.name, repo_path],
+    if editor_key in _MAC_OPEN_APPS:
+        app_name = _MAC_OPEN_APPS[editor_key]
+        subprocess.Popen(["open", "-a", app_name, repo_path],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     elif editor_key == "o":
         subprocess.Popen(["open", repo_path],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    elif info.command:
+    else:
         subprocess.Popen([info.command, repo_path],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

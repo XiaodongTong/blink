@@ -13,10 +13,26 @@ def test_detect_editors_keys() -> None:
     assert "u" in editors
     assert "a" in editors
     assert "o" in editors
+    assert "i" in editors
+    assert "p" in editors
+    assert "w" in editors
+    assert "g" in editors
+    assert "s" in editors
+    assert "z" in editors
+    assert "x" in editors
+    assert "n" in editors
     assert editors["v"].name == "VSCode"
     assert editors["u"].name == "Cursor"
-    assert editors["a"].name == "Antigravity IDE"
-    assert editors["o"].name == "default"
+    assert editors["a"].name.startswith("Antigravity")
+    assert editors["i"].name == "IntelliJ"
+    assert editors["p"].name == "PyCharm"
+    assert editors["w"].name == "WebStorm"
+    assert editors["g"].name == "GoLand"
+    assert editors["s"].name == "Sublime"
+    assert editors["z"].name == "Zed"
+    assert editors["x"].name == "Xcode"
+    assert editors["n"].name == "Neovim"
+    assert editors["o"].name == "System"
 
 
 def test_detect_editors_open_available() -> None:
