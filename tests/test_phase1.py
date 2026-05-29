@@ -162,30 +162,17 @@ def _make_detail_panel(repo=None):
 
 
 def test_detail_panel_has_action_and_marker_lines():
-    assert DetailPanel.MAX_LINE == 11
-    assert hasattr(DetailPanel, "LINE_PINNED")
-    assert hasattr(DetailPanel, "LINE_ALIAS")
-    assert hasattr(DetailPanel, "LINE_TAGS")
-    assert hasattr(DetailPanel, "LINE_DESC")
-    assert hasattr(DetailPanel, "LINE_TERMINAL")
-    assert hasattr(DetailPanel, "LINE_IDE")
-    assert hasattr(DetailPanel, "LINE_FINDER")
-    assert hasattr(DetailPanel, "LINE_GIT")
-    assert hasattr(DetailPanel, "LINE_PUSH")
-    assert hasattr(DetailPanel, "LINE_PULL")
-    assert hasattr(DetailPanel, "LINE_TASK")
-    assert hasattr(DetailPanel, "LINE_REVIEW")
+    assert hasattr(DetailPanel, "_ACTION_GROUPS")
+    assert len(DetailPanel._ACTION_GROUPS) == 3
+    assert len(DetailPanel._ACTION_GROUPS[0]) == 3  # Terminal, IDE, Finder
+    assert len(DetailPanel._ACTION_GROUPS[1]) == 3  # Git, Push, Pull
+    assert len(DetailPanel._ACTION_GROUPS[2]) == 2  # Task, Review
 
 
 def test_detail_panel_action_line_constants():
-    assert DetailPanel.LINE_TERMINAL == 0
-    assert DetailPanel.LINE_IDE == 1
-    assert DetailPanel.LINE_FINDER == 2
-    assert DetailPanel.LINE_GIT == 3
-    assert DetailPanel.LINE_PUSH == 4
-    assert DetailPanel.LINE_PULL == 5
-    assert DetailPanel.LINE_TASK == 6
-    assert DetailPanel.LINE_REVIEW == 7
+    panel = _make_detail_panel()
+    assert panel._max_cursor == 11
+    assert len(panel._navigable_actions()) == 8
 
 
 # ── Shortcut passthrough filter ──────────────────────────────────────────

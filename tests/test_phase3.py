@@ -189,7 +189,7 @@ def test_enter_in_edit_mode_confirms():
     app._focus_pane = "edit"
 
     # Start alias edit
-    panel._cursor_index = DetailPanel.LINE_ALIAS
+    panel._cursor_index = len(panel._navigable_actions()) + 1
     panel.handle_enter()  # enters edit mode
     panel._alias_buffer.text = "new-alias"
 

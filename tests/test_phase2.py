@@ -250,9 +250,10 @@ def test_detail_metadata_displayed():
 
 def test_detail_local_markers_have_cursor():
     panel = _make_panel()
-    panel._cursor_index = DetailPanel.LINE_PINNED
+    n = len(panel._navigable_actions())
+    panel._cursor_index = n      # Pinned
     assert panel._cursor_index == 8
-    panel._cursor_index = DetailPanel.LINE_DESC
+    panel._cursor_index = n + 3  # Desc
     assert panel._cursor_index == 11
 
 
@@ -293,7 +294,7 @@ def test_sync_detail_panel_updates_existing():
 def test_view_count_incremented_on_action():
     app, store, rid = _make_app()
     app._init_detail_panel()
-    app._detail_panel._cursor_index = DetailPanel.LINE_ALIAS
+    app._detail_panel._cursor_index = len(app._detail_panel._navigable_actions()) + 1
     initial_count = app._repo_control.selected_repo().view_count
     app._detail_panel.handle_enter()
     # handle_enter calls _on_action which calls _increment_view_count

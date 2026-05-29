@@ -39,6 +39,7 @@ def build_style() -> Style:
         "label": "bold fg:#58a6ff",
         "detail-label-sel": "bold fg:#58a6ff bg:#264f78",
         "detail-sep": "fg:#30363d",
+        "detail-sep-dim": "fg:#262c34",
         "detail-selected": "fg:#f0f6fc bg:#264f78",
         "detail-indicator": "fg:#58a6ff bold bg:#264f78",
         "detail-tag": "fg:#3fb950",

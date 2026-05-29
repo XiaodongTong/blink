@@ -28,42 +28,28 @@ def _remote_to_https(url: str) -> str | None:
 
 
 class DetailPanel(UIControl):
-    # Cursor-navigable rows: Actions (0–7) + Local Markers (8–11)
-    LINE_TERMINAL = 0
-    LINE_IDE = 1
-    LINE_FINDER = 2
-    LINE_GIT = 3
-    LINE_PUSH = 4
-    LINE_PULL = 5
-    LINE_TASK = 6
-    LINE_REVIEW = 7
-    LINE_PINNED = 8
-    LINE_ALIAS = 9
-    LINE_TAGS = 10
-    LINE_DESC = 11
-    MAX_LINE = 11
+    _ACTION_GROUPS: list[list[tuple[str, str]]] = [
+        [
+            ("Terminal  ", "Open in Terminal"),
+            ("IDE       ", "Open with IDE"),
+            ("Finder    ", "Open in Finder"),
+        ],
+        [
+            ("Git       ", "Open in Browser"),
+            ("Push      ", "Push Changes"),
+            ("Pull      ", "Pull Changes"),
+        ],
+        [
+            ("Task      ", "Add todo task"),
+            ("Review    ", "AI Code Review"),
+        ],
+    ]
 
     _ACTION_SHORTCUTS: dict[int, str] = {
-        0: "Shift+1",
-        1: "Shift+2",
-        2: "Shift+3",
-        3: "Shift+4",
-        4: "Shift+5",
-        5: "Shift+6",
-        6: "Shift+7",
-        7: "Shift+8",
+        0: "Shift+1", 1: "Shift+2", 2: "Shift+3",
+        3: "Shift+4", 4: "Shift+5", 5: "Shift+6",
+        6: "Shift+7", 7: "Shift+8",
     }
-
-    _ACTION_ITEMS = [
-        ("Terminal  ", "Open in Terminal"),
-        ("IDE       ", "Open with IDE"),
-        ("Finder    ", "Open in Finder"),
-        ("Git       ", "Open in Browser"),
-        ("Push      ", "Push Changes"),
-        ("Pull      ", "Pull Changes"),
-        ("Task      ", "Add todo task"),
-        ("Review    ", "AI Code Review"),
-    ]
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
                  on_back: Callable[[], None], on_alias_change: Callable[[str], None],
@@ -79,7 +65,9 @@ class DetailPanel(UIControl):
                  on_add_task: Callable[[], None] = lambda: None,
                  on_review: Callable[[], None] = lambda: None,
                  on_open_terminal: Callable[[], None] = lambda: None,
-                 on_copy_path: Callable[[], None] = lambda: None) -> None:
+                 on_copy_path: Callable[[], None] = lambda: None,
+                 on_open_report: Callable[[], None] = lambda: None,
+                 last_report_paths: dict[str, str] | None = None) -> None:
         self._repo = repo
         self._store = store
         self._editors = editors
@@ -98,6 +86,8 @@ class DetailPanel(UIControl):
         self._on_review = on_review
         self._on_open_terminal = on_open_terminal
         self._on_copy_path = on_copy_path
+        self._on_open_report = on_open_report
+        self._last_report_paths = last_report_paths or {}
 
         self._cursor_index = 0
         self._focused = False
@@ -130,13 +120,60 @@ class DetailPanel(UIControl):
 
     # ── cursor navigation ──────────────────────────────────────────────────────
 
+    def _navigable_actions(self) -> list[tuple[str, str]]:
+        items: list[tuple[str, str]] = []
+        for group in self._ACTION_GROUPS:
+            items.extend(group)
+        if self._has_review_report():
+            items.append(("Report    ", "View Review Report"))
+        return items
+
+    def _has_review_report(self) -> bool:
+        return self._repo.path in self._last_report_paths
+
+    @property
+    def _max_cursor(self) -> int:
+        return len(self._navigable_actions()) + 3
+
+    def _group_starts(self) -> list[int]:
+        starts: list[int] = []
+        offset = 0
+        for group in self._ACTION_GROUPS:
+            starts.append(offset)
+            offset += len(group)
+        starts.append(len(self._navigable_actions()))
+        return starts
+
+    def _current_group(self) -> int:
+        starts = self._group_starts()
+        for i in range(len(starts) - 1, -1, -1):
+            if starts[i] <= self._cursor_index:
+                return i
+        return 0
+
     def cursor_up(self) -> None:
         if self._edit_mode is None:
             self._cursor_index = max(0, self._cursor_index - 1)
 
     def cursor_down(self) -> None:
         if self._edit_mode is None:
-            self._cursor_index = min(self.MAX_LINE, self._cursor_index + 1)
+            self._cursor_index = min(self._max_cursor, self._cursor_index + 1)
+
+    def cursor_group_down(self) -> None:
+        if self._edit_mode is not None:
+            return
+        starts = self._group_starts()
+        group = self._current_group()
+        if group + 1 < len(starts):
+            self._cursor_index = starts[group + 1]
+
+    def cursor_group_up(self) -> None:
+        if self._edit_mode is not None:
+            return
+        starts = self._group_starts()
+        group = self._current_group()
+        if group > 0:
+            self._cursor_index = starts[group - 1]
 
     # ── enter handler ─────────────────────────────────────────────────────────
 
@@ -159,34 +196,36 @@ class DetailPanel(UIControl):
             return True
 
         line = self._cursor_index
-        if line == self.LINE_TERMINAL:
-            self._on_open_terminal()
-        elif line == self.LINE_IDE:
-            self._on_open_ide()
-        elif line == self.LINE_FINDER:
-            self._on_open_finder()
-        elif line == self.LINE_GIT:
-            self._on_open_git()
-        elif line == self.LINE_PUSH:
-            self._on_commit()
-        elif line == self.LINE_PULL:
-            self._on_pull()
-        elif line == self.LINE_TASK:
-            self._on_add_task()
-        elif line == self.LINE_REVIEW:
-            self._on_review()
-        elif line == self.LINE_PINNED:
-            self._toggle_pin()
-            self._on_action()
-        elif line == self.LINE_ALIAS:
-            self._start_alias_edit()
-            self._on_action()
-        elif line == self.LINE_TAGS:
-            self._start_tags_edit()
-            self._on_action()
-        elif line == self.LINE_DESC:
-            self._start_desc_edit()
-            self._on_action()
+        n_actions = len(self._navigable_actions())
+        if line < n_actions:
+            dispatch = [
+                self._on_open_terminal,
+                self._on_open_ide,
+                self._on_open_finder,
+                self._on_open_git,
+                self._on_commit,
+                self._on_pull,
+                self._on_add_task,
+                self._on_review,
+            ]
+            if line < len(dispatch):
+                dispatch[line]()
+            elif line == len(dispatch) and self._has_review_report():
+                self._on_open_report()
+        else:
+            marker_idx = line - n_actions
+            if marker_idx == 0:
+                self._toggle_pin()
+                self._on_action()
+            elif marker_idx == 1:
+                self._start_alias_edit()
+                self._on_action()
+            elif marker_idx == 2:
+                self._start_tags_edit()
+                self._on_action()
+            elif marker_idx == 3:
+                self._start_desc_edit()
+                self._on_action()
         return True
 
     # ── line-specific actions ────────────────────────────────────────────────
@@ -379,10 +418,9 @@ class DetailPanel(UIControl):
                 fragments.append(("class:" + pad_cls, " " * (width - line_len)))
         return fragments
 
-    def _build_action_line(self, label: str, desc: str, selected: bool, width: int = 0, *, index: int = 0) -> List[tuple[str, str]]:
+    def _build_action_line(self, label: str, desc: str, selected: bool, width: int = 0, *, index: int = 0, max_desc_len: int = 16) -> List[tuple[str, str]]:
         shortcut = self._ACTION_SHORTCUTS.get(index, "")
         if selected:
-            max_desc_len = max(len(d) for _, d in self._ACTION_ITEMS)
             fragments: List[tuple[str, str]] = [
                 ("class:detail-indicator", "  ▸ "),
                 ("class:detail-label-sel", label),
@@ -400,7 +438,6 @@ class DetailPanel(UIControl):
                 ("class:normal", desc),
             ]
             if shortcut:
-                max_desc_len = max(len(d) for _, d in self._ACTION_ITEMS)
                 fragments.append(("class:normal", " " * (max_desc_len - len(desc))))
                 fragments.append(("class:normal", " "))
                 fragments.append(("class:detail-shortcut-dim", f"[{shortcut}]"))
@@ -431,21 +468,33 @@ class DetailPanel(UIControl):
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
-        # ── Actions section (cursor-navigable, indices 0–6) ──
-        for i, (label, desc) in enumerate(self._ACTION_ITEMS):
-            is_sel = (cur == i) and self._focused
-            lines.append(self._build_action_line(label, desc, is_sel, width, index=i))
+        # ── Actions section with group dividers ──
+        actions = self._navigable_actions()
+        max_desc_len = max((len(d) for _, d in actions), default=0)
+        action_idx = 0
+        for g, group in enumerate(self._ACTION_GROUPS):
+            if g > 0:
+                lines.append([("class:detail-sep-dim", "          ──────")])
+            for label, desc in group:
+                is_sel = (cur == action_idx) and self._focused
+                lines.append(self._build_action_line(label, desc, is_sel, width, index=action_idx, max_desc_len=max_desc_len))
+                action_idx += 1
+        if self._has_review_report():
+            is_sel = (cur == action_idx) and self._focused
+            lines.append(self._build_action_line("Report    ", "View Review Report", is_sel, width, index=action_idx, max_desc_len=max_desc_len))
+
+        n_actions = len(actions)
 
         # Separator
         lines.append([("class:detail-sep", "─" * width)])
 
-        # ── Local Markers section (cursor-navigable, indices 7–10) ──
+        # ── Local Markers section ──
         pin_str = "Yes" if self._repo.pinned else "No"
-        lines.append(self._build_marker_line("Pinned    ", pin_str, cur == self.LINE_PINNED and self._focused, width))
-        lines.append(self._build_marker_line("Alias     ", self._repo.alias or "(none)", cur == self.LINE_ALIAS and self._focused, width))
+        lines.append(self._build_marker_line("Pinned    ", pin_str, cur == n_actions and self._focused, width))
+        lines.append(self._build_marker_line("Alias     ", self._repo.alias or "(none)", cur == n_actions + 1 and self._focused, width))
         tag_str = " ".join(f"[{t}]" for t in self._repo.tags) if self._repo.tags else "(none)"
-        lines.append(self._build_marker_line("Tags      ", tag_str, cur == self.LINE_TAGS and self._focused, width))
-        lines.append(self._build_marker_line("Desc      ", self._repo.description or "(none)", cur == self.LINE_DESC and self._focused, width))
+        lines.append(self._build_marker_line("Tags      ", tag_str, cur == n_actions + 2 and self._focused, width))
+        lines.append(self._build_marker_line("Desc      ", self._repo.description or "(none)", cur == n_actions + 3 and self._focused, width))
 
         return lines
 

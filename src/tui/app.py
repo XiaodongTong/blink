@@ -181,6 +181,8 @@ class BlinkApp:
             on_review=lambda: self._start_review_branch_select(),
             on_open_terminal=lambda: self._open_terminal(),
             on_copy_path=lambda: self._copy_path(),
+            on_open_report=lambda: self._open_review_report(),
+            last_report_paths=self._review.last_report_paths,
         )
 
     def _sync_detail_panel(self) -> None:
@@ -203,6 +205,11 @@ class BlinkApp:
         repo = self._get_active_repo()
         if repo:
             open_in_editor(repo.path, "o", self._editors)
+
+    def _open_review_report(self) -> None:
+        repo = self._get_active_repo()
+        if repo and repo.path in self._review.last_report_paths:
+            self._open_with_ide(self._review.last_report_paths[repo.path])
 
     def _open_terminal(self) -> None:
         repo = self._get_active_repo()

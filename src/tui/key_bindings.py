@@ -210,6 +210,24 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
             app._detail_panel.cursor_up()
             app._app.invalidate()
 
+    # ── Shift+Arrow — group jump in detail view ──────────────────────
+
+    @kb.add("s-down", filter=Condition(
+        lambda: app._focus_pane == "detail" and not app._search_active
+        and not app._ide_selecting and not app._in_edit_mode()))
+    def _(event):
+        if app._detail_panel:
+            app._detail_panel.cursor_group_down()
+            app._app.invalidate()
+
+    @kb.add("s-up", filter=Condition(
+        lambda: app._focus_pane == "detail" and not app._search_active
+        and not app._ide_selecting and not app._in_edit_mode()))
+    def _(event):
+        if app._detail_panel:
+            app._detail_panel.cursor_group_up()
+            app._app.invalidate()
+
     # ── Search (available from both panes) ───────────────────────────────
 
     @kb.add("/", filter=Condition(lambda: not app._search_active and not app._in_edit_mode()))

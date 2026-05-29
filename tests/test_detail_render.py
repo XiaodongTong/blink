@@ -93,24 +93,16 @@ def test_detail_panel_shows_pinned_yes():
 
 
 def test_detail_panel_line_constants():
-    assert DetailPanel.LINE_TERMINAL == 0
-    assert DetailPanel.LINE_IDE == 1
-    assert DetailPanel.LINE_FINDER == 2
-    assert DetailPanel.LINE_GIT == 3
-    assert DetailPanel.LINE_PUSH == 4
-    assert DetailPanel.LINE_PULL == 5
-    assert DetailPanel.LINE_TASK == 6
-    assert DetailPanel.LINE_REVIEW == 7
-    assert DetailPanel.LINE_PINNED == 8
-    assert DetailPanel.LINE_ALIAS == 9
-    assert DetailPanel.LINE_TAGS == 10
-    assert DetailPanel.LINE_DESC == 11
-    assert DetailPanel.MAX_LINE == 11
+    panel = _make_detail_panel()
+    assert panel._max_cursor == 11
+    assert panel._max_cursor == len(panel._navigable_actions()) + 3
 
 
-def test_detail_panel_action_line_constants():
-    for attr in ("LINE_TERMINAL", "LINE_IDE", "LINE_FINDER", "LINE_GIT", "LINE_PUSH", "LINE_PULL", "LINE_TASK", "LINE_REVIEW"):
-        assert hasattr(DetailPanel, attr)
+def test_detail_panel_action_line_groups():
+    assert len(DetailPanel._ACTION_GROUPS) == 3
+    assert len(DetailPanel._ACTION_GROUPS[0]) == 3  # Terminal, IDE, Finder
+    assert len(DetailPanel._ACTION_GROUPS[1]) == 3  # Git, Push, Pull
+    assert len(DetailPanel._ACTION_GROUPS[2]) == 2  # Task, Review
 
 
 # ── status row ──────────────────────────────────────────────────────────
@@ -160,10 +152,10 @@ def test_detail_panel_renders_action_shortcuts():
 def test_detail_panel_renders_action_rows():
     panel = _make_detail_panel()
     t = _to_plain(panel._formatted_text())
-    assert "Open Terminal Here" in t
+    assert "Open in Terminal" in t
     assert "Open with IDE" in t
     assert "Open in Finder" in t
-    assert "Open in browser" in t
+    assert "Open in Browser" in t
     assert "Push Changes" in t
     assert "Pull Changes" in t
     assert "Add todo task" in t
@@ -230,7 +222,7 @@ def test_on_action_called_on_pin_toggle():
         on_tags_change=lambda: None,
         on_action=lambda: actions.append(True),
     )
-    panel._cursor_index = DetailPanel.LINE_PINNED
+    panel._cursor_index = len(panel._navigable_actions())
     panel.handle_enter()
     assert actions == [True]
 
@@ -239,7 +231,7 @@ def test_on_action_called_on_alias_edit():
     actions = []
     panel = _make_detail_panel()
     panel._on_action = lambda: actions.append(True)
-    panel._cursor_index = DetailPanel.LINE_ALIAS
+    panel._cursor_index = len(panel._navigable_actions()) + 1
     panel.handle_enter()
     assert actions == [True]
 
@@ -248,7 +240,7 @@ def test_on_action_called_on_desc_edit():
     actions = []
     panel = _make_detail_panel()
     panel._on_action = lambda: actions.append(True)
-    panel._cursor_index = DetailPanel.LINE_DESC
+    panel._cursor_index = len(panel._navigable_actions()) + 3
     panel.handle_enter()
     assert actions == [True]
 
@@ -278,19 +270,19 @@ def test_actions_triggers_callbacks():
     panel._on_open_git = lambda: callbacks.append("git")
     panel._on_add_task = lambda: callbacks.append("task")
 
-    panel._cursor_index = DetailPanel.LINE_TERMINAL
+    panel._cursor_index = 0  # Terminal
     panel.handle_enter()
-    panel._cursor_index = DetailPanel.LINE_IDE
+    panel._cursor_index = 1  # IDE
     panel.handle_enter()
-    panel._cursor_index = DetailPanel.LINE_PUSH
+    panel._cursor_index = 4  # Push
     panel.handle_enter()
-    panel._cursor_index = DetailPanel.LINE_PULL
+    panel._cursor_index = 5  # Pull
     panel.handle_enter()
-    panel._cursor_index = DetailPanel.LINE_FINDER
+    panel._cursor_index = 2  # Finder
     panel.handle_enter()
-    panel._cursor_index = DetailPanel.LINE_GIT
+    panel._cursor_index = 3  # Git
     panel.handle_enter()
-    panel._cursor_index = DetailPanel.LINE_TASK
+    panel._cursor_index = 6  # Task
     panel.handle_enter()
 
     assert callbacks == ["terminal", "ide", "push", "pull", "finder", "git", "task"]
@@ -311,7 +303,7 @@ def test_actions_do_not_increment_view_count():
 def test_selected_action_row_shows_indicator():
     panel = _make_detail_panel()
     panel.set_focused(True)
-    panel._cursor_index = DetailPanel.LINE_IDE
+    panel._cursor_index = 1  # IDE
     t = _to_plain(panel._formatted_text())
     assert "▸" in t
 
@@ -335,7 +327,9 @@ def test_no_static_shortcut_hints_section():
 
 
 def test_marker_cursor_indices():
-    assert DetailPanel.LINE_PINNED == 8
-    assert DetailPanel.LINE_ALIAS == 9
-    assert DetailPanel.LINE_TAGS == 10
-    assert DetailPanel.LINE_DESC == 11
+    panel = _make_detail_panel()
+    n = len(panel._navigable_actions())
+    assert n + 0 == 8  # Pinned
+    assert n + 1 == 9  # Alias
+    assert n + 2 == 10  # Tags
+    assert n + 3 == 11  # Desc

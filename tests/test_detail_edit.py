@@ -60,7 +60,7 @@ def test_cursor_down_at_max():
     panel = _make_detail_panel()
     for _ in range(15):
         panel.cursor_down()
-    assert panel._cursor_index == 11
+    assert panel._cursor_index == panel._max_cursor
 
 
 def test_cursor_up_at_zero():
@@ -79,12 +79,12 @@ def test_cursor_blocked_during_edit():
 def test_cursor_navigates_full_range():
     panel = _make_detail_panel()
     assert panel._cursor_index == 0
-    for expected in range(1, 12):
+    for expected in range(1, panel._max_cursor + 1):
         panel.cursor_down()
         assert panel._cursor_index == expected
     panel.cursor_down()
-    assert panel._cursor_index == 11
-    for expected in range(10, -1, -1):
+    assert panel._cursor_index == panel._max_cursor
+    for expected in range(panel._max_cursor - 1, -1, -1):
         panel.cursor_up()
         assert panel._cursor_index == expected
     panel.cursor_up()
@@ -96,7 +96,7 @@ def test_cursor_navigates_full_range():
 
 def test_handle_enter_alias_starts_edit():
     panel = _make_detail_panel()
-    panel._cursor_index = DetailPanel.LINE_ALIAS
+    panel._cursor_index = len(panel._navigable_actions()) + 1
     panel.handle_enter()
     assert panel._edit_mode == "alias"
 
@@ -152,7 +152,7 @@ def test_handle_enter_alias_with_empty_buffer():
 
 def test_handle_enter_desc_starts_edit():
     panel = _make_detail_panel()
-    panel._cursor_index = DetailPanel.LINE_DESC
+    panel._cursor_index = len(panel._navigable_actions()) + 3
     panel.handle_enter()
     assert panel._edit_mode == "description"
 
@@ -209,7 +209,7 @@ def test_handle_enter_confirm_description_clears_edit_mode():
 
 def test_handle_enter_tags_starts_edit():
     panel = _make_detail_panel()
-    panel._cursor_index = DetailPanel.LINE_TAGS
+    panel._cursor_index = len(panel._navigable_actions()) + 2
     panel.handle_enter()
     assert panel._edit_mode == "tags"
 
@@ -300,7 +300,7 @@ def test_handle_enter_pinned_toggles():
         on_tags_change=lambda: None,
         on_pin_change=lambda: pin_changed.append(True),
     )
-    panel._cursor_index = DetailPanel.LINE_PINNED
+    panel._cursor_index = len(panel._navigable_actions())
     panel.handle_enter()
     assert repo.pinned == 1
     assert pin_changed == [True]
