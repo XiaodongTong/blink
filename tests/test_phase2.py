@@ -260,9 +260,9 @@ def test_detail_shortcuts_displayed():
     panel = _make_panel()
     from prompt_toolkit.formatted_text import to_plain_text
     t = to_plain_text(panel._formatted_text())
-    assert "Shift+I" in t
-    assert "Shift+G" in t
-    assert "Shift+T" in t
+    assert "Shift+1" in t
+    assert "Shift+4" in t
+    assert "Shift+7" in t
 
 
 # ── Sync detail panel ──────────────────────────────────────────────────

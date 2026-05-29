@@ -93,14 +93,14 @@ def test_detail_panel_shows_pinned_yes():
 
 
 def test_detail_panel_line_constants():
-    assert DetailPanel.LINE_IDE == 0
-    assert DetailPanel.LINE_GIT == 1
-    assert DetailPanel.LINE_COMMIT == 2
-    assert DetailPanel.LINE_TASK == 3
-    assert DetailPanel.LINE_FINDER == 4
-    assert DetailPanel.LINE_TERMINAL == 5
-    assert DetailPanel.LINE_REVIEW == 6
-    assert DetailPanel.LINE_PATH == 7
+    assert DetailPanel.LINE_TERMINAL == 0
+    assert DetailPanel.LINE_IDE == 1
+    assert DetailPanel.LINE_FINDER == 2
+    assert DetailPanel.LINE_GIT == 3
+    assert DetailPanel.LINE_PUSH == 4
+    assert DetailPanel.LINE_PULL == 5
+    assert DetailPanel.LINE_TASK == 6
+    assert DetailPanel.LINE_REVIEW == 7
     assert DetailPanel.LINE_PINNED == 8
     assert DetailPanel.LINE_ALIAS == 9
     assert DetailPanel.LINE_TAGS == 10
@@ -109,7 +109,7 @@ def test_detail_panel_line_constants():
 
 
 def test_detail_panel_action_line_constants():
-    for attr in ("LINE_IDE", "LINE_PATH", "LINE_COMMIT", "LINE_FINDER", "LINE_GIT", "LINE_TASK", "LINE_REVIEW"):
+    for attr in ("LINE_TERMINAL", "LINE_IDE", "LINE_FINDER", "LINE_GIT", "LINE_PUSH", "LINE_PULL", "LINE_TASK", "LINE_REVIEW"):
         assert hasattr(DetailPanel, attr)
 
 
@@ -147,25 +147,27 @@ def test_detail_panel_status_before_pinned():
 def test_detail_panel_renders_action_shortcuts():
     panel = _make_detail_panel()
     t = _to_plain(panel._formatted_text())
-    assert "Shift+I" in t
-    assert "Shift+O" in t
-    assert "Shift+P" in t
-    assert "Shift+C" in t
-    assert "Shift+G" in t
-    assert "Shift+T" in t
-    assert "Shift+V" in t
+    assert "Shift+1" in t
+    assert "Shift+2" in t
+    assert "Shift+3" in t
+    assert "Shift+4" in t
+    assert "Shift+5" in t
+    assert "Shift+6" in t
+    assert "Shift+7" in t
+    assert "Shift+8" in t
 
 
 def test_detail_panel_renders_action_rows():
     panel = _make_detail_panel()
     t = _to_plain(panel._formatted_text())
+    assert "Open Terminal Here" in t
     assert "Open with IDE" in t
     assert "Open in Finder" in t
-    assert "Add todo task" in t
-    assert "Auto Commit Changes" in t
     assert "Open in browser" in t
+    assert "Push Changes" in t
+    assert "Pull Changes" in t
+    assert "Add todo task" in t
     assert "AI Code Review" in t
-    assert "Copy repo path" in t
 
 
 # ── set_repo ────────────────────────────────────────────────────────────
@@ -258,8 +260,8 @@ def test_actions_section_renders_action_rows():
     panel = _make_detail_panel()
     t = _to_plain(panel._formatted_text())
     assert "IDE" in t
-    assert "Path" in t
-    assert "Commit" in t
+    assert "Terminal" in t
+    assert "Push" in t
     assert "Finder" in t
     assert "Git" in t
     assert "Task" in t
@@ -268,18 +270,21 @@ def test_actions_section_renders_action_rows():
 def test_actions_triggers_callbacks():
     callbacks = []
     panel = _make_detail_panel()
+    panel._on_open_terminal = lambda: callbacks.append("terminal")
     panel._on_open_ide = lambda: callbacks.append("ide")
-    panel._on_copy_path = lambda: callbacks.append("path")
-    panel._on_commit = lambda: callbacks.append("commit")
+    panel._on_commit = lambda: callbacks.append("push")
+    panel._on_pull = lambda: callbacks.append("pull")
     panel._on_open_finder = lambda: callbacks.append("finder")
     panel._on_open_git = lambda: callbacks.append("git")
     panel._on_add_task = lambda: callbacks.append("task")
 
+    panel._cursor_index = DetailPanel.LINE_TERMINAL
+    panel.handle_enter()
     panel._cursor_index = DetailPanel.LINE_IDE
     panel.handle_enter()
-    panel._cursor_index = DetailPanel.LINE_PATH
+    panel._cursor_index = DetailPanel.LINE_PUSH
     panel.handle_enter()
-    panel._cursor_index = DetailPanel.LINE_COMMIT
+    panel._cursor_index = DetailPanel.LINE_PULL
     panel.handle_enter()
     panel._cursor_index = DetailPanel.LINE_FINDER
     panel.handle_enter()
@@ -288,7 +293,7 @@ def test_actions_triggers_callbacks():
     panel._cursor_index = DetailPanel.LINE_TASK
     panel.handle_enter()
 
-    assert callbacks == ["ide", "path", "commit", "finder", "git", "task"]
+    assert callbacks == ["terminal", "ide", "push", "pull", "finder", "git", "task"]
 
 
 def test_actions_do_not_increment_view_count():

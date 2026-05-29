@@ -28,14 +28,14 @@ def _remote_to_https(url: str) -> str | None:
 
 class DetailPanel(UIControl):
     # Cursor-navigable rows: Actions (0–7) + Local Markers (8–11)
-    LINE_IDE = 0
-    LINE_GIT = 1
-    LINE_COMMIT = 2
-    LINE_TASK = 3
-    LINE_FINDER = 4
-    LINE_TERMINAL = 5
-    LINE_REVIEW = 6
-    LINE_PATH = 7
+    LINE_TERMINAL = 0
+    LINE_IDE = 1
+    LINE_FINDER = 2
+    LINE_GIT = 3
+    LINE_PUSH = 4
+    LINE_PULL = 5
+    LINE_TASK = 6
+    LINE_REVIEW = 7
     LINE_PINNED = 8
     LINE_ALIAS = 9
     LINE_TAGS = 10
@@ -43,25 +43,25 @@ class DetailPanel(UIControl):
     MAX_LINE = 11
 
     _ACTION_SHORTCUTS: dict[int, str] = {
-        0: "Shift+I",
-        1: "Shift+G",
-        2: "Shift+C",
-        3: "Shift+T",
-        4: "Shift+O",
-        5: "Shift+E",
-        6: "Shift+V",
-        7: "Shift+P",
+        0: "Shift+1",
+        1: "Shift+2",
+        2: "Shift+3",
+        3: "Shift+4",
+        4: "Shift+5",
+        5: "Shift+6",
+        6: "Shift+7",
+        7: "Shift+8",
     }
 
     _ACTION_ITEMS = [
-        ("IDE       ", "Open with IDE"),
-        ("Git       ", "Open in browser"),
-        ("Commit    ", "Auto Commit Changes"),
-        ("Task      ", "Add todo task"),
-        ("Finder    ", "Open in Finder"),
         ("Terminal  ", "Open Terminal Here"),
+        ("IDE       ", "Open with IDE"),
+        ("Finder    ", "Open in Finder"),
+        ("Git       ", "Open in browser"),
+        ("Push      ", "Push Changes"),
+        ("Pull      ", "Pull Changes"),
+        ("Task      ", "Add todo task"),
         ("Review    ", "AI Code Review"),
-        ("Path      ", "Copy repo path"),
     ]
 
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
@@ -73,7 +73,6 @@ class DetailPanel(UIControl):
                  on_commit: Callable[[], None] = lambda: None,
                  on_pull: Callable[[], None] = lambda: None,
                  on_action: Callable[[], None] = lambda: None,
-                 on_copy_path: Callable[[], None] = lambda: None,
                  on_open_finder: Callable[[], None] = lambda: None,
                  on_open_git: Callable[[], None] = lambda: None,
                  on_add_task: Callable[[], None] = lambda: None,
@@ -91,7 +90,6 @@ class DetailPanel(UIControl):
         self._on_commit = on_commit
         self._on_pull = on_pull
         self._on_action = on_action
-        self._on_copy_path = on_copy_path
         self._on_open_finder = on_open_finder
         self._on_open_git = on_open_git
         self._on_add_task = on_add_task
@@ -156,18 +154,18 @@ class DetailPanel(UIControl):
             return True
 
         line = self._cursor_index
-        if line == self.LINE_IDE:
+        if line == self.LINE_TERMINAL:
+            self._on_open_terminal()
+        elif line == self.LINE_IDE:
             self._on_open_ide()
-        elif line == self.LINE_PATH:
-            self._on_copy_path()
-        elif line == self.LINE_COMMIT:
-            self._on_commit()
         elif line == self.LINE_FINDER:
             self._on_open_finder()
-        elif line == self.LINE_TERMINAL:
-            self._on_open_terminal()
         elif line == self.LINE_GIT:
             self._on_open_git()
+        elif line == self.LINE_PUSH:
+            self._on_commit()
+        elif line == self.LINE_PULL:
+            self._on_pull()
         elif line == self.LINE_TASK:
             self._on_add_task()
         elif line == self.LINE_REVIEW:

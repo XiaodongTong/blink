@@ -20,7 +20,7 @@ from blink.store import Store
 from blink.scanner import Scanner, ScanResult, StatusFetcher, check_pull_prereqs, parse_pull_output
 from blink.tui.repo_list import RepoListControl
 from blink.tui.search import SearchBar
-from blink.tui.actions import EditorInfo, IDE_CHOICES, copy_path, detect_editors, open_in_editor, open_terminal
+from blink.tui.actions import EditorInfo, IDE_CHOICES, detect_editors, open_in_editor, open_terminal
 from blink.tui.detail import DetailPanel, _remote_to_https
 from blink.tui.styles import build_style
 from blink.tui.layout import build_layout, EditStatusControl
@@ -175,7 +175,6 @@ class BlinkApp:
             on_commit=lambda: self._run_commit(self._get_active_repo()),
             on_pull=lambda: self._run_pull(self._get_active_repo()),
             on_action=lambda: self._increment_view_count(),
-            on_copy_path=lambda: self._copy_repo_path(),
             on_open_finder=lambda: self._open_finder(),
             on_open_git=lambda: self._open_git_in_browser(),
             on_add_task=lambda: self._run_add_task(),
@@ -198,14 +197,6 @@ class BlinkApp:
         if repo and repo.id is not None:
             self._store.increment_view_count(repo.id)
             repo.view_count += 1
-
-    def _copy_repo_path(self) -> None:
-        repo = self._get_active_repo()
-        if repo:
-            copy_path(repo.path)
-            self._scan_status = f"Copied: {repo.path}"
-            self._app.invalidate()
-            self._start_timer(3.0, self._clear_scan_status)
 
     def _open_finder(self) -> None:
         repo = self._get_active_repo()

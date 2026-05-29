@@ -121,13 +121,7 @@ def build_footer_text(app: BlinkApp) -> FormattedText:
     hints = [
         ("Enter", "ide"), ("/", "search"),
         ("Tab", "focus"),
-        ("Shift+E", "terminal"),
-        ("Shift+G", "git"),
-        ("Shift+T", "task"),
         ("Shift+R", "rescan"),
-        ("Shift+V", "review"),
-        ("Shift+L", "report"),
-        ("Shift+U", "pull"),
     ]
     parts: list[tuple[str, str]] = [("class:footer-dim", " ")]
     for i, (key, desc) in enumerate(hints):

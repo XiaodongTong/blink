@@ -220,9 +220,17 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         app._search_bar.focus(event.app)
         app._app.invalidate()
 
-    # ── Shift+I — open with preferred IDE ──────────────────────────────
+    # ── Shift+1 (!) — open terminal ──────────────────────────────────
 
-    @kb.add("I", filter=Condition(
+    @kb.add("!", filter=Condition(
+        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+    def _(event):
+        app._trigger_footer_highlight()
+        app._open_terminal()
+
+    # ── Shift+2 (@) — open with preferred IDE ──────────────────────────
+
+    @kb.add("@", filter=Condition(
         lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
     def _(event):
         app._trigger_footer_highlight()
@@ -230,9 +238,9 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         if repo:
             app._trigger_open_ide(repo)
 
-    # ── Shift+O — open with system default ─────────────────────────────
+    # ── Shift+3 (#) — open in Finder ─────────────────────────────────
 
-    @kb.add("O", filter=Condition(
+    @kb.add("#", filter=Condition(
         lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
     def _(event):
         app._trigger_footer_highlight()
@@ -241,34 +249,17 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
             from blink.tui.actions import open_in_editor
             open_in_editor(repo.path, "o", app._editors)
 
-    # ── Shift+E — open terminal here ──────────────────────────────────
+    # ── Shift+4 ($) — open in browser ────────────────────────────────
 
-    @kb.add("E", filter=Condition(
+    @kb.add("$", filter=Condition(
         lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
     def _(event):
         app._trigger_footer_highlight()
-        app._open_terminal()
+        app._open_git_in_browser()
 
-    @kb.add("P", filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
-    def _(event):
-        app._trigger_footer_highlight()
-        repo = app._get_active_repo()
-        if repo:
-            from blink.tui.actions import copy_path
-            copy_path(repo.path)
-            app._scan_status = f"Copied: {repo.path}"
-            app._app.invalidate()
-            app._start_timer(5.0, app._clear_scan_status)
+    # ── Shift+5 (%) — push changes ────────────────────────────────────
 
-    @kb.add("R", filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
-    def _(event):
-        app._trigger_footer_highlight()
-        if not app._scanning:
-            app._start_background_scan()
-
-    @kb.add("C", filter=Condition(
+    @kb.add("%", filter=Condition(
         lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
     def _(event):
         app._trigger_footer_highlight()
@@ -276,7 +267,9 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         if repo:
             app._run_commit(repo)
 
-    @kb.add("U", filter=Condition(
+    # ── Shift+6 (^) — pull changes ────────────────────────────────────
+
+    @kb.add("^", filter=Condition(
         lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
     def _(event):
         app._trigger_footer_highlight()
@@ -284,31 +277,32 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         if repo:
             app._run_pull(repo)
 
-    # ── Shift+G — open in browser ────────────────────────────────────
+    # ── Shift+7 (&) — add todo task ──────────────────────────────────
 
-    @kb.add("G", filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
-    def _(event):
-        app._trigger_footer_highlight()
-        app._open_git_in_browser()
-
-    # ── Shift+T — add todo task ──────────────────────────────────────
-
-    @kb.add("T", filter=Condition(
+    @kb.add("&", filter=Condition(
         lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
     def _(event):
         app._trigger_footer_highlight()
         app._run_add_task()
 
-    # ── Shift+V — start review ────────────────────────────────────
+    # ── Shift+8 (*) — start review ────────────────────────────────────
 
-    @kb.add("V", filter=Condition(
+    @kb.add("*", filter=Condition(
         lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
     def _(event):
         app._trigger_footer_highlight()
         repo = app._get_active_repo()
         if repo:
             app._start_review_branch_select()
+
+    # ── Shift+R — rescan ─────────────────────────────────────────────
+
+    @kb.add("R", filter=Condition(
+        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+    def _(event):
+        app._trigger_footer_highlight()
+        if not app._scanning:
+            app._start_background_scan()
 
     # ── Shift+L — open last review report ─────────────────────────
 

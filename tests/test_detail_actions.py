@@ -112,13 +112,6 @@ def test_run_add_task_no_repo():
         mock_add.assert_not_called()
 
 
-def test_copy_repo_path_from_action():
-    app, store, rid, repo = _make_app()
-    with patch("blink.tui.app.copy_path", return_value=True) as mock_copy:
-        app._copy_repo_path()
-        mock_copy.assert_called_once_with(repo.path)
-
-
 def test_open_finder_from_action():
     app, store, rid, repo = _make_app()
     with patch("blink.tui.app.open_in_editor") as mock_open:
