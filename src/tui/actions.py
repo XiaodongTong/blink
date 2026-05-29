@@ -17,7 +17,7 @@ class EditorInfo:
         return self.command is not None
 
 
-IDE_CHOICES = [("v", "VSCode"), ("u", "Cursor"), ("a", "Antigravity")]
+IDE_CHOICES = [("v", "VSCode"), ("u", "Cursor"), ("a", "Antigravity IDE")]
 
 
 def detect_editors() -> Dict[str, EditorInfo]:
@@ -25,11 +25,11 @@ def detect_editors() -> Dict[str, EditorInfo]:
     for key, name, cmd in [
         ("v", "VSCode", "code"),
         ("u", "Cursor", "cursor"),
-        ("a", "Antigravity", None),
+        ("a", "Antigravity IDE", None),
         ("o", "default", None),
     ]:
         found = shutil.which(cmd) if cmd else None
-        if name == "Antigravity":
+        if name == "Antigravity IDE":
             found = shutil.which("open")
         if name == "default":
             found = shutil.which("open")
@@ -42,7 +42,7 @@ def open_in_editor(repo_path: str, editor_key: str, editors: Dict[str, EditorInf
     if info is None or not info.available:
         return
     if editor_key == "a":
-        subprocess.Popen(["open", "-a", "Antigravity", repo_path],
+        subprocess.Popen(["open", "-a", "Antigravity IDE", repo_path],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     elif editor_key == "o":
         subprocess.Popen(["open", repo_path],

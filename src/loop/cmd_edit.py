@@ -10,7 +10,7 @@ from blink.loop import config
 EDIT_HELP = """\
 Open ~/.blink/loop/tasks.yaml in your editor.
 
-Uses the same IDE selection as the TUI (VSCode, Cursor, Antigravity).
+Uses the same IDE selection as the TUI (VSCode, Cursor, Antigravity IDE).
 The choice is saved to ~/.blink/config.json as preferred_ide.
 
 Task file format (~/.blink/loop/tasks.yaml):
@@ -49,7 +49,7 @@ def _prompt_ide_choice():
     available = [(key, name) for key, name in IDE_CHOICES
                  if key in editors and editors[key].available]
     if not available:
-        print("No IDE found. Install VSCode, Cursor, or Antigravity.")
+        print("No IDE found. Install VSCode, Cursor, or Antigravity IDE.")
         return None
 
     print(f"{config.BOLD}Choose your IDE:{config.RESET}\n")
@@ -144,6 +144,11 @@ def handle(args):
 
     cfg = Config()
     editors = detect_editors()
+
+    if cfg.preferred_ide:
+        info = editors.get(cfg.preferred_ide)
+        if not info or not info.available:
+            cfg.set("preferred_ide", None)
 
     if not cfg.preferred_ide:
         _prompt_ide_choice()

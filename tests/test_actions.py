@@ -15,7 +15,7 @@ def test_detect_editors_keys() -> None:
     assert "o" in editors
     assert editors["v"].name == "VSCode"
     assert editors["u"].name == "Cursor"
-    assert editors["a"].name == "Antigravity"
+    assert editors["a"].name == "Antigravity IDE"
     assert editors["o"].name == "default"
 
 
