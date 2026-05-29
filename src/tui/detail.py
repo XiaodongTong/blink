@@ -474,7 +474,7 @@ class DetailPanel(UIControl):
         action_idx = 0
         for g, group in enumerate(self._ACTION_GROUPS):
             if g > 0:
-                lines.append([("class:detail-sep-dim", "          ──────")])
+                lines.append([("class:detail-sep", "─" * width)])
             for label, desc in group:
                 is_sel = (cur == action_idx) and self._focused
                 lines.append(self._build_action_line(label, desc, is_sel, width, index=action_idx, max_desc_len=max_desc_len))
