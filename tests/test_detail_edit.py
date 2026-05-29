@@ -60,7 +60,7 @@ def test_cursor_down_at_max():
     panel = _make_detail_panel()
     for _ in range(15):
         panel.cursor_down()
-    assert panel._cursor_index == 10
+    assert panel._cursor_index == 11
 
 
 def test_cursor_up_at_zero():
@@ -79,12 +79,12 @@ def test_cursor_blocked_during_edit():
 def test_cursor_navigates_full_range():
     panel = _make_detail_panel()
     assert panel._cursor_index == 0
-    for expected in range(1, 11):
+    for expected in range(1, 12):
         panel.cursor_down()
         assert panel._cursor_index == expected
     panel.cursor_down()
-    assert panel._cursor_index == 10
-    for expected in range(9, -1, -1):
+    assert panel._cursor_index == 11
+    for expected in range(10, -1, -1):
         panel.cursor_up()
         assert panel._cursor_index == expected
     panel.cursor_up()

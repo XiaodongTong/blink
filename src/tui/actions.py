@@ -64,3 +64,54 @@ def copy_path(repo_path: str) -> bool:
         return proc.returncode == 0
     except (subprocess.SubprocessError, OSError):
         return False
+
+
+def open_terminal(repo_path: str) -> bool:
+    """Open a new terminal window at the given path.
+
+    Supports iTerm2 and macOS Terminal.app. Returns True on success.
+    """
+    # Try iTerm2 first
+    iterm_script = f'''
+    tell application "iTerm2"
+        activate
+        set newWindow to (create window with default profile)
+        tell current session of newWindow
+            write text "cd {repo_path}"
+        end tell
+    end tell
+    '''
+    try:
+        subprocess.run(
+            ["osascript", "-e", iterm_script],
+            check=True, capture_output=True, timeout=5,
+        )
+        return True
+    except (subprocess.SubprocessError, OSError):
+        pass
+
+    # Fallback to macOS Terminal.app
+    terminal_script = f'''
+    tell application "Terminal"
+        activate
+        do script "cd {repo_path}"
+    end tell
+    '''
+    try:
+        subprocess.run(
+            ["osascript", "-e", terminal_script],
+            check=True, capture_output=True, timeout=5,
+        )
+        return True
+    except (subprocess.SubprocessError, OSError):
+        pass
+
+    # Last resort: open -a Terminal
+    try:
+        subprocess.Popen(
+            ["open", "-a", "Terminal", repo_path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        return True
+    except (subprocess.SubprocessError, OSError):
+        return False

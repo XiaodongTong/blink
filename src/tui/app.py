@@ -20,7 +20,7 @@ from blink.store import Store
 from blink.scanner import Scanner, ScanResult, StatusFetcher, check_pull_prereqs, parse_pull_output
 from blink.tui.repo_list import RepoListControl
 from blink.tui.search import SearchBar
-from blink.tui.actions import EditorInfo, IDE_CHOICES, copy_path, detect_editors, open_in_editor
+from blink.tui.actions import EditorInfo, IDE_CHOICES, copy_path, detect_editors, open_in_editor, open_terminal
 from blink.tui.detail import DetailPanel, _remote_to_https
 from blink.tui.styles import build_style
 from blink.tui.layout import build_layout, EditStatusControl
@@ -180,6 +180,7 @@ class BlinkApp:
             on_open_git=lambda: self._open_git_in_browser(),
             on_add_task=lambda: self._run_add_task(),
             on_review=lambda: self._start_review_branch_select(),
+            on_open_terminal=lambda: self._open_terminal(),
         )
 
     def _sync_detail_panel(self) -> None:
@@ -210,6 +211,14 @@ class BlinkApp:
         repo = self._get_active_repo()
         if repo:
             open_in_editor(repo.path, "o", self._editors)
+
+    def _open_terminal(self) -> None:
+        repo = self._get_active_repo()
+        if repo:
+            if open_terminal(repo.path):
+                self._set_scan_status(f"✓ 已打开终端: {repo.path}")
+            else:
+                self._set_scan_status("✗ 无法打开终端")
 
     def _open_git_in_browser(self) -> None:
         repo = self._get_active_repo()

@@ -241,6 +241,14 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
             from blink.tui.actions import open_in_editor
             open_in_editor(repo.path, "o", app._editors)
 
+    # ── Shift+E — open terminal here ──────────────────────────────────
+
+    @kb.add("E", filter=Condition(
+        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+    def _(event):
+        app._trigger_footer_highlight()
+        app._open_terminal()
+
     @kb.add("P", filter=Condition(
         lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
     def _(event):

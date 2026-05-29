@@ -251,9 +251,9 @@ def test_detail_metadata_displayed():
 def test_detail_local_markers_have_cursor():
     panel = _make_panel()
     panel._cursor_index = DetailPanel.LINE_PINNED
-    assert panel._cursor_index == 7
+    assert panel._cursor_index == 8
     panel._cursor_index = DetailPanel.LINE_DESC
-    assert panel._cursor_index == 10
+    assert panel._cursor_index == 11
 
 
 def test_detail_shortcuts_displayed():

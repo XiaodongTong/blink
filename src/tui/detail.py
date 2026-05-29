@@ -27,19 +27,20 @@ def _remote_to_https(url: str) -> str | None:
 
 
 class DetailPanel(UIControl):
-    # Cursor-navigable rows: Actions (0–6) + Local Markers (7–10)
+    # Cursor-navigable rows: Actions (0–7) + Local Markers (8–11)
     LINE_IDE = 0
     LINE_GIT = 1
     LINE_COMMIT = 2
     LINE_TASK = 3
     LINE_FINDER = 4
-    LINE_REVIEW = 5
-    LINE_PATH = 6
-    LINE_PINNED = 7
-    LINE_ALIAS = 8
-    LINE_TAGS = 9
-    LINE_DESC = 10
-    MAX_LINE = 10
+    LINE_TERMINAL = 5
+    LINE_REVIEW = 6
+    LINE_PATH = 7
+    LINE_PINNED = 8
+    LINE_ALIAS = 9
+    LINE_TAGS = 10
+    LINE_DESC = 11
+    MAX_LINE = 11
 
     _ACTION_SHORTCUTS: dict[int, str] = {
         0: "Shift+I",
@@ -47,8 +48,9 @@ class DetailPanel(UIControl):
         2: "Shift+C",
         3: "Shift+T",
         4: "Shift+O",
-        5: "Shift+V",
-        6: "Shift+P",
+        5: "Shift+E",
+        6: "Shift+V",
+        7: "Shift+P",
     }
 
     _ACTION_ITEMS = [
@@ -57,6 +59,7 @@ class DetailPanel(UIControl):
         ("Commit    ", "Auto Commit Changes"),
         ("Task      ", "Add todo task"),
         ("Finder    ", "Open in Finder"),
+        ("Terminal  ", "Open Terminal Here"),
         ("Review    ", "AI Code Review"),
         ("Path      ", "Copy repo path"),
     ]
@@ -74,7 +77,8 @@ class DetailPanel(UIControl):
                  on_open_finder: Callable[[], None] = lambda: None,
                  on_open_git: Callable[[], None] = lambda: None,
                  on_add_task: Callable[[], None] = lambda: None,
-                 on_review: Callable[[], None] = lambda: None) -> None:
+                 on_review: Callable[[], None] = lambda: None,
+                 on_open_terminal: Callable[[], None] = lambda: None) -> None:
         self._repo = repo
         self._store = store
         self._editors = editors
@@ -92,6 +96,7 @@ class DetailPanel(UIControl):
         self._on_open_git = on_open_git
         self._on_add_task = on_add_task
         self._on_review = on_review
+        self._on_open_terminal = on_open_terminal
 
         self._cursor_index = 0
         self._focused = False
@@ -159,6 +164,8 @@ class DetailPanel(UIControl):
             self._on_commit()
         elif line == self.LINE_FINDER:
             self._on_open_finder()
+        elif line == self.LINE_TERMINAL:
+            self._on_open_terminal()
         elif line == self.LINE_GIT:
             self._on_open_git()
         elif line == self.LINE_TASK:

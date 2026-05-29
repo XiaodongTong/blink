@@ -98,13 +98,14 @@ def test_detail_panel_line_constants():
     assert DetailPanel.LINE_COMMIT == 2
     assert DetailPanel.LINE_TASK == 3
     assert DetailPanel.LINE_FINDER == 4
-    assert DetailPanel.LINE_REVIEW == 5
-    assert DetailPanel.LINE_PATH == 6
-    assert DetailPanel.LINE_PINNED == 7
-    assert DetailPanel.LINE_ALIAS == 8
-    assert DetailPanel.LINE_TAGS == 9
-    assert DetailPanel.LINE_DESC == 10
-    assert DetailPanel.MAX_LINE == 10
+    assert DetailPanel.LINE_TERMINAL == 5
+    assert DetailPanel.LINE_REVIEW == 6
+    assert DetailPanel.LINE_PATH == 7
+    assert DetailPanel.LINE_PINNED == 8
+    assert DetailPanel.LINE_ALIAS == 9
+    assert DetailPanel.LINE_TAGS == 10
+    assert DetailPanel.LINE_DESC == 11
+    assert DetailPanel.MAX_LINE == 11
 
 
 def test_detail_panel_action_line_constants():
@@ -329,7 +330,7 @@ def test_no_static_shortcut_hints_section():
 
 
 def test_marker_cursor_indices():
-    assert DetailPanel.LINE_PINNED == 7
-    assert DetailPanel.LINE_ALIAS == 8
-    assert DetailPanel.LINE_TAGS == 9
-    assert DetailPanel.LINE_DESC == 10
+    assert DetailPanel.LINE_PINNED == 8
+    assert DetailPanel.LINE_ALIAS == 9
+    assert DetailPanel.LINE_TAGS == 10
+    assert DetailPanel.LINE_DESC == 11

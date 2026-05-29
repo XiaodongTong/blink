@@ -121,6 +121,7 @@ def build_footer_text(app: BlinkApp) -> FormattedText:
     hints = [
         ("Enter", "ide"), ("/", "search"),
         ("Tab", "focus"),
+        ("Shift+E", "terminal"),
         ("Shift+G", "git"),
         ("Shift+T", "task"),
         ("Shift+R", "rescan"),

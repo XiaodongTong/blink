@@ -162,7 +162,7 @@ def _make_detail_panel(repo=None):
 
 
 def test_detail_panel_has_action_and_marker_lines():
-    assert DetailPanel.MAX_LINE == 10
+    assert DetailPanel.MAX_LINE == 11
     assert hasattr(DetailPanel, "LINE_PINNED")
     assert hasattr(DetailPanel, "LINE_ALIAS")
     assert hasattr(DetailPanel, "LINE_TAGS")
@@ -174,16 +174,17 @@ def test_detail_panel_has_action_and_marker_lines():
     assert hasattr(DetailPanel, "LINE_GIT")
     assert hasattr(DetailPanel, "LINE_TASK")
     assert hasattr(DetailPanel, "LINE_REVIEW")
+    assert hasattr(DetailPanel, "LINE_TERMINAL")
 
 
 def test_detail_panel_action_line_constants():
     assert DetailPanel.LINE_IDE == 0
-    assert DetailPanel.LINE_PATH == 6
+    assert DetailPanel.LINE_PATH == 7
     assert DetailPanel.LINE_COMMIT == 2
     assert DetailPanel.LINE_FINDER == 4
     assert DetailPanel.LINE_GIT == 1
     assert DetailPanel.LINE_TASK == 3
-    assert DetailPanel.LINE_REVIEW == 5
+    assert DetailPanel.LINE_REVIEW == 6
 
 
 # ── Shortcut passthrough filter ──────────────────────────────────────────
