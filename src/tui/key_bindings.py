@@ -169,6 +169,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
             app._search_filtering = True
         app._set_focus("list")
         app._app.layout.focus(app._repo_list_window)
+        app._repo_control.move_down()
+        app._sync_detail_panel()
         app._app.invalidate()
         return
 
