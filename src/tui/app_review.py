@@ -92,17 +92,16 @@ class ReviewOrchestrator:
 
         def do_review():
             from blink.loop.cmd_review import run_review
+            from blink.loop.review_report import ReviewResult
             from blink.loop import git_ops
             from blink import logger
 
             dir_path = repo.path
             base = git_ops.detect_main_branch(dir_path)
             if not base:
-                from blink.loop.cmd_review import ReviewResult
                 return ReviewResult(False, error="✗ 无法检测主分支，请用 CLI --against 指定")
 
             if not git_ops.branch_exists(dir_path, branch):
-                from blink.loop.cmd_review import ReviewResult
                 return ReviewResult(False, error=f"✗ 分支 '{branch}' 不存在")
 
             logger.log("review", f"TUI review 开始: branch={branch}, base={base}, dir={dir_path}")

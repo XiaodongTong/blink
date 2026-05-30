@@ -8,13 +8,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from blink.loop import git_ops
-from blink.loop.cmd_review import (
-    ReviewResult,
-    cleanup_review_branch,
-    handle,
-    run_review,
-    save_report,
-)
+from blink.loop.cmd_review import cleanup_review_branch, handle, run_review
+from blink.loop.review_report import ReviewResult, save_report
 
 
 def _init_git_repo(path, initial_branch="main"):
