@@ -33,14 +33,11 @@ blink = "blink.cli:main"
 [project.urls]
 Homepage = "https://github.com/russell/blink"
 
-[tool.setuptools]
-packages = ["blink", "blink.tui", "blink.loop", "blink.loop.runner"]
-
-[tool.setuptools.package-dir]
-blink = "src"
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pyrefly]
-search_path = ["src/..."]
+search_path = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
