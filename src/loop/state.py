@@ -26,6 +26,14 @@ def get_status_icon(status):
     )
 
 
+def has_running_tasks() -> bool:
+    state = load_state()
+    return any(
+        ts.get("status") == "running"
+        for ts in state.get("tasks", {}).values()
+    )
+
+
 def show_status(tasks, state):
     if not tasks:
         print("  (no tasks)")
@@ -42,6 +50,12 @@ def show_status(tasks, state):
             extra = "  (see logs/)"
         print(f"  {icon}  [{i + 1}] {name}{config.RESET}  {config.CYAN}{status}{config.RESET}{extra}")
     print()
+
+    if config.NEXT_TASKS_FILE.exists():
+        next_data = yaml.safe_load(config.NEXT_TASKS_FILE.read_text()) or {}
+        next_tasks = next_data.get("tasks", [])
+        if next_tasks:
+            print(f"  📋 {len(next_tasks)} task(s) queued in tasks-next.yaml")
 
 
 def archive_completed_tasks(config_data, state):

@@ -189,14 +189,17 @@ class AppActionsMixin:
         def do_add_task():
             try:
                 from blink.loop.cmd_edit import _add_task
-                from blink.loop.config import TASKS_FILE
+                from blink.loop.state import has_running_tasks
+                from blink.loop.config import TASKS_FILE, NEXT_TASKS_FILE
                 logger.log("task", f"添加任务: path={repo.path}")
-                msg = _add_task(repo.path)
+                target = NEXT_TASKS_FILE if has_running_tasks() else None
+                msg = _add_task(repo.path, target_file=target)
                 if msg:
                     logger.log("task", f"任务添加成功: {msg}")
-                    task_file = str(TASKS_FILE)
+                    task_file = str(target or TASKS_FILE)
+                    suffix = " (排队等待)" if target else ""
                     self._start_timer(0.1, lambda: (
-                        self._set_scan_status(f"✓ {msg}", timeout=2.0),
+                        self._set_scan_status(f"✓ {msg}{suffix}", timeout=2.0),
                         self._open_with_ide(task_file),
                     ))
                 else:

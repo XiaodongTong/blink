@@ -2,6 +2,8 @@
 
 import sys
 
+import yaml
+
 from blink.loop import config
 from blink.loop.config import ensure_tloop_home, load_config
 from blink.loop.state import load_state, save_state, show_status, archive_completed_tasks
@@ -27,6 +29,16 @@ def handle(args):
     tasks = cfg.get("tasks", [])
 
     if not tasks:
+        if config.NEXT_TASKS_FILE.exists():
+            next_data = yaml.safe_load(config.NEXT_TASKS_FILE.read_text()) or {}
+            next_tasks = next_data.get("tasks", [])
+            if next_tasks:
+                cfg["tasks"] = next_tasks
+                content = yaml.dump(cfg, default_flow_style=False, allow_unicode=True)
+                config.TASKS_FILE.write_text(config.TASKS_YAML_HEADER + content)
+                config.NEXT_TASKS_FILE.unlink()
+                print(f"{config.GREEN}Migrated {len(next_tasks)} task(s) from tasks-next.yaml{config.RESET}")
+                return handle(args)
         print("No tasks defined in tasks.yaml")
         sys.exit(0)
 
@@ -71,3 +83,17 @@ def handle(args):
         show_status(tasks, state)
 
     archive_completed_tasks(cfg, state)
+
+    if config.NEXT_TASKS_FILE.exists():
+        next_data = yaml.safe_load(config.NEXT_TASKS_FILE.read_text()) or {}
+        next_tasks = next_data.get("tasks", [])
+        if next_tasks:
+            cur_data = load_config()
+            cur_tasks = cur_data.get("tasks", [])
+            cur_tasks.extend(next_tasks)
+            cur_data["tasks"] = cur_tasks
+            content = yaml.dump(cur_data, default_flow_style=False, allow_unicode=True)
+            config.TASKS_FILE.write_text(config.TASKS_YAML_HEADER + content)
+            config.NEXT_TASKS_FILE.unlink()
+            print(f"{config.GREEN}Migrated {len(next_tasks)} task(s) from tasks-next.yaml{config.RESET}")
+            return handle(args)

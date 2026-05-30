@@ -81,21 +81,24 @@ def add_parser(subparsers):
     p.set_defaults(func=handle)
 
 
-def _add_task(path):
-    """Append a guided task entry with dir=path to tasks.yaml."""
+def _add_task(path, target_file=None):
+    """Append a guided task entry with dir=path. target_file defaults to TASKS_FILE."""
+    target = target_file or config.TASKS_FILE
     config.TLOOP_HOME.mkdir(exist_ok=True)
     if not config.TASKS_FILE.exists():
         config.TASKS_FILE.write_text(config.SAMPLE_TASKS_YAML)
+    if target != config.TASKS_FILE and not target.exists():
+        target.write_text(config.SAMPLE_TASKS_YAML)
 
     try:
-        data = yaml.safe_load(config.TASKS_FILE.read_text()) or {}
+        data = yaml.safe_load(target.read_text()) or {}
     except yaml.YAMLError:
         data = {}
 
     tasks = data.get("tasks") or []
     task_num = len(tasks) + 1
 
-    raw = config.TASKS_FILE.read_text()
+    raw = target.read_text()
 
     # Detect indentation of existing task entries (default: 2 spaces)
     indent = "  "
@@ -124,7 +127,7 @@ def _add_task(path):
     else:
         raw = stripped + "\n\n" + new_entry
 
-    config.TASKS_FILE.write_text(raw + "\n")
+    target.write_text(raw + "\n")
     return f"Added task 'Task {task_num}' with dir={path}"
 
 
@@ -134,9 +137,12 @@ def handle(args):
 
     add_path = getattr(args, "add_path", None)
     if add_path:
-        msg = _add_task(add_path)
+        from blink.loop.state import has_running_tasks
+        target = config.NEXT_TASKS_FILE if has_running_tasks() else None
+        msg = _add_task(add_path, target_file=target)
         if msg:
-            print(f"{config.GREEN}{msg}{config.RESET}")
+            suffix = " → tasks-next.yaml (有任务运行中，排队等待)" if target else ""
+            print(f"{config.GREEN}{msg}{suffix}{config.RESET}")
 
     config.TLOOP_HOME.mkdir(exist_ok=True)
     if not config.TASKS_FILE.exists():

@@ -7,6 +7,7 @@ import yaml
 
 TLOOP_HOME = Path.home() / ".blink" / "loop"
 TASKS_FILE = TLOOP_HOME / "tasks.yaml"
+NEXT_TASKS_FILE = TLOOP_HOME / "tasks-next.yaml"
 STATE_FILE = TLOOP_HOME / "state.json"
 SETTINGS_FILE = TLOOP_HOME / "settings.json"
 LOGS_DIR = TLOOP_HOME / "logs"

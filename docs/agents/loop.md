@@ -40,10 +40,11 @@ state.py ─── 更新状态 + 归档已完成任务
 
 ```
 ~/.blink/loop/
-  tasks.yaml     — 任务定义
-  state.json     — 运行时状态（任务执行结果）
-  logs/          — 结构化执行日志（YYYYMMDD-HHMMSS-任务名.log）
-  archive/       — 已完成任务的归档（run-YYYYMMDD-HHMMSS.yaml）
+  tasks.yaml         — 任务定义
+  tasks-next.yaml    — 运行中任务队列缓冲（有任务运行时，新增任务写入此文件）
+  state.json         — 运行时状态（任务执行结果）
+  logs/              — 结构化执行日志（YYYYMMDD-HHMMSS-任务名.log）
+  archive/           — 已完成任务的归档（run-YYYYMMDD-HHMMSS.yaml）
 ```
 
 ## 任务配置（tasks.yaml）
@@ -157,6 +158,18 @@ class Runner(ABC):
 1. 已完成任务从 tasks.yaml 移除，移入 `archive/run-YYYYMMDD-HHMMSS.yaml`
 2. state.json 重置
 3. 失败和 pending 任务保留在 tasks.yaml 中
+4. 若 `tasks-next.yaml` 存在且有排队任务，迁移到 tasks.yaml 并递归执行
+
+### 任务队列缓冲（tasks-next.yaml）
+
+当有任务正在运行时，通过 `blink edit --add` 或 TUI "Add todo task" 新增的任务会写入 `tasks-next.yaml` 而非 `tasks.yaml`，避免干扰当前运行批次。
+
+流程：
+1. 新增任务时检测 `state.json` 中是否有 `status == "running"` 的任务
+2. 有 → 写入 `tasks-next.yaml`（提示 "排队等待"）
+3. 无 → 正常写入 `tasks.yaml`
+4. 当前批次完成后，`tasks-next.yaml` 中的任务自动迁移到 `tasks.yaml` 并触发新一轮执行
+5. `blink run -s` 显示排队任务数量
 
 ## Git 安全机制
 

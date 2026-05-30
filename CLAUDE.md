@@ -111,6 +111,6 @@ uv build                   # 构建分发包
 ~/.blink/
   config.json     — 用户配置
   blink.db        — SQLite 数据库
-  loop/           — 任务系统（tasks.yaml, state.json, logs/, archive/）
+  loop/           — 任务系统（tasks.yaml, tasks-next.yaml, state.json, logs/, archive/）
   logs/           — 应用日志（blink-YYYY-MM-DD.log）
 ```

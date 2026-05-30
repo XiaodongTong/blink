@@ -91,10 +91,11 @@ def test_open_git_in_browser_https_url():
 
 def test_run_add_task_calls_internal():
     app, store, rid, repo = _make_app()
-    with patch("blink.loop.cmd_edit._add_task") as mock_add:
+    with patch("blink.loop.cmd_edit._add_task") as mock_add, \
+         patch("blink.loop.state.has_running_tasks", return_value=False):
         app._run_add_task()
         import time; time.sleep(0.3)
-        mock_add.assert_called_once_with(repo.path)
+        mock_add.assert_called_once_with(repo.path, target_file=None)
 
 
 def test_run_add_task_handles_error():
