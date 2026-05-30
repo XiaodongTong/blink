@@ -48,6 +48,7 @@ def _make_app():
     app._app = MagicMock()
     app._ide_selecting = False
     app._ide_select_cursor = 0
+    app._ide_scroll_offset = 0
     app._ide_pending_path = None
     app._committing_paths = set()
     app._pulling_paths = set()

@@ -64,6 +64,7 @@ class BlinkApp(AppActionsMixin):
 
         self._ide_selecting: bool = False
         self._ide_select_cursor: int = 0
+        self._ide_scroll_offset: int = 0
         self._ide_pending_path: Optional[str] = None
         self._committing_paths: set[str] = set()
         self._pulling_paths: set[str] = set()
@@ -131,11 +132,13 @@ class BlinkApp(AppActionsMixin):
                 self._ide_pending_path = path
                 self._ide_selecting = True
                 self._ide_select_cursor = 0
+                self._ide_scroll_offset = 0
                 self._app.invalidate()
         else:
             self._ide_pending_path = path
             self._ide_selecting = True
             self._ide_select_cursor = 0
+            self._ide_scroll_offset = 0
             self._app.invalidate()
 
     def _trigger_open_ide(self, repo: Repo) -> None:

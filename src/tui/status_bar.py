@@ -5,24 +5,112 @@ from typing import TYPE_CHECKING
 
 from prompt_toolkit.formatted_text import FormattedText
 
+from blink.models import display_width
+
 if TYPE_CHECKING:
     from blink.tui.app import BlinkApp
 
 
+def _build_ide_select_status(app: BlinkApp) -> FormattedText:
+    opts = app._ide_options()
+    if not opts:
+        return FormattedText([])
+
+    try:
+        total_width = app._app.output.get_size().columns
+    except Exception:
+        total_width = 120
+
+    prefix = " Select IDE:  "
+    suffix = "    ←→:选择  Enter:确认  Esc:取消"
+    prefix_w = display_width(prefix)
+    suffix_w = display_width(suffix)
+    available = max(0, total_width - prefix_w - suffix_w)
+
+    cursor = app._ide_select_cursor
+    n = len(opts)
+
+    def _item_w(idx: int) -> int:
+        return 2 + display_width(opts[idx][1])
+
+    def _build_window(start: int) -> tuple[list[int], int, bool, bool]:
+        has_left = start > 0
+        used = 2 if has_left else 0
+        indices: list[int] = []
+        for i in range(start, n):
+            sep = 2 if indices else 0
+            iw = sep + _item_w(i)
+            if used + iw > available:
+                break
+            used += iw
+            indices.append(i)
+        has_right = bool(indices) and indices[-1] + 1 < n
+        if has_right and used + 2 > available:
+            if len(indices) > 1:
+                last = indices.pop()
+                used -= (2 + _item_w(last))
+            else:
+                has_right = False
+        return indices, used, has_left, has_right
+
+    offset = max(0, min(app._ide_scroll_offset, n - 1))
+    indices, used, has_left, has_right = _build_window(offset)
+
+    if not indices:
+        offset = max(0, min(cursor, n - 1))
+        indices = [offset]
+        has_left = offset > 0
+        has_right = offset < n - 1
+    elif cursor < indices[0]:
+        while offset > 0 and (not indices or cursor < indices[0]):
+            offset -= 1
+            indices, used, has_left, has_right = _build_window(offset)
+        if not indices or cursor < indices[0]:
+            offset = cursor
+            indices = [cursor]
+            has_left = cursor > 0
+            has_right = cursor < n - 1
+    elif cursor > indices[-1]:
+        while offset < n - 1 and (not indices or cursor > indices[-1]):
+            offset += 1
+            indices, used, has_left, has_right = _build_window(offset)
+        if not indices or cursor > indices[-1]:
+            offset = cursor
+            indices = [cursor]
+            has_left = cursor > 0
+            has_right = cursor < n - 1
+
+    # Expand leftward if space allows (handles terminal widening)
+    while offset > 0:
+        t_idx, _, _, _ = _build_window(offset - 1)
+        if t_idx and cursor in t_idx:
+            offset -= 1
+            indices, used, has_left, has_right = _build_window(offset)
+        else:
+            break
+
+    app._ide_scroll_offset = offset
+
+    parts: list[tuple[str, str]] = [("class:status-label", prefix)]
+    if has_left:
+        parts.append(("class:status-dim", "‹ "))
+    for pos, i in enumerate(indices):
+        if pos > 0:
+            parts.append(("class:status-dim", "  "))
+        _, name = opts[i]
+        if i == cursor:
+            parts.append(("class:status-accent", f"▸ {name}"))
+        else:
+            parts.append(("class:status-dim", f"  {name}"))
+    if has_right:
+        parts.append(("class:status-dim", " ›"))
+    parts.append(("class:status-dim", suffix))
+    return FormattedText(parts)
+
+
 def build_status_text(app: BlinkApp) -> FormattedText:
     if app._ide_selecting:
-        opts = app._ide_options()
-        parts: list[tuple[str, str]] = [("class:status-label", " Select IDE:  ")]
-        for i, (key, name) in enumerate(opts):
-            if i > 0:
-                parts.append(("class:status-dim", "  "))
-            if i == app._ide_select_cursor:
-                parts.append(("class:status-accent", f"▸ {name}"))
-            else:
-                parts.append(("class:status-dim", f"  {name}"))
-        parts.append(("class:status-dim", "    "))
-        parts.append(("class:footer-dim", "←→:选择  Enter:确认  Esc:取消"))
-        return FormattedText(parts)
+        return _build_ide_select_status(app)
     if app._pulling_paths:
         return FormattedText([("class:status-label", " 正在拉取...")])
     if app._review.branch_loading:
