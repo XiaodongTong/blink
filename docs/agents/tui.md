@@ -56,6 +56,8 @@ TUI Review 编排（`ReviewOrchestrator` 类）：
 
 ## repo_list.py
 
+> 已移至 `widgets/repo_list.py`。
+
 自定义 `UIControl` / `Window`，两行式列表渲染：
 
 - 第一行 = 指示符（`▸` 选中 / 空格 普通）+ `★`（置顶）+ 名称/别名 + 标签
@@ -65,6 +67,8 @@ TUI Review 编排（`ReviewOrchestrator` 类）：
 - 徽标使用 `display_width()` 做 CJK 宽度计算
 
 ## search.py
+
+> 已移至 `widgets/search.py`。
 
 `SearchBar` 封装 `prompt_toolkit.Buffer`，通过 `ConditionalContainer` 控制可见性。
 
@@ -79,6 +83,8 @@ TUI Review 编排（`ReviewOrchestrator` 类）：
 - TUI 和 CLI（`blink edit`）共用
 
 ## detail.py — DetailPanel 类
+
+> 已移至 `widgets/detail.py`，编辑逻辑在 `widgets/detail_edit.py`。
 
 三区布局渲染仓库信息：
 

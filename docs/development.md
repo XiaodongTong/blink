@@ -60,15 +60,26 @@ src/
     search.py         搜索栏
     actions.py        IDE 检测/启动、剪贴板
     icons.py          Nerd Font 图标常量
+    widgets/          UI 控件
+      detail.py       详情面板
+      detail_edit.py  详情面板编辑 mixin
+      repo_list.py    两行式列表控件
+      search.py       搜索栏控件
   loop/               Loop 任务引擎
     cmd_run.py        run 子命令
     cmd_edit.py       edit 子命令
     cmd_commit.py     commit 子命令
     cmd_log.py        log 子命令
-    cmd_review.py     review 子命令
     task.py           任务编排
     state.py          状态管理
     git_ops.py        Git 操作
+    review/           Code Review 子系统
+      cmd.py          review 子命令
+      context.py      review 上下文收集
+      report.py       报告持久化
+      analyzer.py     静态分析
+      tester.py       测试执行
+      verifier.py     验证 pass
     runner/           Runner 抽象
 tests/                测试文件
 docs/                 文档

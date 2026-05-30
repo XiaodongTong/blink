@@ -60,15 +60,26 @@ src/
     search.py         Search bar
     actions.py        IDE detection/launch, clipboard
     icons.py          Nerd Font icon constants
+    widgets/          UI widgets
+      detail.py       Detail panel
+      detail_edit.py  Detail panel edit mixin
+      repo_list.py    Two-line list control
+      search.py       Search bar control
   loop/               Loop task engine
     cmd_run.py        run subcommand
     cmd_edit.py       edit subcommand
     cmd_commit.py     commit subcommand
     cmd_log.py        log subcommand
-    cmd_review.py     review subcommand
     task.py           Task orchestration
     state.py          State management
     git_ops.py        Git operations
+    review/           Code Review subsystem
+      cmd.py          review subcommand
+      context.py      review context collection
+      report.py       report persistence
+      analyzer.py     static analysis
+      tester.py       test execution
+      verifier.py     verification pass
     runner/           Runner abstractions
 tests/                Test files
 docs/                 Documentation

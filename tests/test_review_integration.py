@@ -47,7 +47,7 @@ class TestHandleIntegration:
         _checkout(repo, "main")
 
         mock_output = "VERDICT: APPROVE\n## Summary\nLGTM\n## Issues\nNone found.\n"
-        with patch("blink.loop.cmd_review.run_claude_text", return_value=mock_output):
+        with patch("blink.loop.review.cmd.run_claude_text", return_value=mock_output):
             args = MagicMock(
                 list=False, init_rules=False, branch="feature/test",
                 dir=repo, against=None, diff_only=True, model="sonnet",
@@ -105,7 +105,7 @@ class TestHandleIntegration:
         _commit_file(repo, "b.txt", "world")
         _checkout(repo, "main")
 
-        with patch("blink.loop.cmd_review.run_claude_text", return_value=None):
+        with patch("blink.loop.review.cmd.run_claude_text", return_value=None):
             args = MagicMock(
                 list=False, init_rules=False, branch="feature/x",
                 dir=repo, against=None, diff_only=True, model="sonnet",
@@ -411,7 +411,7 @@ class TestRunReview:
 
         mock_output = "VERDICT: APPROVE\n## Summary\nLGTM\n"
         stages = []
-        with patch("blink.loop.cmd_review.run_claude_text", return_value=mock_output):
+        with patch("blink.loop.review.cmd.run_claude_text", return_value=mock_output):
             result = run_review(
                 repo, "feature/test", "main",
                 diff_only=True,
@@ -453,7 +453,7 @@ class TestRunReview:
         _commit_file(repo, "b.txt", "world")
         _checkout(repo, "main")
 
-        with patch("blink.loop.cmd_review.run_claude_text", return_value=None):
+        with patch("blink.loop.review.cmd.run_claude_text", return_value=None):
             result = run_review(
                 repo, "feature/x", "main",
                 diff_only=True,
@@ -473,7 +473,7 @@ class TestRunReview:
         _checkout(repo, "main")
 
         mock_output = "VERDICT: APPROVE\n## Summary\nOK\n"
-        with patch("blink.loop.cmd_review.run_claude_text", return_value=mock_output):
+        with patch("blink.loop.review.cmd.run_claude_text", return_value=mock_output):
             result = run_review(
                 repo, "feature/x", "main",
                 diff_only=False,

@@ -78,17 +78,21 @@ CLI blink edit --add PATH → _add_task() → 打开 IDE
 | `claude_runner.py` | `run_claude()` / `run_claude_text()` 封装 Claude CLI |
 | `review.py` | Post-task 代码自审：diff → Claude 自评 |
 | `task.py` | `run_task()`：auto-commit → 分支 → runner 选择 → 状态更新 |
-| `cmd_*.py` | CLI 子命令处理（run/edit/commit/log/review） |
-| `review_analyzer.py` | 静态分析集成 — 检测项目语言、运行 linter、过滤 diff 相关输出 |
-| `review_tester.py` | 测试运行器 — 检测并执行项目测试套件（pytest/npm test/go test/cargo test 等） |
-| `review_verifier.py` | 验证 pass — 对初始审查发现逐条验证，过滤误报，交叉验证 lint 结果 |
+| `cmd_*.py` | CLI 子命令处理（run/edit/commit/log） |
+| `review/` | Code Review 子系统（cmd/context/report/analyzer/tester/verifier） |
+| `review/cmd.py` | Review CLI 入口 + 核心逻辑（收集上下文、构建 prompt、解析结果、保存报告） |
+| `review/context.py` | Review 上下文收集（diff/log/stat/rules）+ prompt 构建 + 代码上下文丰富 |
+| `review/report.py` | ReviewResult 数据类 + 报告持久化 + VERDICT 解析 |
+| `review/analyzer.py` | 静态分析集成 — 检测项目语言、运行 linter、过滤 diff 相关输出 |
+| `review/tester.py` | 测试运行器 — 检测并执行项目测试套件（pytest/npm test/go test/cargo test 等） |
+| `review/verifier.py` | 验证 pass — 对初始审查发现逐条验证，过滤误报，交叉验证 lint 结果 |
 | `runner/` | `Runner` ABC + `ClaudeRunner`/`CybervisorRunner` 实现 |
 
 ## Code Review 详细规则
 
 - 三层上下文：diff + 临时合并分支 + 项目规则（`docs/blink/review-rules.md`）
-- 增强分析（可选）：静态分析（`review_analyzer.py`）、测试执行（`review_tester.py`）、代码上下文丰富
-- 验证 pass（`review_verifier.py`）：对初始审查发现逐条验证，过滤误报，交叉验证 lint 结果
+- 增强分析（可选）：静态分析（`review/analyzer.py`）、测试执行（`review/tester.py`）、代码上下文丰富
+- 验证 pass（`review/verifier.py`）：对初始审查发现逐条验证，过滤误报，交叉验证 lint 结果
 - CLI 参数：`--no-verify` / `--no-lint` / `--no-test` / `--no-context` / `--strict`
 - 报告中文输出（`REVIEW_PROMPT`），VERDICT 关键词保留英文供 `parse_verdict()` 正则匹配
 - Anti-hallucination 设计：限定 diff 范围、要求证据引用（`**依据**`）、`[疑似]` 标签降级、排除风格/命名/注释
