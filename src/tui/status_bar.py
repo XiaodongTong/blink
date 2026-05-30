@@ -270,9 +270,8 @@ def build_footer_text(app: BlinkApp) -> FormattedText:
     style_dim = "class:footer-highlight" if highlighted else "class:footer-dim"
     hints = [
         ("Enter", "ide"), ("/", "search"),
-        ("→←", "focus"),
         ("Shift+R", "rescan"),
-        ("Shift+S", "config"),
+        ("Shift+S", "setting"),
     ]
     parts: list[tuple[str, str]] = [("class:footer-dim", " ")]
     for i, (key, desc) in enumerate(hints):
