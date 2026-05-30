@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import shlex
 import subprocess as sp
 import threading
 import time
@@ -20,7 +22,7 @@ from blink.store import Store
 from blink.scanner import Scanner
 from blink.tui.widgets.repo_list import RepoListControl
 from blink.tui.widgets.search import SearchBar
-from blink.tui.actions import EditorInfo, IDE_CHOICES, detect_editors, open_in_editor, open_terminal
+from blink.tui.actions import EditorInfo, IDE_CHOICES, detect_editors, find_editor_by_name, open_in_editor, open_terminal
 from blink.tui.widgets.detail import DetailPanel, _remote_to_https
 from blink.tui.styles import build_style
 from blink.tui.layout import build_layout, EditStatusControl
@@ -28,6 +30,7 @@ from blink.tui.key_bindings import build_key_bindings
 from blink.tui.status_bar import build_status_text, build_search_prefix_text, build_footer_text
 from blink.tui.app_review import ReviewOrchestrator
 from blink.tui.app_actions import AppActionsMixin
+from blink.tui.app_config import ConfigPanel, ConfigSelectMode
 
 
 class BlinkApp(AppActionsMixin):
@@ -70,6 +73,10 @@ class BlinkApp(AppActionsMixin):
         self._pulling_paths: set[str] = set()
 
         self._review = ReviewOrchestrator(self)
+
+        self._config_panel: Optional[ConfigPanel] = None
+        self._config_selecting: bool = False
+        self._pre_config_focus: str = "list"
 
         self._load_repos()
         self._init_detail_panel()
@@ -124,9 +131,18 @@ class BlinkApp(AppActionsMixin):
     def _open_with_ide(self, path: str) -> None:
         preferred = self._config.editor
         if preferred:
-            info = self._editors.get(preferred)
-            if info and info.available:
-                open_in_editor(path, preferred, self._editors)
+            key = find_editor_by_name(preferred, self._editors)
+            if key:
+                info = self._editors.get(key)
+                if info and info.available:
+                    open_in_editor(path, key, self._editors)
+                else:
+                    self._config.set("editor", None)
+                    self._ide_pending_path = path
+                    self._ide_selecting = True
+                    self._ide_select_cursor = 0
+                    self._ide_scroll_offset = 0
+                    self._app.invalidate()
             else:
                 self._config.set("editor", None)
                 self._ide_pending_path = path
@@ -247,6 +263,55 @@ class BlinkApp(AppActionsMixin):
             self._set_scan_status(f"复制了 {repo.path}")
         except Exception:
             self._set_scan_status("复制失败")
+
+    # ── config panel ────────────────────────────────────────────────────
+
+    def _enter_config(self) -> None:
+        self._pre_config_focus = self._focus_pane
+        self._config_panel = ConfigPanel(self._config, self._editors)
+        if self._detail_window is not None:
+            self._detail_window.content = self._config_panel
+        self._set_focus("config")
+        self._config_selecting = False
+        try:
+            self._app.layout.focus(self._detail_window)
+        except Exception:
+            pass
+        self._app.invalidate()
+
+    def _exit_config(self) -> None:
+        self._config_panel = None
+        self._config_selecting = False
+        self._init_detail_panel()
+        if self._detail_window is not None:
+            self._detail_window.content = self._detail_panel
+        prev = self._pre_config_focus
+        self._set_focus(prev)
+        if prev == "detail" and self._detail_panel is not None:
+            try:
+                self._app.layout.focus(self._detail_window)
+            except Exception:
+                pass
+        else:
+            try:
+                self._app.layout.focus(self._repo_list_window)
+            except Exception:
+                pass
+        self._app.invalidate()
+
+    def _open_config_in_editor(self) -> None:
+        editor_cmd = os.environ.get("EDITOR", "vi")
+        config_path = str(self._config._path)
+        try:
+            sp.call(shlex.split(editor_cmd) + [config_path])
+        except Exception:
+            self._set_scan_status("✗ 无法打开编辑器")
+            return
+        self._config._load()
+        if self._config_panel is not None:
+            self._config_panel.reload()
+        self._app.invalidate()
+        self._set_scan_status("✓ 配置已重新加载")
 
     # ── review delegation ───────────────────────────────────────────────
 

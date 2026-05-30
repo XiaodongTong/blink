@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from blink.tui.actions import IDE_CHOICES
+
 DEFAULT_DIR = Path.home() / ".blink"
 DEFAULT_CONFIG_PATH = DEFAULT_DIR / "config.json"
 
@@ -44,6 +46,7 @@ class Config:
             self._data = dict(_DEFAULT_CONFIG)
             self._ensure_dir()
             self._save()
+        self._migrate_editor_key()
 
     def _save(self) -> None:
         self._ensure_dir()
@@ -98,6 +101,22 @@ class Config:
     def set(self, key: str, value: Any) -> None:
         self._data[key] = value
         self._save()
+
+    def set_model(self, purpose: str, value: str) -> None:
+        if "models" not in self._data:
+            self._data["models"] = dict(_DEFAULT_CONFIG["models"])
+        self._data["models"][purpose] = value
+        self._save()
+
+    def _migrate_editor_key(self) -> None:
+        val = self._data.get("editor")
+        if val is None or not isinstance(val, str) or len(val) != 1:
+            return
+        for key, name in IDE_CHOICES:
+            if val == key:
+                self._data["editor"] = name
+                self._save()
+                return
 
 
 _MODEL_DEFAULTS = {"commit": "haiku", "task_review": "opus", "review": "opus", "task": "opus"}

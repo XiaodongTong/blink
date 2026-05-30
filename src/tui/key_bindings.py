@@ -35,7 +35,7 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         opts = app._ide_options()
         if opts and 0 <= app._ide_select_cursor < len(opts):
             key, name = opts[app._ide_select_cursor]
-            app._config.set("editor", key)
+            app._config.set("editor", name)
             app._ide_selecting = False
             path = app._ide_pending_path
             app._ide_pending_path = None
@@ -58,6 +58,47 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     def _(event):
         app._ide_selecting = False
         app._ide_pending_path = None
+        app._app.invalidate()
+        return
+
+    # ── Config selection mode (highest priority, eager) ────────────────
+
+    @kb.add("left", eager=True, filter=Condition(lambda: app._config_selecting))
+    def _(event):
+        if app._config_panel:
+            opts = app._config_panel.get_select_options()
+            app._config_panel.select_cursor = max(0, app._config_panel.select_cursor - 1)
+            app._app.invalidate()
+
+    @kb.add("right", eager=True, filter=Condition(lambda: app._config_selecting))
+    def _(event):
+        if app._config_panel:
+            opts = app._config_panel.get_select_options()
+            if opts:
+                app._config_panel.select_cursor = min(len(opts) - 1, app._config_panel.select_cursor + 1)
+            app._app.invalidate()
+
+    @kb.add("enter", eager=True, filter=Condition(lambda: app._config_selecting))
+    def _(event):
+        if app._config_panel:
+            app._config_panel.confirm_selection()
+            app._config_selecting = False
+            app._app.invalidate()
+        return
+
+    @kb.add("escape", eager=True, filter=Condition(lambda: app._config_selecting))
+    def _(event):
+        if app._config_panel:
+            app._config_panel.cancel_selection()
+        app._config_selecting = False
+        app._app.invalidate()
+        return
+
+    @kb.add("c-c", eager=True, filter=Condition(lambda: app._config_selecting))
+    def _(event):
+        if app._config_panel:
+            app._config_panel.cancel_selection()
+        app._config_selecting = False
         app._app.invalidate()
         return
 
@@ -84,6 +125,12 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     @kb.add("c-c")
     def _(event):
         if app._ide_selecting:
+            return
+        if app._config_selecting:
+            if app._config_panel:
+                app._config_panel.cancel_selection()
+            app._config_selecting = False
+            app._app.invalidate()
             return
         if app._review.selecting or app._review.branch_loading:
             app._cancel_review()
@@ -113,6 +160,12 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     def _(event):
         if app._ide_selecting:
             return
+        if app._config_selecting:
+            if app._config_panel:
+                app._config_panel.cancel_selection()
+            app._config_selecting = False
+            app._app.invalidate()
+            return
         if app._review.selecting or app._review.branch_loading:
             app._cancel_review()
             return
@@ -125,6 +178,9 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         if app._search_filtering:
             app._cancel_search()
             return
+        if app._focus_pane == "config":
+            app._exit_config()
+            return
         if app._focus_pane == "detail":
             app._set_focus("list")
             app._app.layout.focus(app._repo_list_window)
@@ -133,7 +189,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     # ── Focus switching: Tab/→ → detail, ← → list ────────────────────
 
     @kb.add(Keys.Tab, filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting
+        and app._focus_pane != "config"))
     def _(event):
         if app._detail_panel is not None and app._focus_pane == "list":
             app._set_focus("detail")
@@ -230,6 +287,55 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
             app._detail_panel.cursor_group_up()
             app._app.invalidate()
 
+    # ── Config panel navigation ─────────────────────────────────────────
+
+    @kb.add("down", filter=Condition(
+        lambda: app._focus_pane == "config" and not app._config_selecting))
+    def _(event):
+        if app._config_panel:
+            app._config_panel.cursor_down()
+            app._app.invalidate()
+
+    @kb.add("up", filter=Condition(
+        lambda: app._focus_pane == "config" and not app._config_selecting))
+    def _(event):
+        if app._config_panel:
+            app._config_panel.cursor_up()
+            app._app.invalidate()
+
+    @kb.add("enter", filter=Condition(
+        lambda: app._focus_pane == "config" and not app._config_selecting))
+    def _(event):
+        if app._config_panel:
+            from blink.tui.app_config import ConfigSelectMode, _EDITABLE_ITEMS
+            idx = app._config_panel._cursor
+            if idx < len(_EDITABLE_ITEMS):
+                _, _, itype = _EDITABLE_ITEMS[idx]
+                if itype == "editor":
+                    app._config_panel.select_mode = ConfigSelectMode.editor
+                else:
+                    app._config_panel.select_mode = ConfigSelectMode.model
+                app._config_selecting = True
+                app._app.invalidate()
+        return
+
+    # ── e — open config.json in editor ──────────────────────────────────
+
+    @kb.add("e", filter=Condition(
+        lambda: app._focus_pane == "config" and not app._config_selecting))
+    def _(event):
+        app._open_config_in_editor()
+
+    # ── Shift+S — enter config panel ──────────────────────────────────
+
+    @kb.add("S", filter=Condition(
+        lambda: not app._search_active and not app._in_edit_mode()
+        and not app._ide_selecting and not app._review.selecting
+        and not app._review.branch_loading and not app._config_selecting
+        and app._focus_pane != "config"))
+    def _(event):
+        app._enter_config()
+
     # ── Search (available from both panes) ───────────────────────────────
 
     @kb.add("/", filter=Condition(lambda: not app._search_active and not app._in_edit_mode()))
@@ -243,7 +349,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     # ── Shift+1 (!) — open terminal ──────────────────────────────────
 
     @kb.add("!", filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+        lambda: not app._search_active and not app._in_edit_mode()
+        and not app._ide_selecting and app._focus_pane != "config"))
     def _(event):
         app._trigger_footer_highlight()
         app._open_terminal()
@@ -251,7 +358,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     # ── Shift+2 (@) — open with preferred IDE ──────────────────────────
 
     @kb.add("@", filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+        lambda: not app._search_active and not app._in_edit_mode()
+        and not app._ide_selecting and app._focus_pane != "config"))
     def _(event):
         app._trigger_footer_highlight()
         repo = app._get_active_repo()
@@ -261,7 +369,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     # ── Shift+3 (#) — open in Finder ─────────────────────────────────
 
     @kb.add("#", filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+        lambda: not app._search_active and not app._in_edit_mode()
+        and not app._ide_selecting and app._focus_pane != "config"))
     def _(event):
         app._trigger_footer_highlight()
         repo = app._get_active_repo()
@@ -272,7 +381,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     # ── Shift+4 ($) — open in browser ────────────────────────────────
 
     @kb.add("$", filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+        lambda: not app._search_active and not app._in_edit_mode()
+        and not app._ide_selecting and app._focus_pane != "config"))
     def _(event):
         app._trigger_footer_highlight()
         app._open_git_in_browser()
@@ -280,7 +390,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     # ── Shift+5 (%) — push changes ────────────────────────────────────
 
     @kb.add("%", filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+        lambda: not app._search_active and not app._in_edit_mode()
+        and not app._ide_selecting and app._focus_pane != "config"))
     def _(event):
         app._trigger_footer_highlight()
         repo = app._get_active_repo()
@@ -290,7 +401,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     # ── Shift+6 (^) — pull changes ────────────────────────────────────
 
     @kb.add("^", filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+        lambda: not app._search_active and not app._in_edit_mode()
+        and not app._ide_selecting and app._focus_pane != "config"))
     def _(event):
         app._trigger_footer_highlight()
         repo = app._get_active_repo()
@@ -300,7 +412,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     # ── Shift+7 (&) — add todo task ──────────────────────────────────
 
     @kb.add("&", filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+        lambda: not app._search_active and not app._in_edit_mode()
+        and not app._ide_selecting and app._focus_pane != "config"))
     def _(event):
         app._trigger_footer_highlight()
         app._run_add_task()
@@ -308,7 +421,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     # ── Shift+8 (*) — start review ────────────────────────────────────
 
     @kb.add("*", filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+        lambda: not app._search_active and not app._in_edit_mode()
+        and not app._ide_selecting and app._focus_pane != "config"))
     def _(event):
         app._trigger_footer_highlight()
         repo = app._get_active_repo()
@@ -318,7 +432,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     # ── Shift+R — rescan ─────────────────────────────────────────────
 
     @kb.add("R", filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+        lambda: not app._search_active and not app._in_edit_mode()
+        and not app._ide_selecting and app._focus_pane != "config"))
     def _(event):
         app._trigger_footer_highlight()
         if not app._scanning:
@@ -327,7 +442,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     # ── Shift+L — open last review report ─────────────────────────
 
     @kb.add("L", filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting))
+        lambda: not app._search_active and not app._in_edit_mode()
+        and not app._ide_selecting and app._focus_pane != "config"))
     def _(event):
         app._trigger_footer_highlight()
         repo = app._get_active_repo()
@@ -340,6 +456,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     def _(event):
         if app._ide_selecting:
             return
+        if app._config_selecting:
+            return
         if app._review.selecting:
             app._confirm_review_branch()
             return
@@ -350,6 +468,8 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
             app._set_focus("list")
             app._app.layout.focus(app._repo_list_window)
             app._app.invalidate()
+            return
+        if app._focus_pane == "config":
             return
         if app._focus_pane in ("detail", "edit") and app._detail_panel is not None:
             app._detail_panel.handle_enter()

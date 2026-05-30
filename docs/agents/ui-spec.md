@@ -87,18 +87,21 @@
 
 ## 焦点状态
 
-- 三态：`"list"` / `"detail"` / `"edit"`
+- 四态：`"list"` / `"detail"` / `"edit"` / `"config"`
 - 焦点侧边框高亮色（`#58a6ff`），非焦点侧暗灰（`#30363d`）
+- 配置面板复用右侧面板区域，无仓库时也可见
 
 ## 快捷键表
 
 | 按键 | 功能 | 可用焦点 |
 |------|------|----------|
-| `↑` / `↓` | 列表导航 / 详情行导航 | list / detail |
-| `Enter` | 打开 IDE（列表）/ 执行操作（详情）| list / detail |
+| `↑` / `↓` | 列表导航 / 详情行导航 / 配置面板导航 | list / detail / config |
+| `Enter` | 打开 IDE（列表）/ 执行操作（详情）/ 选择配置项（配置面板）| list / detail / config |
 | `/` | 进入搜索 | list, detail |
 | `Tab` / `→` | 焦点移至右侧详情面板 | list |
-| `Esc` / `←` | 焦点移回左侧列表 | detail |
+| `Esc` / `←` | 焦点移回左侧列表 / 退出配置面板 | detail / config |
+| `Shift+S` | 进入配置面板 | list, detail |
+| `e` | 用系统编辑器打开 config.json | config |
 | `Shift+1` | 打开终端 | list, detail |
 | `Shift+2` | 用 IDE 打开 | list, detail |
 | `Shift+3` | 在 Finder 中打开 | list, detail |
@@ -112,6 +115,7 @@
 
 - 编辑态屏蔽：全局 Shift 快捷键、↑↓
 - 编辑态保留：Enter 保存、Esc/Ctrl+C 取消
+- 配置面板屏蔽：Shift+1~8、Shift+R、Shift+L
 
 ## 窄终端降级
 

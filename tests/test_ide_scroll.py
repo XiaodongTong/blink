@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from blink.tui.status_bar import _build_ide_select_status
+from blink.tui.status_bar import _build_ide_select_status, _build_horizontal_select
 
 
 def _make_app(cursor=0, offset=0, width=120):
@@ -83,7 +83,6 @@ def test_unselected_item_has_spaces():
     app = _make_app(cursor=0, offset=0, width=200)
     ft = _build_ide_select_status(app)
     text = _extract_text(ft)
-    # Second item should be "  Cursor" (two spaces, no arrow)
     idx = text.index("Cursor")
     assert text[idx - 2:idx] == "  "
 
@@ -102,16 +101,13 @@ def test_cursor_visibility_after_scroll():
 
 
 def test_terminal_resize_adapts():
-    # Start narrow, scroll to end
     app = _make_app(cursor=11, offset=0, width=80)
     ft1 = _build_ide_select_status(app)
     offset_narrow = app._ide_scroll_offset
 
-    # Resize to wide terminal
     app._app.output.get_size.return_value.columns = 200
     ft2 = _build_ide_select_status(app)
     text = _extract_text(ft2)
-    # All items should now be visible
     assert "VSCode" in text
     assert "System" in text
 
@@ -129,3 +125,32 @@ def test_very_narrow_terminal_shows_at_least_cursor():
     ft = _build_ide_select_status(app)
     text = _extract_text(ft)
     assert "WebStorm" in text
+
+
+# ── _build_horizontal_select shared function tests ───────────────
+
+
+def test_horizontal_select_model_options():
+    ft, offset = _build_horizontal_select(
+        opts=["haiku", "sonnet", "opus"],
+        cursor=1, offset=0, width=200,
+        prefix=" Select Model:  ",
+        suffix="    ←→:选择  Enter:确认  Esc:取消",
+    )
+    text = _extract_text(ft)
+    assert "haiku" in text
+    assert "sonnet" in text
+    assert "opus" in text
+    assert "▸ sonnet" in text
+
+
+def test_horizontal_select_model_all_visible():
+    ft, offset = _build_horizontal_select(
+        opts=["haiku", "sonnet", "opus"],
+        cursor=0, offset=0, width=200,
+        prefix=" Select Model:  ",
+        suffix="    ←→:选择  Enter:确认  Esc:取消",
+    )
+    text = _extract_text(ft)
+    assert "‹" not in text
+    assert "›" not in text

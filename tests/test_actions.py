@@ -4,7 +4,9 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-from blink.tui.actions import copy_path, detect_editors, open_in_editor
+from blink.tui.actions import (
+    EditorInfo, copy_path, detect_editors, find_editor_by_name, open_in_editor,
+)
 
 
 def test_detect_editors_keys() -> None:
@@ -70,3 +72,26 @@ def test_copy_path(tmp_path: Path) -> None:
 def test_copy_path_failure() -> None:
     with patch("subprocess.run", side_effect=subprocess.SubprocessError):
         assert copy_path("/tmp/test") is False
+
+
+def test_find_editor_by_name_match() -> None:
+    editors = {
+        "v": EditorInfo(key="v", name="VSCode", command="/usr/local/bin/code"),
+        "u": EditorInfo(key="u", name="Cursor", command="/usr/local/bin/cursor"),
+    }
+    assert find_editor_by_name("VSCode", editors) == "v"
+    assert find_editor_by_name("Cursor", editors) == "u"
+
+
+def test_find_editor_by_name_no_match() -> None:
+    editors = {
+        "v": EditorInfo(key="v", name="VSCode", command="/usr/local/bin/code"),
+    }
+    assert find_editor_by_name("NonExistent", editors) is None
+
+
+def test_find_editor_by_name_accepts_dict_no_detect() -> None:
+    editors = {
+        "a": EditorInfo(key="a", name="Antigravity IDE", command="open"),
+    }
+    assert find_editor_by_name("Antigravity IDE", editors) == "a"

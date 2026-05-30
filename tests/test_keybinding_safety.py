@@ -55,6 +55,9 @@ def _make_app():
     app._committing_paths = set()
     app._pulling_paths = set()
     app._review = ReviewOrchestrator(app)
+    app._config_panel = None
+    app._config_selecting = False
+    app._pre_config_focus = "list"
     return app, store, rid
 
 
@@ -396,6 +399,30 @@ def test_shift_number_keys_blocked_during_edit(app_with_store):
 
 
 # --- Footer hints ---
+
+
+def test_shift_number_keys_blocked_during_config(app_with_store):
+    app, store, rid = app_with_store
+    app._focus_pane = "config"
+    kb = app._build_key_bindings()
+    for reg in kb.bindings:
+        for key in reg.keys:
+            key_str = key.value if hasattr(key, 'value') else str(key)
+            if key_str in ("!", "@", "#", "$", "%", "^", "&", "*") and not reg.eager():
+                assert reg.filter is not None
+                assert not reg.filter(), f"Shift key '{key_str}' should be blocked during config"
+
+
+def test_shift_r_l_blocked_during_config(app_with_store):
+    app, store, rid = app_with_store
+    app._focus_pane = "config"
+    kb = app._build_key_bindings()
+    for reg in kb.bindings:
+        for key in reg.keys:
+            key_str = key.value if hasattr(key, 'value') else str(key)
+            if key_str in ("R", "L") and not reg.eager():
+                if reg.filter is not None:
+                    assert not reg.filter(), f"Shift key '{key_str}' should be blocked during config"
 
 
 def test_footer_no_action_shortcut_hints(app_with_store):

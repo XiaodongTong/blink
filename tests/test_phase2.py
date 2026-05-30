@@ -53,6 +53,9 @@ def _make_app():
     app._committing_paths = set()
     app._pulling_paths = set()
     app._review = ReviewOrchestrator(app)
+    app._config_panel = None
+    app._config_selecting = False
+    app._pre_config_focus = "list"
     return app, store, rid
 
 

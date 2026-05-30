@@ -32,7 +32,7 @@
 
 ## 焦点管理
 
-- 单一 VSplit 布局，`_focus_pane` 三态（`"list"` / `"detail"` / `"edit"`）
+- 单一 VSplit 布局，`_focus_pane` 四态（`"list"` / `"detail"` / `"edit"` / `"config"`）
 - 焦点切换动态更新边框样式，无布局替换
 - 按键绑定用 `Condition` 过滤器实现焦点依赖行为
 - `←`/`→` 同时处理 IDE 选择（优先）和焦点切换

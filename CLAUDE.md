@@ -82,6 +82,7 @@ uv build                   # 构建分发包
 | `key_bindings.py` | 所有按键绑定注册 |
 | `status_bar.py` | 状态栏和页脚文本渲染 |
 | `app_review.py` | TUI Review 编排（分支选择 + AI 执行） |
+| `app_config.py` | 配置面板 `ConfigPanel(UIControl)` + `ConfigSelectMode` 枚举 |
 | `actions.py` | IDE 检测/启动、剪贴板（TUI 和 CLI 共用） |
 | `icons.py` | Nerd Font 图标常量 + ASCII 回退 |
 | `widgets/` | UI 控件子目录 |

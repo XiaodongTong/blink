@@ -121,6 +121,13 @@ def open_in_editor(repo_path: str, editor_key: str, editors: Dict[str, EditorInf
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def find_editor_by_name(name: str, editors: Dict[str, EditorInfo]) -> Optional[str]:
+    for info in editors.values():
+        if info.name == name:
+            return info.key
+    return None
+
+
 def copy_path(repo_path: str) -> bool:
     try:
         proc = subprocess.run(

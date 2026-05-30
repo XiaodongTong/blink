@@ -119,6 +119,7 @@ blink log                      # 查看任务日志
 | `Shift+7` | 添加 Todo 任务 |
 | `Shift+8` | AI Code Review |
 | `Shift+R` | 重新扫描 |
+| `Shift+S` | 打开配置面板 |
 | `Ctrl+C` ×2 | 退出 |
 
 ### 搜索
@@ -137,7 +138,13 @@ blink log                      # 查看任务日志
   "exclude_dirs": [".Trash", ".cache", ".npm", ".docker", "Library", "node_modules"],
   "editor": null,
   "auto_sync_days": 0,
-  "nerd_fonts": false
+  "nerd_fonts": false,
+  "models": {
+    "commit": "haiku",
+    "review": "opus",
+    "task": "opus",
+    "task_review": "opus"
+  }
 }
 ```
 
@@ -145,9 +152,12 @@ blink log                      # 查看任务日志
 |------|------|
 | `scan_paths` | 扫描 Git 仓库的根目录列表 |
 | `exclude_dirs` | 扫描时跳过的目录名 |
-| `editor` | 首选 IDE（`v` VSCode / `u` Cursor / `a` Antigravity），首次使用时自动选择 |
+| `editor` | 首选 IDE 名称（如 `VSCode`、`Cursor`），首次使用时自动选择 |
 | `auto_sync_days` | 自动重新扫描间隔天数（0 禁用） |
 | `nerd_fonts` | 启用 Nerd Font 图标 |
+| `models` | AI 模型配置（`commit` / `review` / `task` / `task_review`），可选 haiku / sonnet / opus |
+
+可在 TUI 中按 `Shift+S` 打开配置面板直接修改 `editor` 和 `models`。
 
 所有数据存储在 `~/.blink/` 目录下。
 

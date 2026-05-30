@@ -52,9 +52,9 @@ def build_layout(app: BlinkApp) -> Layout:
     app._repo_list_window = RepoListWindow(app._repo_control)
 
     left_border = Condition(lambda: app._focus_pane == "list")
-    right_border = Condition(lambda: app._focus_pane == "detail")
+    right_border = Condition(lambda: app._focus_pane in ("detail", "config"))
     detail_visible = Condition(
-        lambda: app._detail_panel is not None and _is_wide_enough(app)
+        lambda: (app._detail_panel is not None or app._focus_pane == "config") and _is_wide_enough(app)
     )
     edit_active = Condition(lambda: app._in_edit_mode())
     search_filtering = Condition(

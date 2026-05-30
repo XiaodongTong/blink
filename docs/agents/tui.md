@@ -3,7 +3,7 @@
 ## app.py — BlinkApp 主类
 
 - 初始化协调，组装各子模块
-- 三态焦点管理：`_focus_pane` = `"list"` / `"detail"` / `"edit"`
+- 四态焦点管理：`_focus_pane` = `"list"` / `"detail"` / `"edit"` / `"config"`
 - 后台操作（scan/commit/pull/status fetch）的线程管理和回调调度
 - 操作回调：`_open_git_in_browser()`、`_run_add_task()`、`_open_terminal()`、`_open_finder()`
 - 所有状态栏通知通过 `_set_scan_status(msg, timeout)` 自动消失（默认 3s，task 通知 2s）
@@ -76,11 +76,24 @@ TUI Review 编排（`ReviewOrchestrator` 类）：
 
 - 编辑器检测与启动（VSCode、Cursor、Antigravity、系统 open）
 - Antigravity 兼容：`_detect_antigravity()` 检测 Antigravity IDE 变体
+- `find_editor_by_name(name, editors)` 按 `EditorInfo.name` 反查 key
 - 配置的 IDE 未安装时自动清空配置
 - `open_terminal(repo_path)` 在终端中打开仓库路径
 - 剪贴板通过 `pbcopy`
-- `IDE_CHOICES` 定义三个 IDE 选项
+- `IDE_CHOICES` 定义 12 个 IDE 选项
 - TUI 和 CLI（`blink edit`）共用
+
+## app_config.py — ConfigPanel
+
+配置面板（`ConfigPanel(UIControl)`）复用右侧面板区域：
+
+- **分组渲染**：可编辑组（Editor / Commit Model / Review Model / Task Model / Task Review）+ 只读组（Scan Paths / Exclude Dirs / Auto Sync / Nerd Fonts）
+- **光标导航**：`↑↓` 在可编辑项之间移动，选中行显示 `[Enter]` 提示
+- **选择模式**：Enter 触发进入选择模式（`ConfigSelectMode` 枚举：none / editor / model），底部状态栏弹出水平选项列表
+- **Editor 选项**：仅显示 `available=True` 的已安装 IDE（滚动算法复用 `_build_horizontal_select`）
+- **Model 选项**：固定 haiku / sonnet / opus 三项
+- **持久化**：确认选择后调用 `config.set("editor", name)` 或 `config.set_model(purpose, value)`
+- **`e` 键**：用 `$EDITOR` 打开 `config.json`，退出后自动 reload 配置
 
 ## detail.py — DetailPanel 类
 

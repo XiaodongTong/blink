@@ -18,9 +18,9 @@ def test_creates_config_on_first_run(tmp_path: Path) -> None:
 def test_loads_existing_config(tmp_path: Path) -> None:
     cfg_path = tmp_path / ".blink" / "config.json"
     cfg_path.parent.mkdir(parents=True)
-    cfg_path.write_text(json.dumps({"editor": "v", "scan_paths": ["/tmp"]}))
+    cfg_path.write_text(json.dumps({"editor": "VSCode", "scan_paths": ["/tmp"]}))
     cfg = Config(config_path=cfg_path)
-    assert cfg.editor == "v"
+    assert cfg.editor == "VSCode"
     assert cfg.scan_paths == ["/tmp"]
 
 
@@ -63,7 +63,63 @@ def test_exclude_dirs(tmp_path: Path) -> None:
 def test_set_persists(tmp_path: Path) -> None:
     cfg_path = tmp_path / ".blink" / "config.json"
     cfg = Config(config_path=cfg_path)
-    cfg.set("editor", "v")
-    assert cfg.editor == "v"
+    cfg.set("editor", "VSCode")
+    assert cfg.editor == "VSCode"
     data = json.loads(cfg_path.read_text())
-    assert data["editor"] == "v"
+    assert data["editor"] == "VSCode"
+
+
+# ── _migrate_editor_key ──────────────────────────────────────────
+
+
+def test_migrate_editor_key_single_letter(tmp_path: Path) -> None:
+    cfg_path = tmp_path / ".blink" / "config.json"
+    cfg_path.parent.mkdir(parents=True)
+    cfg_path.write_text(json.dumps({"editor": "v"}))
+    cfg = Config(config_path=cfg_path)
+    assert cfg.editor == "VSCode"
+    data = json.loads(cfg_path.read_text())
+    assert data["editor"] == "VSCode"
+
+
+def test_migrate_editor_key_name_unchanged(tmp_path: Path) -> None:
+    cfg_path = tmp_path / ".blink" / "config.json"
+    cfg_path.parent.mkdir(parents=True)
+    cfg_path.write_text(json.dumps({"editor": "VSCode"}))
+    cfg = Config(config_path=cfg_path)
+    assert cfg.editor == "VSCode"
+
+
+def test_migrate_editor_key_none_unchanged(tmp_path: Path) -> None:
+    cfg_path = tmp_path / ".blink" / "config.json"
+    cfg = Config(config_path=cfg_path)
+    assert cfg.editor is None
+
+
+def test_migrate_editor_key_invalid_single_char(tmp_path: Path) -> None:
+    cfg_path = tmp_path / ".blink" / "config.json"
+    cfg_path.parent.mkdir(parents=True)
+    cfg_path.write_text(json.dumps({"editor": "q"}))
+    cfg = Config(config_path=cfg_path)
+    assert cfg.editor == "q"
+
+
+# ── set_model ────────────────────────────────────────────────────
+
+
+def test_set_model_persists(tmp_path: Path) -> None:
+    cfg_path = tmp_path / ".blink" / "config.json"
+    cfg = Config(config_path=cfg_path)
+    cfg.set_model("commit", "opus")
+    assert cfg.model_commit == "opus"
+    data = json.loads(cfg_path.read_text())
+    assert data["models"]["commit"] == "opus"
+
+
+def test_set_model_creates_models_if_missing(tmp_path: Path) -> None:
+    cfg_path = tmp_path / ".blink" / "config.json"
+    cfg_path.parent.mkdir(parents=True)
+    cfg_path.write_text(json.dumps({"editor": None}))
+    cfg = Config(config_path=cfg_path)
+    cfg.set_model("review", "sonnet")
+    assert cfg.model_review == "sonnet"
