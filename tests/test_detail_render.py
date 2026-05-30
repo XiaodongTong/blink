@@ -20,7 +20,7 @@ def _to_plain(formatted) -> str:
     return to_plain_text(formatted)
 
 
-def _make_detail_panel(repo: Repo = None) -> DetailPanel:
+def _make_detail_panel(repo: Repo = None, focused: bool = True) -> DetailPanel:
     if repo is None:
         repo = _make_repo()
     store = Store(":memory:")
@@ -32,6 +32,7 @@ def _make_detail_panel(repo: Repo = None) -> DetailPanel:
         on_back=lambda: None,
         on_alias_change=lambda alias: None,
         on_tags_change=lambda: None,
+        is_focused=lambda f=focused: f,
     )
 
 
@@ -137,7 +138,7 @@ def test_detail_panel_status_before_pinned():
 
 
 def test_detail_panel_renders_action_shortcuts():
-    panel = _make_detail_panel()
+    panel = _make_detail_panel(focused=False)
     t = _to_plain(panel._formatted_text())
     assert "Shift+1" in t
     assert "Shift+2" in t
@@ -302,7 +303,6 @@ def test_actions_do_not_increment_view_count():
 
 def test_selected_action_row_shows_indicator():
     panel = _make_detail_panel()
-    panel.set_focused(True)
     panel._cursor_index = 1  # IDE
     t = _to_plain(panel._formatted_text())
     assert "▸" in t

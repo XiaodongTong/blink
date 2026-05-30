@@ -101,8 +101,6 @@ class BlinkApp:
 
     def _set_focus(self, pane: str) -> None:
         self._focus_pane = pane
-        if self._detail_panel is not None:
-            self._detail_panel.set_focused(pane in ("detail", "edit"))
 
     def _in_edit_mode(self) -> bool:
         if self._review.selecting or self._review.branch_loading:
@@ -169,6 +167,7 @@ class BlinkApp:
             on_back=lambda: None,
             on_alias_change=lambda _: self._refresh_repo(),
             on_tags_change=lambda: self._refresh_repo(),
+            is_focused=lambda: self._focus_pane in ("detail", "edit"),
             on_status_message=self._set_scan_status,
             on_pin_change=lambda: self._refresh_repo(),
             on_open_ide=lambda: self._trigger_open_ide(self._get_active_repo()),
@@ -188,10 +187,11 @@ class BlinkApp:
     def _sync_detail_panel(self) -> None:
         repo = self._repo_control.selected_repo()
         if repo is None:
-            self._detail_panel = None
             return
         if self._detail_panel is None:
             self._init_detail_panel()
+            if self._detail_window is not None and self._detail_panel is not None:
+                self._detail_window.content = self._detail_panel
             return
         self._detail_panel.set_repo(repo)
 

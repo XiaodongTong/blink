@@ -10,6 +10,8 @@ from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.layout.controls import UIContent, UIControl
 from prompt_toolkit.mouse_events import MouseEvent, MouseEventType
 
+_FocusedChecker = Callable[[], bool]
+
 from blink.models import Repo, RepoStatus, display_width
 from blink.store import Store
 from blink.tui.actions import EditorInfo
@@ -54,6 +56,7 @@ class DetailPanel(UIControl):
     def __init__(self, repo: Repo, store: Store, editors: dict[str, EditorInfo],
                  on_back: Callable[[], None], on_alias_change: Callable[[str], None],
                  on_tags_change: Callable[[], None],
+                 is_focused: _FocusedChecker = lambda: False,
                  on_status_message: Callable[[str], None] = lambda msg: None,
                  on_pin_change: Callable[[], None] = lambda: None,
                  on_open_ide: Callable[[], None] = lambda: None,
@@ -90,7 +93,7 @@ class DetailPanel(UIControl):
         self._last_report_paths = last_report_paths or {}
 
         self._cursor_index = 0
-        self._focused = False
+        self._is_focused = is_focused
         self._edit_mode: str | None = None
         self._alias_buffer: Optional[Buffer] = None
         self._desc_buffer: Optional[Buffer] = None
@@ -108,12 +111,9 @@ class DetailPanel(UIControl):
             self._desc_buffer = None
             self._tag_buffer = None
 
-    def set_focused(self, focused: bool) -> None:
-        self._focused = focused
-
     @property
     def focused(self) -> bool:
-        return self._focused
+        return self._is_focused()
 
     def is_focusable(self) -> bool:
         return True
@@ -476,11 +476,11 @@ class DetailPanel(UIControl):
             if g > 0:
                 lines.append([("class:detail-sep", "─" * width)])
             for label, desc in group:
-                is_sel = (cur == action_idx) and self._focused
+                is_sel = (cur == action_idx) and self._is_focused()
                 lines.append(self._build_action_line(label, desc, is_sel, width, index=action_idx, max_desc_len=max_desc_len))
                 action_idx += 1
         if self._has_review_report():
-            is_sel = (cur == action_idx) and self._focused
+            is_sel = (cur == action_idx) and self._is_focused()
             lines.append(self._build_action_line("Report    ", "View Review Report", is_sel, width, index=action_idx, max_desc_len=max_desc_len))
 
         n_actions = len(actions)
@@ -490,11 +490,11 @@ class DetailPanel(UIControl):
 
         # ── Local Markers section ──
         pin_str = "Yes" if self._repo.pinned else "No"
-        lines.append(self._build_marker_line("Pinned    ", pin_str, cur == n_actions and self._focused, width))
-        lines.append(self._build_marker_line("Alias     ", self._repo.alias or "(none)", cur == n_actions + 1 and self._focused, width))
+        lines.append(self._build_marker_line("Pinned    ", pin_str, cur == n_actions and self._is_focused(), width))
+        lines.append(self._build_marker_line("Alias     ", self._repo.alias or "(none)", cur == n_actions + 1 and self._is_focused(), width))
         tag_str = " ".join(f"[{t}]" for t in self._repo.tags) if self._repo.tags else "(none)"
-        lines.append(self._build_marker_line("Tags      ", tag_str, cur == n_actions + 2 and self._focused, width))
-        lines.append(self._build_marker_line("Desc      ", self._repo.description or "(none)", cur == n_actions + 3 and self._focused, width))
+        lines.append(self._build_marker_line("Tags      ", tag_str, cur == n_actions + 2 and self._is_focused(), width))
+        lines.append(self._build_marker_line("Desc      ", self._repo.description or "(none)", cur == n_actions + 3 and self._is_focused(), width))
 
         return lines
 
