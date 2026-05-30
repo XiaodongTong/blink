@@ -17,7 +17,7 @@
 │                      │     Finder    Open in Finder        [Shift+3]│
 │                      │ ─────────────────────────────────────────── │
 │                      │     Git       Open in Browser       [Shift+4]│
-│                      │     Push      Push Changes          [Shift+5]│
+│                      │     Commit    Auto Commit Changes   [Shift+5]│
 │                      │     Pull      Pull Changes          [Shift+6]│
 │                      │ ─────────────────────────────────────────── │
 │                      │     Task      Add todo task         [Shift+7]│
@@ -63,7 +63,7 @@
   - Path 和 Repo 行支持鼠标点击交互（Path 在终端打开，Repo 在浏览器打开）
 - **Actions**（可选中，分三组 + 动态 Report 行）：
   - Group 1: Terminal(0) / IDE(1) / Finder(2) — 快捷键 Shift+1/2/3
-  - Group 2: Git(3) / Push(4) / Pull(5) — 快捷键 Shift+4/5/6
+  - Group 2: Git(3) / Commit(4) / Pull(5) — 快捷键 Shift+4/5/6
   - Group 3: Task(6) / Review(7) — 快捷键 Shift+7/8
   - Report（动态，仅存在 review 报告时显示）
   - 未聚焦：普通态 + 快捷键徽标（如 `[Shift+1]`）
@@ -103,7 +103,7 @@
 | `Shift+2` | 用 IDE 打开 | list, detail |
 | `Shift+3` | 在 Finder 中打开 | list, detail |
 | `Shift+4` | 浏览器打开远程仓库 | list, detail |
-| `Shift+5` | 推送变更 | list, detail |
+| `Shift+5` | AI 自动提交变更 | list, detail |
 | `Shift+6` | 拉取最新代码 | list, detail |
 | `Shift+7` | 添加 Todo 任务 | list, detail |
 | `Shift+8` | AI Code Review | list, detail |

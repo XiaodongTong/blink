@@ -165,7 +165,7 @@ def test_detail_panel_has_action_and_marker_lines():
     assert hasattr(DetailPanel, "_ACTION_GROUPS")
     assert len(DetailPanel._ACTION_GROUPS) == 3
     assert len(DetailPanel._ACTION_GROUPS[0]) == 3  # Terminal, IDE, Finder
-    assert len(DetailPanel._ACTION_GROUPS[1]) == 3  # Git, Push, Pull
+    assert len(DetailPanel._ACTION_GROUPS[1]) == 3  # Git, Commit, Pull
     assert len(DetailPanel._ACTION_GROUPS[2]) == 2  # Task, Review
 
 

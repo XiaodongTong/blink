@@ -35,7 +35,7 @@
 - Ctrl+C 双击退出、Esc 取消链
 - 焦点切换（Tab/←→）
 - 列表/详情导航（↑↓）
-- 搜索（/）、Shift+1~8（Terminal/IDE/Finder/Git/Push/Pull/Task/Review）
+- 搜索（/）、Shift+1~8（Terminal/IDE/Finder/Git/Commit/Pull/Task/Review）
 - 编辑态字符路由（可打印字符、Backspace、CJK 输入）
 
 ## status_bar.py
@@ -90,7 +90,7 @@ TUI Review 编排（`ReviewOrchestrator` 类）：
 
 ### Actions（可选中，分三组 + 动态 Report）
 - Group 1: Terminal(0) / IDE(1) / Finder(2) — 快捷键 Shift+1/2/3
-- Group 2: Git(3) / Push(4) / Pull(5) — 快捷键 Shift+4/5/6
+- Group 2: Git(3) / Commit(4) / Pull(5) — 快捷键 Shift+4/5/6
 - Group 3: Task(6) / Review(7) — 快捷键 Shift+7/8
 - Report（动态行，仅存在 review 报告时显示，无快捷键）
 - 聚焦时选中行显示 `[Enter]`，未聚焦时显示快捷键徽标

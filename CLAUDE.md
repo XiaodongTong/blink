@@ -82,7 +82,7 @@ uv build                   # 构建分发包
 | `status_bar.py` | 状态栏和页脚文本渲染 |
 | `app_review.py` | TUI Review 编排（分支选择 + AI 执行） |
 | `repo_list.py` | 两行式列表控件，状态徽标 |
-| `detail.py` | 详情面板（Metadata/Actions/Local Markers 三区，Actions 分组：Terminal/IDE/Finder | Git/Push/Pull | Task/Review） |
+| `detail.py` | 详情面板（Metadata/Actions/Local Markers 三区，Actions 分组：Terminal/IDE/Finder | Git/Commit/Pull | Task/Review） |
 | `search.py` | 搜索栏控件 |
 | `actions.py` | IDE 检测/启动、剪贴板（TUI 和 CLI 共用） |
 | `icons.py` | Nerd Font 图标常量 + ASCII 回退 |

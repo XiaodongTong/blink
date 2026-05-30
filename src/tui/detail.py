@@ -38,7 +38,7 @@ class DetailPanel(UIControl):
         ],
         [
             ("Git       ", "Open in Browser"),
-            ("Push      ", "Push Changes"),
+            ("Commit    ", "Auto Commit Changes"),
             ("Pull      ", "Pull Changes"),
         ],
         [

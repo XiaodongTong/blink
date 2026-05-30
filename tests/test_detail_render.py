@@ -102,7 +102,7 @@ def test_detail_panel_line_constants():
 def test_detail_panel_action_line_groups():
     assert len(DetailPanel._ACTION_GROUPS) == 3
     assert len(DetailPanel._ACTION_GROUPS[0]) == 3  # Terminal, IDE, Finder
-    assert len(DetailPanel._ACTION_GROUPS[1]) == 3  # Git, Push, Pull
+    assert len(DetailPanel._ACTION_GROUPS[1]) == 3  # Git, Commit, Pull
     assert len(DetailPanel._ACTION_GROUPS[2]) == 2  # Task, Review
 
 
@@ -157,7 +157,7 @@ def test_detail_panel_renders_action_rows():
     assert "Open with IDE" in t
     assert "Open in Finder" in t
     assert "Open in Browser" in t
-    assert "Push Changes" in t
+    assert "Auto Commit Changes" in t
     assert "Pull Changes" in t
     assert "Add todo task" in t
     assert "AI Code Review" in t
@@ -254,7 +254,7 @@ def test_actions_section_renders_action_rows():
     t = _to_plain(panel._formatted_text())
     assert "IDE" in t
     assert "Terminal" in t
-    assert "Push" in t
+    assert "Commit" in t
     assert "Finder" in t
     assert "Git" in t
     assert "Task" in t
@@ -265,7 +265,7 @@ def test_actions_triggers_callbacks():
     panel = _make_detail_panel()
     panel._on_open_terminal = lambda: callbacks.append("terminal")
     panel._on_open_ide = lambda: callbacks.append("ide")
-    panel._on_commit = lambda: callbacks.append("push")
+    panel._on_commit = lambda: callbacks.append("commit")
     panel._on_pull = lambda: callbacks.append("pull")
     panel._on_open_finder = lambda: callbacks.append("finder")
     panel._on_open_git = lambda: callbacks.append("git")
@@ -275,7 +275,7 @@ def test_actions_triggers_callbacks():
     panel.handle_enter()
     panel._cursor_index = 1  # IDE
     panel.handle_enter()
-    panel._cursor_index = 4  # Push
+    panel._cursor_index = 4  # Commit
     panel.handle_enter()
     panel._cursor_index = 5  # Pull
     panel.handle_enter()
@@ -286,7 +286,7 @@ def test_actions_triggers_callbacks():
     panel._cursor_index = 6  # Task
     panel.handle_enter()
 
-    assert callbacks == ["terminal", "ide", "push", "pull", "finder", "git", "task"]
+    assert callbacks == ["terminal", "ide", "commit", "pull", "finder", "git", "task"]
 
 
 def test_actions_do_not_increment_view_count():
