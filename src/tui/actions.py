@@ -11,6 +11,7 @@ class EditorInfo:
     key: str
     name: str
     command: Optional[str]
+    app_name: Optional[str] = None
 
     @property
     def available(self) -> bool:
@@ -31,12 +32,6 @@ IDE_CHOICES = [
     ("n", "Neovim"),
     ("o", "System"),
 ]
-
-# IDEs that open via `open -a <AppName>` on macOS
-_MAC_OPEN_APPS: dict[str, str] = {
-    "a": "Antigravity IDE",
-    "x": "Xcode",
-}
 
 # IDEs detected via CLI command (`shutil.which`)
 _CLI_EDITORS: list[tuple[str, str, str]] = [
@@ -96,11 +91,12 @@ def detect_editors() -> Dict[str, EditorInfo]:
     editors["a"] = EditorInfo(
         key="a", name=anti_name,
         command=anti_cmd if anti_cmd != "none" else None,
+        app_name=anti_name,
     )
 
     # Xcode — macOS app detection
     xcode_cmd = _detect_mac_open_ide("x", "Xcode")
-    editors["x"] = EditorInfo(key="x", name="Xcode", command=xcode_cmd)
+    editors["x"] = EditorInfo(key="x", name="Xcode", command=xcode_cmd, app_name="Xcode")
 
     # System default (`open`)
     editors["o"] = EditorInfo(
@@ -114,9 +110,8 @@ def open_in_editor(repo_path: str, editor_key: str, editors: Dict[str, EditorInf
     info = editors.get(editor_key)
     if info is None or not info.available:
         return
-    if editor_key in _MAC_OPEN_APPS:
-        app_name = _MAC_OPEN_APPS[editor_key]
-        subprocess.Popen(["open", "-a", app_name, repo_path],
+    if info.app_name:
+        subprocess.Popen(["open", "-a", info.app_name, repo_path],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     elif editor_key == "o":
         subprocess.Popen(["open", repo_path],
