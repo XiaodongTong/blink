@@ -1,11 +1,11 @@
-"""Tests for blink.loop.cmd_review — unit tests for core functions."""
+"""Tests for blink.loop.review.cmd — unit tests for core functions."""
 from __future__ import annotations
 
 from pathlib import Path
 
-from blink.loop.cmd_review import run_review
-from blink.loop.review_context import build_review_prompt, collect_context
-from blink.loop.review_report import (
+from blink.loop.review.cmd import run_review
+from blink.loop.review.context import build_review_prompt, collect_context
+from blink.loop.review.report import (
     ReviewResult,
     _branch_slug,
     ensure_review_dir,

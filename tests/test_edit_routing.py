@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from blink.models import Remote, Repo
 from blink.store import Store
-from blink.tui.detail import DetailPanel
+from blink.tui.widgets.detail import DetailPanel
 
 
 def _make_repo(**overrides) -> Repo:

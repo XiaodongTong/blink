@@ -127,7 +127,7 @@ def log(task_number: int | None) -> None:
 @click.option("--strict", is_flag=True, help="Strict mode: upgrade MAJOR to DENY")
 def review(branch: str | None, against: str | None, diff_only: bool, list_reports: bool, project_dir: str, model: str, init_rules: bool, no_verify: bool, no_lint: bool, no_test: bool, no_context: bool, strict: bool) -> None:
     """AI-assisted code review of a colleague branch."""
-    from blink.loop.cmd_review import handle
+    from blink.loop.review.cmd import handle
     args = argparse.Namespace(
         branch=branch,
         against=against,

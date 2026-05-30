@@ -9,7 +9,7 @@ from prompt_toolkit.layout.dimension import D
 from prompt_toolkit.data_structures import Point
 from prompt_toolkit.filters import Condition
 
-from blink.tui.repo_list import RepoListWindow
+from blink.tui.widgets.repo_list import RepoListWindow
 
 if TYPE_CHECKING:
     from blink.tui.app import BlinkApp

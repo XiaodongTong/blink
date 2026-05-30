@@ -91,8 +91,8 @@ class ReviewOrchestrator:
         self._app._app.invalidate()
 
         def do_review():
-            from blink.loop.cmd_review import run_review
-            from blink.loop.review_report import ReviewResult
+            from blink.loop.review.cmd import run_review
+            from blink.loop.review.report import ReviewResult
             from blink.loop import git_ops
             from blink import logger
 

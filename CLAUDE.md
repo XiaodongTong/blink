@@ -82,11 +82,13 @@ uv build                   # 构建分发包
 | `key_bindings.py` | 所有按键绑定注册 |
 | `status_bar.py` | 状态栏和页脚文本渲染 |
 | `app_review.py` | TUI Review 编排（分支选择 + AI 执行） |
-| `repo_list.py` | 两行式列表控件，状态徽标 |
-| `detail.py` | 详情面板（Metadata/Actions/Local Markers 三区，Actions 分组：Terminal/IDE/Finder | Git/Commit/Pull | Task/Review） |
-| `search.py` | 搜索栏控件 |
 | `actions.py` | IDE 检测/启动、剪贴板（TUI 和 CLI 共用） |
 | `icons.py` | Nerd Font 图标常量 + ASCII 回退 |
+| `widgets/` | UI 控件子目录 |
+| `widgets/detail.py` | 详情面板（Metadata/Actions/Local Markers 三区） |
+| `widgets/detail_edit.py` | 详情面板编辑模式 mixin |
+| `widgets/repo_list.py` | 两行式列表控件，状态徽标 |
+| `widgets/search.py` | 搜索栏控件 |
 
 ### Loop（`src/loop/`）
 

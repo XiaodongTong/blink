@@ -1,4 +1,4 @@
-"""Tests for blink.loop.cmd_review — integration tests (handle pipeline, git ops)."""
+"""Tests for blink.loop.review.cmd — integration tests (handle pipeline, git ops)."""
 from __future__ import annotations
 
 import subprocess
@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from blink.loop import git_ops
-from blink.loop.cmd_review import cleanup_review_branch, handle, run_review
-from blink.loop.review_report import ReviewResult, save_report
+from blink.loop.review.cmd import cleanup_review_branch, handle, run_review
+from blink.loop.review.report import ReviewResult, save_report
 
 
 def _init_git_repo(path, initial_branch="main"):

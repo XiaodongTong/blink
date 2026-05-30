@@ -197,7 +197,7 @@ Loop 提供两种 review 能力：
 - 发现问题则自动修复，无问题输出 `NO_ISSUES_FOUND`
 - 通过任务配置 `task_review: true` 或 `blink run --task-review` 启用
 
-### 同事分支 Review（`cmd_review.py`）
+### 同事分支 Review（`review/cmd.py`）
 
 独立的 AI Code Review 命令，对指定分支进行结构化审查（`blink review`）：
 
@@ -221,14 +221,14 @@ blink review <branch> --strict      # 严格模式：MAJOR 问题升级为 DENY
 
 完整模式流程：
 1. 收集上下文：diff、commit log、stat、项目规则
-2. 静态分析（`review_analyzer.py`）：检测项目语言，运行 linter（ruff/eslint/golint 等），过滤 diff 相关输出
-3. 测试执行（`review_tester.py`）：检测并运行项目测试套件（pytest/npm test/go test/cargo test 等）
+2. 静态分析（`review/analyzer.py`）：检测项目语言，运行 linter（ruff/eslint/golint 等），过滤 diff 相关输出
+3. 测试执行（`review/tester.py`）：检测并运行项目测试套件（pytest/npm test/go test/cargo test 等）
 4. 代码上下文丰富（`_enrich_context()`）：提取 diff 涉及文件的上下文代码
 5. 创建临时 review 分支（`review/<branch-slug>-YYYYMMDD`）
 6. 合并目标分支到 base 分支
 7. 如有冲突 → 生成 DENY 报告
 8. 调用 `run_claude_text()` 执行 review
-9. 验证 pass（`review_verifier.py`）：逐条验证初始发现，过滤误报，交叉验证 lint 结果
+9. 验证 pass（`review/verifier.py`）：逐条验证初始发现，过滤误报，交叉验证 lint 结果
 10. 解析 VERDICT（`APPROVE` / `APPROVE_WITH_NOTES` / `DENY`）
 11. 保存报告到 `docs/blink/code-review/<branch-slug>-YYYYMMDD.md`
 12. 清理临时分支

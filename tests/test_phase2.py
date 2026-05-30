@@ -9,7 +9,7 @@ from blink.store import Store
 from blink.scanner import Scanner
 from blink.tui.app import BlinkApp
 from blink.tui.app_review import ReviewOrchestrator
-from blink.tui.detail import DetailPanel
+from blink.tui.widgets.detail import DetailPanel
 
 
 def _make_app():

@@ -3,7 +3,7 @@ from __future__ import annotations
 from prompt_toolkit.formatted_text import to_plain_text
 
 from blink.models import Repo, RepoStatus
-from blink.tui.repo_list import RepoListControl
+from blink.tui.widgets.repo_list import RepoListControl
 
 
 def test_preferred_height_single_repo():

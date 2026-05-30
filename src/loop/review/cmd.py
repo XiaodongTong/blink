@@ -8,11 +8,11 @@ from typing import Optional
 from blink import logger
 from blink.loop import git_ops
 from blink.loop.claude_runner import run_claude_text
-from blink.loop.review_context import (
+from blink.loop.review.context import (
     DIFF_SIZE_LIMIT, REVIEW_PROMPT,
     collect_context, build_review_prompt, _enrich_context,
 )
-from blink.loop.review_report import (
+from blink.loop.review.report import (
     ReviewResult, ensure_review_dir, parse_verdict, save_report,
 )
 
@@ -135,11 +135,11 @@ def run_review(
         ) or "(no additional context)"
 
     if not no_lint and context["diff"]:
-        from blink.loop.review_analyzer import run_static_analysis
+        from blink.loop.review.analyzer import run_static_analysis
         context["lint_result"] = run_static_analysis(dir_path, context["diff"])
 
     if not no_test:
-        from blink.loop.review_tester import run_tests
+        from blink.loop.review.tester import run_tests
         test_name, passed, output = run_tests(dir_path)
         if test_name:
             status = "PASSED" if passed else "FAILED"
@@ -175,7 +175,7 @@ def run_review(
         if not no_verify:
             if stage_fn:
                 stage_fn("verifying")
-            from blink.loop.review_verifier import verify_findings
+            from blink.loop.review.verifier import verify_findings
             verified_output = verify_findings(
                 dir_path, output, context["diff"], context["lint_result"],
                 model=model, quiet=True,

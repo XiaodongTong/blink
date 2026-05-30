@@ -43,7 +43,7 @@ class TestLoopImports:
         from blink.loop.cmd_edit import handle as edit_handle
         from blink.loop.cmd_commit import handle as commit_handle
         from blink.loop.cmd_log import handle as log_handle
-        from blink.loop.cmd_review import handle as review_handle
+        from blink.loop.review.cmd import handle as review_handle
         assert callable(run_handle)
         assert callable(edit_handle)
         assert callable(commit_handle)

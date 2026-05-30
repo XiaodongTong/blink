@@ -18,10 +18,10 @@ from blink import logger
 from blink.config import Config
 from blink.store import Store
 from blink.scanner import Scanner
-from blink.tui.repo_list import RepoListControl
-from blink.tui.search import SearchBar
+from blink.tui.widgets.repo_list import RepoListControl
+from blink.tui.widgets.search import SearchBar
 from blink.tui.actions import EditorInfo, IDE_CHOICES, detect_editors, open_in_editor, open_terminal
-from blink.tui.detail import DetailPanel, _remote_to_https
+from blink.tui.widgets.detail import DetailPanel, _remote_to_https
 from blink.tui.styles import build_style
 from blink.tui.layout import build_layout, EditStatusControl
 from blink.tui.key_bindings import build_key_bindings

@@ -12,7 +12,7 @@ AI Code Review 的完整执行流程，涵盖 CLI 和 TUI 两条入口路径。
 │  blink review <branch>   │   快捷键触发 (R 键)            │
 │  blink review -l         │   ReviewOrchestrator          │
 │  blink review -i         │   .start_branch_select()      │
-│  (cmd_review.handle)     │   (app_review.py)             │
+│  (review/cmd.handle)     │   (app_review.py)             │
 │                          │   始终启用 lint/test/context/verify
 └──────────┬───────────────┴──────────────┬───────────────┘
            │                              │
@@ -73,13 +73,13 @@ AI Code Review 的完整执行流程，涵盖 CLI 和 TUI 两条入口路径。
    │   ├─ 总量上限 50KB (CONTEXT_SIZE_LIMIT)
    │   └─ CLI: --no-context 跳过 / TUI: 始终执行
    │
-   ├─ 静态分析 (review_analyzer.run_static_analysis)
+   ├─ 静态分析 (review/analyzer.run_static_analysis)
    │   ├─ 按文件扩展名检测语言 (Python/Node/Go/Rust/Java)
    │   ├─ 运行可用 linter（ruff → flake8 → mypy / eslint / go vet 等）
    │   ├─ 过滤输出仅保留 diff 涉及的文件
    │   └─ CLI: --no-lint 跳过 / TUI: 始终执行
    │
-   └─ 测试执行 (review_tester.run_tests)
+   └─ 测试执行 (review/tester.run_tests)
        ├─ 自动检测测试框架（pytest/npm test/go test/cargo test 等）
        ├─ 运行测试，截取最后 2000 字符
        └─ CLI: --no-test 跳过 / TUI: 始终执行
@@ -106,7 +106,7 @@ AI Code Review 的完整执行流程，涵盖 CLI 和 TUI 两条入口路径。
    ├─ 输入 prompt → Claude → 输出 review 结果
    │
    ▼
-6. 验证步骤 (review_verifier.verify_findings)
+6. 验证步骤 (review/verifier.verify_findings)
    │  CLI: --no-verify 跳过 / TUI: 始终执行
    │
    ├─ 将初始审核结果、原始 diff、lint 结果传入验证 prompt
@@ -198,11 +198,11 @@ run_task_review (task_review.py)
 
 | 文件 | 职责 |
 |------|------|
-| `src/loop/cmd_review.py` | CLI review 入口 + 核心逻辑（收集上下文、构建 prompt、解析结果、保存报告） |
+| `src/loop/review/cmd.py` | CLI review 入口 + 核心逻辑（收集上下文、构建 prompt、解析结果、保存报告） |
 | `src/tui/app_review.py` | TUI review 编排（分支选择 UI、后台线程执行、review_stage 状态显示） |
 | `src/loop/task_review.py` | TaskReview 自审（Loop 任务后自动触发） |
 | `src/loop/git_ops.py` | Git 操作（创建/清理 review 分支、合并、冲突检测） |
 | `src/loop/claude_runner.py` | Claude CLI 调用封装（run_claude_text 用于 review） |
-| `src/loop/review_analyzer.py` | 静态分析集成（检测语言 → 运行 linter → 过滤结果） |
-| `src/loop/review_verifier.py` | 审核结果验证（二次验证，过滤误报，重新判定 VERDICT） |
-| `src/loop/review_tester.py` | 测试执行器（自动检测框架 → 运行测试 → 截取结果） |
+| `src/loop/review/analyzer.py` | 静态分析集成（检测语言 → 运行 linter → 过滤结果） |
+| `src/loop/review/verifier.py` | 审核结果验证（二次验证，过滤误报，重新判定 VERDICT） |
+| `src/loop/review/tester.py` | 测试执行器（自动检测框架 → 运行测试 → 截取结果） |

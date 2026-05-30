@@ -9,9 +9,9 @@ from unittest.mock import MagicMock
 from blink.config import Config
 from blink.models import Remote, Repo, RepoStatus
 from blink.store import Store
-from blink.tui.detail import DetailPanel
+from blink.tui.widgets.detail import DetailPanel
 from blink.tui.icons import get_icon, BRANCH_NF, BRANCH_ASCII, PIN_NF, PIN_ASCII
-from blink.tui.repo_list import RepoListControl
+from blink.tui.widgets.repo_list import RepoListControl
 from prompt_toolkit.formatted_text import to_plain_text
 
 

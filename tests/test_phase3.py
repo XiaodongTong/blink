@@ -178,7 +178,7 @@ def test_enter_in_edit_mode_confirms():
     store.init_db()
     rid = store.upsert_repo(Repo(name="test-repo", path="/tmp/test"))
 
-    from blink.tui.detail import DetailPanel
+    from blink.tui.widgets.detail import DetailPanel
     panel = DetailPanel(
         repo=app._repo_control.selected_repo(),
         store=store, editors={},

@@ -4,7 +4,7 @@ from prompt_toolkit.formatted_text import to_plain_text
 
 from blink.models import Remote, Repo, RepoStatus
 from blink.store import Store
-from blink.tui.detail import DetailPanel
+from blink.tui.widgets.detail import DetailPanel
 
 
 def _make_repo(**overrides) -> Repo:

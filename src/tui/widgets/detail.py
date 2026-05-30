@@ -15,7 +15,7 @@ _FocusedChecker = Callable[[], bool]
 from blink.models import Repo, RepoStatus, display_width
 from blink.store import Store
 from blink.tui.actions import EditorInfo
-from blink.tui.detail_edit import DetailEditMixin
+from blink.tui.widgets.detail_edit import DetailEditMixin
 
 _INDENT = "            "  # 12 spaces (aligns with value column)
 
