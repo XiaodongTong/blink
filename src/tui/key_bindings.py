@@ -35,7 +35,7 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         opts = app._ide_options()
         if opts and 0 <= app._ide_select_cursor < len(opts):
             key, name = opts[app._ide_select_cursor]
-            app._config.set("preferred_ide", key)
+            app._config.set("editor", key)
             app._ide_selecting = False
             path = app._ide_pending_path
             app._ide_pending_path = None

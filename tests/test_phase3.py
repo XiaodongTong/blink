@@ -21,7 +21,7 @@ def _make_app():
     app._store = store
     app._scanner = scanner
     app._config = MagicMock(spec=Config)
-    app._config.preferred_ide = None
+    app._config.editor = None
     app._config.nerd_fonts = False
     app._editors = {}
     app._scanning = False

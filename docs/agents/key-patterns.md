@@ -41,7 +41,7 @@
 
 - `_ide_selecting` 是状态栏临时覆盖层
 - `_open_with_ide(path)` 通用 IDE 打开（仓库或文件）
-- 先检查 `Config.preferred_ide`，未设置则进入选择模式
+- 先检查 `Config.editor`，未设置则进入选择模式
 
 ## 提交与拉取
 

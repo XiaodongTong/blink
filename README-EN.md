@@ -135,8 +135,7 @@ A default config is created at `~/.blink/config.json` on first run:
 {
   "scan_paths": ["~"],
   "exclude_dirs": [".Trash", ".cache", ".npm", ".docker", "Library", "node_modules"],
-  "editor": "code",
-  "preferred_ide": null,
+  "editor": null,
   "auto_sync_days": 0,
   "nerd_fonts": false
 }
@@ -146,8 +145,7 @@ A default config is created at `~/.blink/config.json` on first run:
 |-------|-------------|
 | `scan_paths` | Root directories to scan for Git repos |
 | `exclude_dirs` | Directory names to skip during scan |
-| `editor` | Default editor |
-| `preferred_ide` | Preferred IDE (`v` VSCode / `u` Cursor / `a` Antigravity) |
+| `editor` | Preferred IDE (`v` VSCode / `u` Cursor / `a` Antigravity), auto-selected on first use |
 | `auto_sync_days` | Auto-rescan interval in days (0 to disable) |
 | `nerd_fonts` | Enable Nerd Font icons |
 

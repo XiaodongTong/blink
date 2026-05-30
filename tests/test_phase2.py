@@ -22,7 +22,7 @@ def _make_app():
     app._store = store
     app._scanner = scanner
     app._config = MagicMock(spec=Config)
-    app._config.preferred_ide = None
+    app._config.editor = None
     app._config.nerd_fonts = False
     app._editors = {}
     app._scanning = False
@@ -161,7 +161,7 @@ def test_enter_in_list_opens_ide():
     app._focus_pane = "list"
     repo = Repo(id=rid, name="test-repo", path="/tmp/test")
     app._repo_control.selected_repo = MagicMock(return_value=repo)
-    app._config.preferred_ide = "v"
+    app._config.editor = "v"
     # Set a real command to avoid FileNotFoundError
     app._editors = {"v": MagicMock(available=True, command="echo")}
 

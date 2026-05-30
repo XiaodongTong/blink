@@ -11,8 +11,7 @@ DEFAULT_CONFIG_PATH = DEFAULT_DIR / "config.json"
 _DEFAULT_CONFIG: Dict[str, Any] = {
     "scan_paths": [str(Path.home())],
     "exclude_dirs": [".Trash", ".cache", ".npm", ".docker", ".vscode", "Library", "Applications", "node_modules", "__pycache__"],
-    "editor": "code",
-    "preferred_ide": None,
+    "editor": None,
     "auto_sync_days": 0,
     "nerd_fonts": False,
     "models": {
@@ -64,12 +63,8 @@ class Config:
         return list(self._data.get("exclude_dirs", _DEFAULT_CONFIG["exclude_dirs"]))
 
     @property
-    def editor(self) -> str:
-        return str(self._data.get("editor", _DEFAULT_CONFIG["editor"]))
-
-    @property
-    def preferred_ide(self) -> Optional[str]:
-        return self._data.get("preferred_ide")
+    def editor(self) -> Optional[str]:
+        return self._data.get("editor")
 
     @property
     def auto_sync_days(self) -> int:

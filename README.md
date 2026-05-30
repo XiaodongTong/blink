@@ -135,8 +135,7 @@ blink log                      # 查看任务日志
 {
   "scan_paths": ["~"],
   "exclude_dirs": [".Trash", ".cache", ".npm", ".docker", "Library", "node_modules"],
-  "editor": "code",
-  "preferred_ide": null,
+  "editor": null,
   "auto_sync_days": 0,
   "nerd_fonts": false
 }
@@ -146,8 +145,7 @@ blink log                      # 查看任务日志
 |------|------|
 | `scan_paths` | 扫描 Git 仓库的根目录列表 |
 | `exclude_dirs` | 扫描时跳过的目录名 |
-| `editor` | 默认编辑器 |
-| `preferred_ide` | 首选 IDE（`v` VSCode / `u` Cursor / `a` Antigravity） |
+| `editor` | 首选 IDE（`v` VSCode / `u` Cursor / `a` Antigravity），首次使用时自动选择 |
 | `auto_sync_days` | 自动重新扫描间隔天数（0 禁用） |
 | `nerd_fonts` | 启用 Nerd Font 图标 |
 

@@ -11,7 +11,7 @@ EDIT_HELP = """\
 Open ~/.blink/loop/tasks.yaml in your editor.
 
 Uses the same IDE selection as the TUI (VSCode, Cursor, Antigravity, IntelliJ, PyCharm, etc).
-The choice is saved to ~/.blink/config.json as preferred_ide.
+The choice is saved to ~/.blink/config.json as editor.
 
 Task file format (~/.blink/loop/tasks.yaml):
 
@@ -63,7 +63,7 @@ def _prompt_ide_choice():
             idx = int(choice)
             if 1 <= idx <= len(available):
                 key, name = available[idx - 1]
-                cfg.set("preferred_ide", key)
+                cfg.set("editor", key)
                 print(f"{config.GREEN}Default IDE set to {name}.{config.RESET}\n")
                 return key
         print("Invalid choice, try again.")
@@ -145,15 +145,15 @@ def handle(args):
     cfg = Config()
     editors = detect_editors()
 
-    if cfg.preferred_ide:
-        info = editors.get(cfg.preferred_ide)
+    if cfg.editor:
+        info = editors.get(cfg.editor)
         if not info or not info.available:
-            cfg.set("preferred_ide", None)
+            cfg.set("editor", None)
 
-    if not cfg.preferred_ide:
+    if not cfg.editor:
         _prompt_ide_choice()
 
-    if cfg.preferred_ide:
-        open_in_editor(str(config.TASKS_FILE), cfg.preferred_ide, editors)
+    if cfg.editor:
+        open_in_editor(str(config.TASKS_FILE), cfg.editor, editors)
     else:
         print("No IDE selected.")

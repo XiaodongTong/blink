@@ -120,13 +120,13 @@ class BlinkApp:
         return list(IDE_CHOICES)
 
     def _open_with_ide(self, path: str) -> None:
-        preferred = self._config.preferred_ide
+        preferred = self._config.editor
         if preferred:
             info = self._editors.get(preferred)
             if info and info.available:
                 open_in_editor(path, preferred, self._editors)
             else:
-                self._config.set("preferred_ide", None)
+                self._config.set("editor", None)
                 self._ide_pending_path = path
                 self._ide_selecting = True
                 self._ide_select_cursor = 0

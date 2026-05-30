@@ -241,7 +241,7 @@ blink/
 {
   "scan_paths": ["~"],
   "exclude_dirs": [".Trash", ".cache", "Library", "node_modules"],
-  "editor": "code",
+  "editor": null,
   "auto_sync_days": 7
 }
 ```
