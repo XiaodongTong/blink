@@ -20,7 +20,7 @@ def _to_plain(formatted) -> str:
     return to_plain_text(formatted)
 
 
-def _make_detail_panel(repo: Repo = None, focused: bool = True) -> DetailPanel:
+def _make_detail_panel(repo: Repo | None = None, focused: bool = True) -> DetailPanel:
     if repo is None:
         repo = _make_repo()
     store = Store(":memory:")

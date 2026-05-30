@@ -89,7 +89,7 @@ def _list_logs():
         color = config.DIM
         if task_num is not None:
             state_key = str(task_num - 1)
-            ts = state_tasks.get(state_key, {})
+            ts: dict = dict(state_tasks.get(state_key, {}))
             status = ts.get("status", "pending")
             color = _STATUS_COLORS.get(status, config.DIM)
 

@@ -59,11 +59,11 @@ class Config:
 
     @property
     def scan_paths(self) -> List[str]:
-        return list(self._data.get("scan_paths", _DEFAULT_CONFIG["scan_paths"]))
+        return list(self._data.get("scan_paths") or _DEFAULT_CONFIG["scan_paths"])
 
     @property
     def exclude_dirs(self) -> List[str]:
-        return list(self._data.get("exclude_dirs", _DEFAULT_CONFIG["exclude_dirs"]))
+        return list(self._data.get("exclude_dirs") or _DEFAULT_CONFIG["exclude_dirs"])
 
     @property
     def editor(self) -> Optional[str]:
@@ -71,7 +71,7 @@ class Config:
 
     @property
     def auto_sync_days(self) -> int:
-        return int(self._data.get("auto_sync_days", _DEFAULT_CONFIG["auto_sync_days"]))
+        return int(self._data.get("auto_sync_days") or _DEFAULT_CONFIG["auto_sync_days"])
 
     @property
     def nerd_fonts(self) -> bool:

@@ -45,7 +45,7 @@ def test_open_with_ide_unknown_name_triggers_select():
     with patch("blink.tui.app.open_in_editor") as mock_open:
         app._open_with_ide("/tmp/repo")
         mock_open.assert_not_called()
-    app._config.set.assert_called_once_with("editor", None)
+    app._config.set.assert_called_once_with("editor", None)  # pyrefly: ignore
     assert app._ide_selecting is True
     assert app._ide_pending_path == "/tmp/repo"
 
@@ -55,7 +55,7 @@ def test_open_with_ide_unavailable_editor_triggers_select():
     with patch("blink.tui.app.open_in_editor") as mock_open:
         app._open_with_ide("/tmp/repo")
         mock_open.assert_not_called()
-    app._config.set.assert_called_once_with("editor", None)
+    app._config.set.assert_called_once_with("editor", None)  # pyrefly: ignore
     assert app._ide_selecting is True
 
 
@@ -64,6 +64,6 @@ def test_open_with_ide_none_editor_triggers_select():
     with patch("blink.tui.app.open_in_editor") as mock_open:
         app._open_with_ide("/tmp/repo")
         mock_open.assert_not_called()
-    app._config.set.assert_not_called()
+    app._config.set.assert_not_called()  # pyrefly: ignore
     assert app._ide_selecting is True
     assert app._ide_pending_path == "/tmp/repo"

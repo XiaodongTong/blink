@@ -67,7 +67,7 @@ def run_tests(dir_path, timeout=300):
         (test_name, passed, output) — test_name is None if no test framework found.
     """
     name, cmd = detect_test_command(dir_path)
-    if not name:
+    if not name or not cmd:
         return None, True, "(no test framework detected)"
 
     try:

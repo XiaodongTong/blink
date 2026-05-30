@@ -115,7 +115,7 @@ class Store:
                 "INSERT INTO repos (name, alias, description, path, last_synced) VALUES (?, ?, ?, ?, ?)",
                 (repo.name, repo.alias, repo.description, repo.path, repo.last_synced),
             )
-            repo_id = cur.lastrowid
+            repo_id = cur.lastrowid or 0
         conn.commit()
         return repo_id
 
@@ -147,6 +147,7 @@ class Store:
                 pinned=r["pinned"], view_count=r["view_count"],
                 status=self._status_from_row(r),
             )
+            assert repo.id is not None
             repo.remotes = self._get_remotes_for(conn, repo.id)
             repo.tags = self.get_tags_for_repo(repo.id)
             repos.append(repo)
@@ -180,6 +181,7 @@ class Store:
                 pinned=r["pinned"], view_count=r["view_count"],
                 status=self._status_from_row(r),
             )
+            assert repo.id is not None
             repo.remotes = self._get_remotes_for(conn, repo.id)
             repo.tags = self.get_tags_for_repo(repo.id)
             repos.append(repo)
@@ -206,6 +208,7 @@ class Store:
             last_synced=r["last_synced"], created_at=r["created_at"],
             pinned=r["pinned"], view_count=r["view_count"],
         )
+        assert repo.id is not None
         repo.remotes = self._get_remotes_for(conn, repo.id)
         repo.tags = self.get_tags_for_repo(repo.id)
         return repo

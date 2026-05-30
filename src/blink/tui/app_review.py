@@ -37,7 +37,8 @@ class ReviewOrchestrator:
                 if not branches:
                     self._app._set_scan_status("✗ 没有找到可 review 的分支", timeout=3.0)
                     self._app._set_focus("detail")
-                    self._app._app.layout.focus(self._app._detail_window)
+                    if self._app._detail_window is not None:
+                        self._app._focus(self._app._detail_window)
                     self._app._app.invalidate()
                     return
                 self.branches = branches
@@ -57,7 +58,8 @@ class ReviewOrchestrator:
         self.branch_cursor = 0
         self.review_stage = ""
         self._app._set_focus("detail")
-        self._app._app.layout.focus(self._app._detail_window)
+        if self._app._detail_window is not None:
+            self._app._focus(self._app._detail_window)
         self._app._app.invalidate()
 
     def confirm_branch(self) -> None:
@@ -71,11 +73,13 @@ class ReviewOrchestrator:
         repo = self._app._get_active_repo()
         if not repo:
             self._app._set_focus("detail")
-            self._app._app.layout.focus(self._app._detail_window)
+            if self._app._detail_window is not None:
+                self._app._focus(self._app._detail_window)
             self._app._app.invalidate()
             return
         self._app._set_focus("detail")
-        self._app._app.layout.focus(self._app._detail_window)
+        if self._app._detail_window is not None:
+            self._app._focus(self._app._detail_window)
         self._run_review(repo, branch)
 
     def _set_stage(self, stage: str) -> None:

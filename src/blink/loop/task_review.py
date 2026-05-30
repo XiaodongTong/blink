@@ -91,10 +91,12 @@ def run_task_review(dir_path, base_commit, log_file=None):
             text=True,
         )
 
+        assert process.stdin is not None
         process.stdin.write(full_input)
         process.stdin.close()
 
         output_parts = []
+        assert process.stdout is not None
         for line in process.stdout:
             print(line, end="")
             log_format.write_task_review_output(log, line)

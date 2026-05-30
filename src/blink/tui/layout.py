@@ -50,9 +50,13 @@ NARROW_THRESHOLD = 110
 
 def build_layout(app: BlinkApp) -> Layout:
     app._repo_list_window = RepoListWindow(app._repo_control)
+    assert app._detail_window is not None
+    assert app._edit_status_window is not None
+    detail_window = app._detail_window
+    edit_status_window = app._edit_status_window
 
-    left_border = Condition(lambda: app._focus_pane == "list")
-    right_border = Condition(lambda: app._focus_pane in ("detail", "config"))
+    left_border = lambda: app._focus_pane == "list"
+    right_border = lambda: app._focus_pane in ("detail", "config")
     def _detail_visible():
         app._sync_view_mode_for_width()
         return (app._detail_panel is not None or app._focus_pane == "config") \
@@ -75,10 +79,10 @@ def build_layout(app: BlinkApp) -> Layout:
 
     left_inner = HSplit([
         Window(height=D.exact(1), char="─",
-               style=Condition(lambda: "class:border-focus" if left_border() else "class:border")),
+               style=lambda: "class:border-focus" if left_border() else "class:border"),
         app._repo_list_window,
         Window(height=D.exact(1), char="─",
-               style=Condition(lambda: "class:border-focus" if left_border() else "class:border")),
+               style=lambda: "class:border-focus" if left_border() else "class:border"),
     ], width=lambda: D(min=25, preferred=48, max=_left_max()))
 
     left_panel = ConditionalContainer(left_inner, filter=list_visible)
@@ -86,10 +90,10 @@ def build_layout(app: BlinkApp) -> Layout:
     right_panel = ConditionalContainer(
         HSplit([
             Window(height=D.exact(1), char="─",
-                   style=Condition(lambda: "class:border-focus" if right_border() else "class:border")),
-            app._detail_window,
+                   style=lambda: "class:border-focus" if right_border() else "class:border"),
+            detail_window,
             Window(height=D.exact(1), char="─",
-                   style=Condition(lambda: "class:border-focus" if right_border() else "class:border")),
+                   style=lambda: "class:border-focus" if right_border() else "class:border"),
         ]),
         filter=detail_visible,
     )
@@ -103,7 +107,7 @@ def build_layout(app: BlinkApp) -> Layout:
     main_area = VSplit([left_panel, v_sep, right_panel])
 
     edit_status = ConditionalContainer(
-        app._edit_status_window,
+        edit_status_window,
         filter=edit_active,
     )
     regular_status = ConditionalContainer(

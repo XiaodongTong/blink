@@ -26,7 +26,7 @@ def _make_editors() -> dict[str, EditorInfo]:
 
 
 def _extract_texts(ft_list: list) -> list[str]:
-    return [text for _, text in ft_list]
+    return [text for item in ft_list for text in (item[1],)]
 
 
 def _all_text(panel: ConfigPanel) -> str:
@@ -34,7 +34,7 @@ def _all_text(panel: ConfigPanel) -> str:
     texts = []
     for i in range(content.line_count):
         line = content.get_line(i)
-        texts.append("".join(t for _, t in line))
+        texts.append("".join(item[1] for item in line))
     return "\n".join(texts)
 
 
@@ -68,7 +68,7 @@ def test_selected_row_has_enter_hint(tmp_path: Path) -> None:
     panel = ConfigPanel(config, _make_editors())
     content = panel.create_content(80, 40)
     first_row = content.get_line(1)
-    assert "[Enter]" in "".join(t for _, t in first_row)
+    assert "[Enter]" in "".join(item[1] for item in first_row)
 
 
 def test_line_count(tmp_path: Path) -> None:

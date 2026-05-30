@@ -97,6 +97,7 @@ def test_ctrl_c_first_press_sets_hint(app_with_store):
     assert not app._ctrl_c_quit_hint
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "c-c")
+    assert handler is not None
     handler(event)
     assert app._ctrl_c_quit_hint is True
 
@@ -108,6 +109,7 @@ def test_ctrl_c_double_press_exits(app_with_store):
     app._last_ctrl_c = time.monotonic()
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "c-c")
+    assert handler is not None
     handler(event)
     event.app.exit.assert_called_once()
 
@@ -119,6 +121,7 @@ def test_ctrl_c_timeout_resets(app_with_store):
     app._last_ctrl_c = time.monotonic() - 3.0
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "c-c")
+    assert handler is not None
     handler(event)
     event.app.exit.assert_not_called()
     assert app._ctrl_c_quit_hint is True
@@ -130,6 +133,7 @@ def test_ctrl_c_cancels_search_active(app_with_store):
     app._search_active = True
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "c-c")
+    assert handler is not None
     handler(event)
     assert app._search_active is False
     assert app._search_filtering is False
@@ -145,6 +149,7 @@ def test_ctrl_c_cancels_edit_mode(app_with_store):
     app._detail_panel = panel
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "c-c")
+    assert handler is not None
     handler(event)
     assert panel._edit_mode is None
 
@@ -154,6 +159,7 @@ def test_esc_does_not_exit(app_with_store):
     event = MagicMock()
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "escape")
+    assert handler is not None
     handler(event)
     event.app.exit.assert_not_called()
 
@@ -165,6 +171,7 @@ def test_esc_clears_search_filtering(app_with_store):
     app._search_bar.text = "test"
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "escape")
+    assert handler is not None
     handler(event)
     app._search_bar.clear.assert_called()
     assert app._search_filtering is False
@@ -276,7 +283,7 @@ def test_search_prefix_text_active():
 def test_search_prefix_text_filtering():
     app, _, _ = _make_app()
     app._search_filtering = True
-    app._search_bar.text = "myrepo"
+    app._search_bar.text = "myrepo"  # type: ignore[assignment]
     result = app._search_prefix_text()
     text = "".join(t[1] for t in result)
     assert "myrepo" in text
@@ -289,6 +296,7 @@ def test_enter_confirms_search(app_with_store):
     app._search_bar.text = "test"
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "enter")
+    assert handler is not None
     handler(event)
     assert app._search_active is False
     assert app._search_filtering is True
@@ -301,6 +309,7 @@ def test_enter_search_with_empty_text(app_with_store):
     app._search_bar.text = ""
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "enter")
+    assert handler is not None
     handler(event)
     assert app._search_active is False
     assert app._search_filtering is False

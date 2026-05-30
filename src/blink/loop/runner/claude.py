@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 
 from blink.loop import log_format
-from blink.loop.runner import Runner
+from blink.loop.runner import Runner as RunnerBase
 from blink.config import get_default_model
 
 COMPLETION_SUFFIX = (
@@ -19,8 +19,10 @@ COMPLETION_SUFFIX = (
 )
 
 
-class ClaudeRunner(Runner):
-    def run(self, prompt, cwd, log_file=None, max_rounds=5, prompt_file=None, model=None):
+class ClaudeRunner(RunnerBase):
+    def run(self, prompt: str, cwd: str, log_file: str | Path | None = None,
+            max_rounds: int = 5, prompt_file: str | Path | None = None,
+            model: str | None = None, **kwargs: object) -> int:
         """
         Run Claude Code in a loop with configurable round limit.
 
@@ -82,10 +84,12 @@ class ClaudeRunner(Runner):
                     text=True,
                 )
 
+                assert process.stdin is not None
                 process.stdin.write(final_input)
                 process.stdin.close()
 
                 output_parts = []
+                assert process.stdout is not None
                 for line in process.stdout:
                     print(line, end="")
                     log_format.write_implement_output(log, line)

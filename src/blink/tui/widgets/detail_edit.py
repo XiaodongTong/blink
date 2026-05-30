@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Callable, Optional
 
 from prompt_toolkit.buffer import Buffer
+
+from blink.models import Repo
+from blink.store import Store
 
 
 class DetailEditMixin:
@@ -12,6 +15,10 @@ class DetailEditMixin:
     _alias_buffer: Optional[Buffer]
     _desc_buffer: Optional[Buffer]
     _tag_buffer: Optional[Buffer]
+    _repo: Repo
+    _store: Store
+    _on_alias_change: Callable[[str], None]
+    _on_tags_change: Callable[[], None]
 
     # ── start editing ──────────────────────────────────────────────────────
 

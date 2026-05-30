@@ -5,33 +5,41 @@ from __future__ import annotations
 import subprocess as sp
 import threading
 
-from typing import List
+from typing import Callable, List, Optional
+
+from prompt_toolkit import Application
+from prompt_toolkit.layout import Window
 
 from blink import logger
+from blink.config import Config
 from blink.models import Repo, RepoStatus
-from blink.scanner import ScanResult, StatusFetcher, check_pull_prereqs, parse_pull_output
+from blink.scanner import ScanResult, Scanner, StatusFetcher, check_pull_prereqs, parse_pull_output
 from blink.store import Store
+from blink.tui.widgets.repo_list import RepoListControl
 
 
 class AppActionsMixin:
     _store: Store
-    _config: object
-    _app: object
+    _config: Config
+    _app: Application[object]
     _pulling_paths: set[str]
     _committing_paths: set[str]
     _fetching_status: bool
     _scanning: bool
     _scan_status: str
-    _repo_control: object
+    _repo_control: RepoListControl
     _status_fetcher: StatusFetcher
+    _scanner: Scanner
 
     # Implemented in BlinkApp
     def _load_repos(self) -> None: ...
     def _sync_detail_panel(self) -> None: ...
     def _set_scan_status(self, msg: str, timeout: float = 3.0) -> None: ...
     def _clear_scan_status(self) -> None: ...
-    def _start_timer(self, interval: float, func: object) -> None: ...
+    def _start_timer(self, interval: float, func: Callable[[], None]) -> None: ...
     def _open_with_ide(self, path: str) -> None: ...
+    def _get_active_repo(self) -> Optional[Repo]: ...
+    def _focus(self, window: Window | None) -> None: ...
 
     # ── background scan ────────────────────────────────────────────────────
 
@@ -198,10 +206,10 @@ class AppActionsMixin:
                     logger.log("task", f"任务添加成功: {msg}")
                     task_file = str(target or TASKS_FILE)
                     suffix = " (排队等待)" if target else ""
-                    self._start_timer(0.1, lambda: (
-                        self._set_scan_status(f"✓ {msg}{suffix}", timeout=2.0),
-                        self._open_with_ide(task_file),
-                    ))
+                    def _on_task_added() -> None:
+                        self._set_scan_status(f"✓ {msg}{suffix}", timeout=2.0)
+                        self._open_with_ide(task_file)
+                    self._start_timer(0.1, _on_task_added)
                 else:
                     self._start_timer(0.1, lambda: self._set_scan_status("✗ Task 添加失败", timeout=5.0))
             except Exception:

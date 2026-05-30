@@ -128,6 +128,7 @@ def test_escape_narrow_detail_switches_to_list():
     event.app = MagicMock()
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "escape")
+    assert handler is not None
     handler(event)
     assert app._view_mode == "list"
     assert app._focus_pane == "list"
@@ -144,6 +145,7 @@ def test_search_narrow_detail_switches_to_list():
     event.app = MagicMock()
     kb = app._build_key_bindings()
     handler = _find_binding(kb, "/")
+    assert handler is not None
     handler(event)
     assert app._view_mode == "list"
 

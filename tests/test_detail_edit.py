@@ -20,7 +20,7 @@ def _to_plain(formatted) -> str:
     return to_plain_text(formatted)
 
 
-def _make_detail_panel(repo: Repo = None) -> DetailPanel:
+def _make_detail_panel(repo: Repo | None = None) -> DetailPanel:
     if repo is None:
         repo = _make_repo()
     store = Store(":memory:")
@@ -105,6 +105,7 @@ def test_alias_edit_buffer_prepopulated():
     repo = _make_repo(alias="existing")
     panel = _make_detail_panel(repo)
     panel._start_alias_edit()
+    assert panel.alias_buffer
     assert panel.alias_buffer.text == "existing"
 
 
@@ -122,6 +123,7 @@ def test_handle_enter_confirm_alias():
         on_tags_change=lambda: None,
     )
     panel._start_alias_edit()
+    assert panel._alias_buffer
     panel._alias_buffer.text = "new-alias"
     panel.handle_enter()
     assert repo.alias == "new-alias"
@@ -142,6 +144,7 @@ def test_handle_enter_alias_with_empty_buffer():
         on_tags_change=lambda: None,
     )
     panel._start_alias_edit()
+    assert panel._alias_buffer
     panel._alias_buffer.text = ""
     panel.handle_enter()
     assert repo.alias == ""
@@ -161,6 +164,7 @@ def test_desc_edit_buffer_prepopulated():
     repo = _make_repo(description="existing desc")
     panel = _make_detail_panel(repo)
     panel._start_desc_edit()
+    assert panel.desc_buffer
     assert panel.desc_buffer.text == "existing desc"
 
 
@@ -178,6 +182,7 @@ def test_handle_enter_confirm_description():
         on_tags_change=lambda: None,
     )
     panel._start_desc_edit()
+    assert panel._desc_buffer
     panel._desc_buffer.text = "new description"
     panel.handle_enter()
     assert repo.description == "new description"
@@ -198,6 +203,7 @@ def test_handle_enter_confirm_description_clears_edit_mode():
         on_tags_change=lambda: None,
     )
     panel._start_desc_edit()
+    assert panel._desc_buffer
     panel._desc_buffer.text = "new description"
     panel.handle_enter()
     assert repo.description == "new description"
@@ -228,6 +234,7 @@ def test_handle_enter_tags_adds_tag():
         on_tags_change=lambda: None,
     )
     panel._start_tags_edit()
+    assert panel._tag_buffer
     panel._tag_buffer.text = "python"
     panel.handle_enter()
     assert "python" in repo.tags

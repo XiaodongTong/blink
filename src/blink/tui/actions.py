@@ -116,7 +116,7 @@ def open_in_editor(repo_path: str, editor_key: str, editors: Dict[str, EditorInf
     elif editor_key == "o":
         subprocess.Popen(["open", repo_path],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    else:
+    elif info.command:
         subprocess.Popen([info.command, repo_path],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

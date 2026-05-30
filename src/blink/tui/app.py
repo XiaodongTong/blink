@@ -53,9 +53,10 @@ class BlinkApp(AppActionsMixin):
         self._status_control = FormattedTextControl(text=self._status_text)
         self._footer_control = FormattedTextControl(text=self._footer_text)
 
-        self._repo_list_window = None
+        self._repo_list_window: Optional[Window] = None
         self._detail_panel: Optional[DetailPanel] = None
         self._detail_window: Optional[Window] = None
+        self._app: Application[object]
         self._edit_status_window: Optional[Window] = None
 
         self._focus_pane: str = "list"
@@ -89,7 +90,7 @@ class BlinkApp(AppActionsMixin):
             height=D.exact(1), style="class:status",
         )
         self._detail_window = Window(
-            content=self._detail_panel,
+            content=self._detail_panel or FormattedTextControl(text=lambda: ""),
             style="class:detail-panel", height=D(min=1),
         )
 
@@ -103,7 +104,7 @@ class BlinkApp(AppActionsMixin):
 
         if self._repo_list_window is not None:
             try:
-                layout.focus(self._repo_list_window)
+                self._focus(self._repo_list_window)
             except Exception:
                 pass
         self._start_background_status_fetch()
@@ -112,6 +113,10 @@ class BlinkApp(AppActionsMixin):
 
     def _set_focus(self, pane: str) -> None:
         self._focus_pane = pane
+
+    def _focus(self, window: Window | None) -> None:
+        if window is not None:
+            self._app.layout.focus(window)
 
     def _in_edit_mode(self) -> bool:
         if self._review.selecting or self._review.branch_loading:
@@ -206,9 +211,9 @@ class BlinkApp(AppActionsMixin):
             is_focused=lambda: self._focus_pane in ("detail", "edit"),
             on_status_message=self._set_scan_status,
             on_pin_change=lambda: self._refresh_repo(),
-            on_open_ide=lambda: self._trigger_open_ide(self._get_active_repo()),
-            on_commit=lambda: self._run_commit(self._get_active_repo()),
-            on_pull=lambda: self._run_pull(self._get_active_repo()),
+            on_open_ide=lambda: self._trigger_open_ide(self._get_active_repo() or repo),
+            on_commit=lambda: self._run_commit(self._get_active_repo() or repo),
+            on_pull=lambda: self._run_pull(self._get_active_repo() or repo),
             on_action=lambda: self._increment_view_count(),
             on_open_finder=lambda: self._open_finder(),
             on_open_git=lambda: self._open_git_in_browser(),
@@ -291,7 +296,8 @@ class BlinkApp(AppActionsMixin):
         self._sync_view_mode_for_width()
         self._config_selecting = False
         try:
-            self._app.layout.focus(self._detail_window)
+            if self._detail_window is not None:
+                self._focus(self._detail_window)
         except Exception:
             pass
         self._app.invalidate()
@@ -300,19 +306,21 @@ class BlinkApp(AppActionsMixin):
         self._config_panel = None
         self._config_selecting = False
         self._init_detail_panel()
-        if self._detail_window is not None:
+        if self._detail_window is not None and self._detail_panel is not None:
             self._detail_window.content = self._detail_panel
         prev = self._pre_config_focus
         self._set_focus(prev)
         self._sync_view_mode_for_width()
         if prev == "detail" and self._detail_panel is not None:
             try:
-                self._app.layout.focus(self._detail_window)
+                if self._detail_window is not None:
+                    self._focus(self._detail_window)
             except Exception:
                 pass
         else:
             try:
-                self._app.layout.focus(self._repo_list_window)
+                if self._repo_list_window is not None:
+                    self._focus(self._repo_list_window)
             except Exception:
                 pass
         self._app.invalidate()
@@ -356,7 +364,8 @@ class BlinkApp(AppActionsMixin):
             self._detail_panel._desc_buffer = None
             self._detail_panel._tag_buffer = None
             self._set_focus("detail")
-            self._app.layout.focus(self._detail_window)
+            assert self._detail_window is not None
+            self._focus(self._detail_window)
             self._app.invalidate()
 
     def _cancel_search(self) -> None:
@@ -366,7 +375,8 @@ class BlinkApp(AppActionsMixin):
         self._load_repos()
         self._sync_detail_panel()
         self._set_focus("list")
-        self._app.layout.focus(self._repo_list_window)
+        assert self._repo_list_window is not None
+        self._focus(self._repo_list_window)
         self._app.invalidate()
 
     def _route_printable(self, char: str) -> None:
@@ -392,7 +402,7 @@ class BlinkApp(AppActionsMixin):
         self._app.invalidate()
 
     def _load_repos(self) -> None:
-        repos = self._store.search_repos(self._search_bar.text)
+        repos = self._store.search_repos(self._search_bar.buffer.text)
         self._repo_control.set_repos(repos, reset_selection=False)
 
     # ── timer & status helpers ──────────────────────────────────────────
@@ -404,7 +414,7 @@ class BlinkApp(AppActionsMixin):
 
     def _clear_scan_status(self) -> None: self._scan_status = ""; self._app.invalidate()
 
-    def _start_timer(self, interval: float, func: object) -> None:
+    def _start_timer(self, interval: float, func: Callable[[], None]) -> None:
         t = threading.Timer(interval, func)
         t.daemon = True
         t.start()

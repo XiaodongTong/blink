@@ -189,7 +189,7 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
             from blink.tui.layout import _is_wide_enough
             if not _is_wide_enough(app):
                 app._view_mode = "list"
-            app._app.layout.focus(app._repo_list_window)
+            app._focus(app._repo_list_window)
             app._app.invalidate()
 
     # ── Focus switching: → → detail, ← → list ─────────────────────────
@@ -200,11 +200,13 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
     def _(event):
         if app._detail_panel is not None:
             app._set_focus("detail")
-            app._detail_panel.set_repo(app._repo_control.selected_repo())
+            selected = app._repo_control.selected_repo()
+            if selected:
+                app._detail_panel.set_repo(selected)
             from blink.tui.layout import _is_wide_enough
             if not _is_wide_enough(app):
                 app._view_mode = "detail"
-            app._app.layout.focus(app._detail_window)
+            app._focus(app._detail_window)
             app._app.invalidate()
 
     @kb.add("left", filter=Condition(
@@ -215,7 +217,7 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         from blink.tui.layout import _is_wide_enough
         if not _is_wide_enough(app):
             app._view_mode = "list"
-        app._app.layout.focus(app._repo_list_window)
+        app._focus(app._repo_list_window)
         app._app.invalidate()
 
     # ── Arrow keys — confirm search on down ────────────────────────────
@@ -227,7 +229,7 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         if app._search_bar.text:
             app._search_filtering = True
         app._set_focus("list")
-        app._app.layout.focus(app._repo_list_window)
+        app._focus(app._repo_list_window)
         app._repo_control.move_down()
         app._sync_detail_panel()
         app._app.invalidate()
@@ -348,7 +350,7 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         from blink.tui.layout import _is_wide_enough
         if not _is_wide_enough(app) and app._view_mode == "detail":
             app._view_mode = "list"
-            app._app.layout.focus(app._repo_list_window)
+            app._focus(app._repo_list_window)
         app._search_bar.focus(event.app)
         app._app.invalidate()
 
@@ -472,7 +474,7 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
             if app._search_bar.text:
                 app._search_filtering = True
             app._set_focus("list")
-            app._app.layout.focus(app._repo_list_window)
+            app._focus(app._repo_list_window)
             app._app.invalidate()
             return
         if app._focus_pane == "config":
@@ -481,10 +483,10 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
             app._detail_panel.handle_enter()
             if app._detail_panel.is_editing:
                 app._set_focus("edit")
-                app._app.layout.focus(app._edit_status_window)
+                app._focus(app._edit_status_window)
             else:
                 app._set_focus("detail")
-                app._app.layout.focus(app._detail_window)
+                app._focus(app._detail_window)
             app._app.invalidate()
             return
         if app._focus_pane == "list":

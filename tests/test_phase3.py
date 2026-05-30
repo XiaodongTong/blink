@@ -48,7 +48,7 @@ def _make_app():
     app._ide_selecting = False
     app._ide_select_cursor = 0
     app._ide_scroll_offset = 0
-    app._ide_pending_repo = None
+    app._ide_pending_path = None
     app._committing_paths = set()
     app._pulling_paths = set()
     app._review = ReviewOrchestrator(app)
@@ -179,8 +179,10 @@ def test_enter_in_edit_mode_confirms():
     rid = store.upsert_repo(Repo(name="test-repo", path="/tmp/test"))
 
     from blink.tui.widgets.detail import DetailPanel
+    selected = app._repo_control.selected_repo()
+    assert selected is not None
     panel = DetailPanel(
-        repo=app._repo_control.selected_repo(),
+        repo=selected,
         store=store, editors={},
         on_back=lambda: None,
         on_alias_change=lambda a: None,
@@ -192,6 +194,7 @@ def test_enter_in_edit_mode_confirms():
     # Start alias edit
     panel._cursor_index = len(panel._navigable_actions()) + 1
     panel.handle_enter()  # enters edit mode
+    assert panel._alias_buffer is not None
     panel._alias_buffer.text = "new-alias"
 
     # Enter confirms

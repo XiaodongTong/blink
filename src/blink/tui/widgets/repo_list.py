@@ -76,7 +76,7 @@ class RepoListControl(UIControl):
     def _badge_display_width(self, badge: list[tuple[str, str]]) -> int:
         return sum(display_width(t) for _, t in badge)
 
-    def _render_repo(self, repo: Repo, selected: bool, width: int = 0) -> List[AnyFormattedText]:
+    def _render_repo(self, repo: Repo, selected: bool, width: int = 0) -> list[list[tuple[str, str]]]:
         if selected:
             ind_s = "class:indicator"
             name_s = "class:repo-selected"

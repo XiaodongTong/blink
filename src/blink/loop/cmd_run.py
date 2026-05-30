@@ -64,7 +64,8 @@ def handle(args):
 
     ran_any = False
     for i in indices:
-        ts = state.get("tasks", {}).get(str(i), {})
+        tasks_state: dict = state.get("tasks", {})
+        ts: dict = tasks_state.get(str(i), {})
         status = ts.get("status", "pending")
 
         if status == "done" and args.only is None:

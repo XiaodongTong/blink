@@ -31,6 +31,7 @@ def _make_detail_panel_with_store(repo=None):
 def test_route_printable_to_alias_buffer():
     panel, _ = _make_detail_panel_with_store()
     panel._start_alias_edit()
+    assert panel._alias_buffer is not None
     panel._alias_buffer.text = "old"
 
     panel.route_printable("n")
@@ -42,6 +43,7 @@ def test_route_printable_to_alias_buffer():
 def test_route_backspace_alias_buffer():
     panel, _ = _make_detail_panel_with_store()
     panel._start_alias_edit()
+    assert panel._alias_buffer is not None
     panel._alias_buffer.text = "alias"
 
     panel.route_backspace()
@@ -51,6 +53,7 @@ def test_route_backspace_alias_buffer():
 def test_route_printable_to_desc_buffer():
     panel, _ = _make_detail_panel_with_store()
     panel._start_desc_edit()
+    assert panel._desc_buffer is not None
     panel._desc_buffer.text = ""
 
     panel.route_printable("n")
@@ -62,6 +65,7 @@ def test_route_printable_to_desc_buffer():
 def test_route_backspace_desc_buffer():
     panel, _ = _make_detail_panel_with_store()
     panel._start_desc_edit()
+    assert panel._desc_buffer is not None
     panel._desc_buffer.text = "desc"
 
     panel.route_backspace()
@@ -71,6 +75,7 @@ def test_route_backspace_desc_buffer():
 def test_route_printable_to_tag_buffer():
     panel, _ = _make_detail_panel_with_store()
     panel._start_tags_edit()
+    assert panel._tag_buffer is not None
     panel._tag_buffer.text = ""
 
     panel.route_printable("p")
@@ -81,6 +86,7 @@ def test_route_printable_to_tag_buffer():
 def test_route_backspace_tag_buffer():
     panel, _ = _make_detail_panel_with_store()
     panel._start_tags_edit()
+    assert panel._tag_buffer is not None
     panel._tag_buffer.text = "tag"
 
     panel.route_backspace()
@@ -90,6 +96,7 @@ def test_route_backspace_tag_buffer():
 def test_route_printable_space_to_buffer():
     panel, _ = _make_detail_panel_with_store()
     panel._start_alias_edit()
+    assert panel._alias_buffer is not None
     panel._alias_buffer.text = ""
 
     panel.route_printable("h")

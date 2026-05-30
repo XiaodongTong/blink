@@ -8,7 +8,7 @@ import yaml
 from blink.loop import config
 
 
-def load_state():
+def load_state() -> dict:
     if config.STATE_FILE.exists():
         with open(config.STATE_FILE) as f:
             return json.load(f)

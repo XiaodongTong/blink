@@ -1,13 +1,15 @@
 """Cybervisor runner backend."""
 
 import subprocess
+from pathlib import Path
 
 from blink.loop import log_format
-from blink.loop.runner import Runner
+from blink.loop.runner import Runner as RunnerBase
 
 
-class CybervisorRunner(Runner):
-    def run(self, prompt, cwd, log_file=None, prompt_file=None):
+class CybervisorRunner(RunnerBase):
+    def run(self, prompt: str, cwd: str, log_file: str | Path | None = None,
+            prompt_file: str | Path | None = None, **kwargs: object) -> int:
         cmd = ["cybervisor", "run"]
 
         with open(log_file, "a") if log_file else open("/dev/null", "a") as log:
@@ -22,9 +24,11 @@ class CybervisorRunner(Runner):
                     text=True,
                 )
                 if not stdin_fh:
+                    assert process.stdin is not None
                     process.stdin.write(prompt)
                     process.stdin.close()
 
+                assert process.stdout is not None
                 for line in process.stdout:
                     print(line, end="")
                     log_format.write_implement_output(log, line)

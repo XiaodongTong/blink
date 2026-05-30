@@ -141,6 +141,7 @@ def test_get_active_repo_always_returns_list_selection():
     panel.is_editing = False
     app._detail_panel = panel
     repo = app._get_active_repo()
+    assert repo is not None
     assert repo.id == rid  # Still from the repo control
 
 

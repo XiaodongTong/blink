@@ -177,7 +177,10 @@ def test_set_description_null_old_db() -> None:
 def test_upsert_preserves_alias_on_rescan() -> None:
     store = _make_store()
     store.upsert_repo(Repo(name="x", path="/x"))
-    store.set_alias(store.get_repo_by_path("/x").id, "my-alias")
+    repo0 = store.get_repo_by_path("/x")
+    assert repo0 is not None
+    assert repo0.id is not None
+    store.set_alias(repo0.id, "my-alias")
     # Simulate rescan: scanner creates a new Repo with empty alias
     store.upsert_repo(Repo(name="x", path="/x", last_synced="2025-06-01T00:00:00"))
     repo = store.get_repo_by_path("/x")
@@ -269,23 +272,33 @@ def test_load_repos_populates_tags() -> None:
 def test_toggle_pin() -> None:
     store = _make_store()
     rid = store.upsert_repo(Repo(name="x", path="/x"))
-    assert store.get_repo_by_path("/x").pinned == 0
+    repo0 = store.get_repo_by_path("/x")
+    assert repo0 is not None
+    assert repo0.pinned == 0
     new_val = store.toggle_pin(rid)
     assert new_val == 1
-    assert store.get_repo_by_path("/x").pinned == 1
+    repo1 = store.get_repo_by_path("/x")
+    assert repo1 is not None
+    assert repo1.pinned == 1
     new_val = store.toggle_pin(rid)
     assert new_val == 0
-    assert store.get_repo_by_path("/x").pinned == 0
+    repo2 = store.get_repo_by_path("/x")
+    assert repo2 is not None
+    assert repo2.pinned == 0
     store.close()
 
 
 def test_increment_view_count() -> None:
     store = _make_store()
     rid = store.upsert_repo(Repo(name="x", path="/x"))
-    assert store.get_repo_by_path("/x").view_count == 0
+    repo0 = store.get_repo_by_path("/x")
+    assert repo0 is not None
+    assert repo0.view_count == 0
     store.increment_view_count(rid)
     store.increment_view_count(rid)
-    assert store.get_repo_by_path("/x").view_count == 2
+    repo1 = store.get_repo_by_path("/x")
+    assert repo1 is not None
+    assert repo1.view_count == 2
     store.close()
 
 
@@ -320,12 +333,16 @@ def test_search_repos_preserves_sort_order() -> None:
 def test_upsert_preserves_pinned_and_view_count() -> None:
     store = _make_store()
     store.upsert_repo(Repo(name="x", path="/x"))
-    rid = store.get_repo_by_path("/x").id
+    repo0 = store.get_repo_by_path("/x")
+    assert repo0 is not None
+    assert repo0.id is not None
+    rid = repo0.id
     store.toggle_pin(rid)
     store.increment_view_count(rid)
     # Simulate rescan
     store.upsert_repo(Repo(name="x", path="/x", last_synced="2025-06-01T00:00:00"))
     repo = store.get_repo_by_path("/x")
+    assert repo is not None
     assert repo.pinned == 1
     assert repo.view_count == 1
     store.close()

@@ -182,7 +182,8 @@ def test_enter_in_list_opens_ide():
     app._focus_pane = "list"
     repo = Repo(id=rid, name="test-repo", path="/tmp/test")
     app._repo_control.selected_repo = MagicMock(return_value=repo)
-    app._config.editor = "v"
+    config_mock: MagicMock = app._config  # type: ignore[assignment]
+    config_mock.editor = "v"
     # Set a real command to avoid FileNotFoundError
     app._editors = {"v": MagicMock(available=True, command="echo")}
 
@@ -295,6 +296,7 @@ def test_sync_detail_panel_creates_panel():
     assert app._detail_panel is None
     app._sync_detail_panel()
     assert app._detail_panel is not None
+    assert app._detail_panel._repo is not None
     assert app._detail_panel._repo.id == rid
 
 
@@ -302,10 +304,12 @@ def test_sync_detail_panel_updates_existing():
     app, store, rid = _make_app()
     app._init_detail_panel()
     old_panel = app._detail_panel
+    assert old_panel is not None
     new_repo = Repo(id=rid, name="updated", path="/updated")
     app._repo_control.selected_repo = MagicMock(return_value=new_repo)
     app._sync_detail_panel()
     assert app._detail_panel is old_panel  # Same panel object
+    assert app._detail_panel is not None
     assert app._detail_panel._repo is new_repo  # Repo updated
 
 
@@ -315,8 +319,13 @@ def test_sync_detail_panel_updates_existing():
 def test_view_count_incremented_on_action():
     app, store, rid = _make_app()
     app._init_detail_panel()
+    assert app._detail_panel is not None
     app._detail_panel._cursor_index = len(app._detail_panel._navigable_actions()) + 1
-    initial_count = app._repo_control.selected_repo().view_count
+    initial_repo = app._repo_control.selected_repo()
+    assert initial_repo is not None
+    initial_count = initial_repo.view_count
     app._detail_panel.handle_enter()
     # handle_enter calls _on_action which calls _increment_view_count
-    assert app._repo_control.selected_repo().view_count == initial_count + 1
+    updated_repo = app._repo_control.selected_repo()
+    assert updated_repo is not None
+    assert updated_repo.view_count == initial_count + 1

@@ -104,7 +104,7 @@ def run_static_analysis(dir_path, diff_text, timeout=60):
 
     for lang in sorted(languages):
         name, cmd, filter_files = _find_linter(lang)
-        if not name:
+        if not name or not cmd:
             available = ", ".join(c[0] for c in LINTER_COMMANDS.get(lang, []))
             results.append(f"[{lang}] (no linter available — install: {available})")
             continue
