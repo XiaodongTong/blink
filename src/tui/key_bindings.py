@@ -135,6 +135,9 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         if app._review.selecting or app._review.branch_loading:
             app._cancel_review()
             return
+        if app._focus_pane == "config":
+            app._exit_config()
+            return
         if app._in_edit_mode():
             app._cancel_edit()
             return
