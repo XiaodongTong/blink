@@ -183,20 +183,13 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
             return
         if app._focus_pane == "detail":
             app._set_focus("list")
+            from blink.tui.layout import _is_wide_enough
+            if not _is_wide_enough(app):
+                app._view_mode = "list"
             app._app.layout.focus(app._repo_list_window)
             app._app.invalidate()
 
-    # ── Focus switching: Tab/→ → detail, ← → list ────────────────────
-
-    @kb.add(Keys.Tab, filter=Condition(
-        lambda: not app._search_active and not app._in_edit_mode() and not app._ide_selecting
-        and app._focus_pane != "config"))
-    def _(event):
-        if app._detail_panel is not None and app._focus_pane == "list":
-            app._set_focus("detail")
-            app._detail_panel.set_repo(app._repo_control.selected_repo())
-            app._app.layout.focus(app._detail_window)
-            app._app.invalidate()
+    # ── Focus switching: → → detail, ← → list ─────────────────────────
 
     @kb.add("right", filter=Condition(
         lambda: not app._search_active and not app._in_edit_mode()
@@ -205,6 +198,9 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         if app._detail_panel is not None:
             app._set_focus("detail")
             app._detail_panel.set_repo(app._repo_control.selected_repo())
+            from blink.tui.layout import _is_wide_enough
+            if not _is_wide_enough(app):
+                app._view_mode = "detail"
             app._app.layout.focus(app._detail_window)
             app._app.invalidate()
 
@@ -213,6 +209,9 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         and not app._ide_selecting and app._focus_pane == "detail"))
     def _(event):
         app._set_focus("list")
+        from blink.tui.layout import _is_wide_enough
+        if not _is_wide_enough(app):
+            app._view_mode = "list"
         app._app.layout.focus(app._repo_list_window)
         app._app.invalidate()
 
@@ -343,6 +342,10 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         app._search_active = True
         app._search_filtering = False
         app._search_bar.clear()
+        from blink.tui.layout import _is_wide_enough
+        if not _is_wide_enough(app) and app._view_mode == "detail":
+            app._view_mode = "list"
+            app._app.layout.focus(app._repo_list_window)
         app._search_bar.focus(event.app)
         app._app.invalidate()
 

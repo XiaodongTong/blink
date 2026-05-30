@@ -270,7 +270,7 @@ def build_footer_text(app: BlinkApp) -> FormattedText:
     style_dim = "class:footer-highlight" if highlighted else "class:footer-dim"
     hints = [
         ("Enter", "ide"), ("/", "search"),
-        ("Tab", "focus"),
+        ("→←", "focus"),
         ("Shift+R", "rescan"),
         ("Shift+S", "config"),
     ]
@@ -280,6 +280,14 @@ def build_footer_text(app: BlinkApp) -> FormattedText:
             parts.append(("class:footer-dim", "  "))
         parts.append((style_key, key))
         parts.append((style_dim, f":{desc}"))
+    try:
+        cols = app._app.output.get_size().columns
+    except Exception:
+        cols = 120
+    if cols < 110:
+        label = "DETAIL" if app._view_mode == "detail" else "LIST"
+        parts.append(("class:footer-dim", "  "))
+        parts.append(("class:status-accent", f"[{label}]"))
     return FormattedText(parts)
 
 

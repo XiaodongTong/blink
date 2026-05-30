@@ -19,7 +19,7 @@ from blink.models import Repo, RepoStatus
 from blink import logger
 from blink.config import Config
 from blink.store import Store
-from blink.scanner import Scanner
+from blink.scanner import Scanner, StatusFetcher
 from blink.tui.widgets.repo_list import RepoListControl
 from blink.tui.widgets.search import SearchBar
 from blink.tui.actions import EditorInfo, IDE_CHOICES, detect_editors, find_editor_by_name, open_in_editor, open_terminal
@@ -71,6 +71,8 @@ class BlinkApp(AppActionsMixin):
         self._ide_pending_path: Optional[str] = None
         self._committing_paths: set[str] = set()
         self._pulling_paths: set[str] = set()
+
+        self._view_mode: str = "list"
 
         self._review = ReviewOrchestrator(self)
 
@@ -175,6 +177,20 @@ class BlinkApp(AppActionsMixin):
             return len(" Tag: ") + len(panel.tag_buffer.text)
         return None
 
+    # ── view mode sync ────────────────────────────────────────────────────
+
+    def _sync_view_mode_for_width(self) -> None:
+        try:
+            cols = self._app.output.get_size().columns
+        except Exception:
+            return
+        if cols >= 110:
+            return
+        if self._focus_pane in ("detail", "config") and self._view_mode == "list":
+            self._view_mode = "detail"
+        elif self._focus_pane == "list" and self._view_mode == "detail":
+            self._view_mode = "list"
+
     # ── detail panel ────────────────────────────────────────────────────
 
     def _init_detail_panel(self) -> None:
@@ -272,6 +288,7 @@ class BlinkApp(AppActionsMixin):
         if self._detail_window is not None:
             self._detail_window.content = self._config_panel
         self._set_focus("config")
+        self._sync_view_mode_for_width()
         self._config_selecting = False
         try:
             self._app.layout.focus(self._detail_window)
@@ -287,6 +304,7 @@ class BlinkApp(AppActionsMixin):
             self._detail_window.content = self._detail_panel
         prev = self._pre_config_focus
         self._set_focus(prev)
+        self._sync_view_mode_for_width()
         if prev == "detail" and self._detail_panel is not None:
             try:
                 self._app.layout.focus(self._detail_window)

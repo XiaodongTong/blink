@@ -21,6 +21,9 @@ def main(ctx: click.Context, rescan: bool) -> None:
     if ctx.invoked_subcommand is not None:
         return
     validate_git()
+    if not sys.stdin.isatty():
+        click.echo("Error: blink TUI requires an interactive terminal.", err=True)
+        sys.exit(1)
     config = Config()
     store = Store(config.db_path())
     store.init_db()

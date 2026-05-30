@@ -25,7 +25,7 @@
 
 - `build_layout(app)` 构建双栏 `VSplit` 布局（左列表 ~48% + 右详情 ~52%）
 - `EditStatusControl`：编辑模式状态栏的自定义 UIControl（支持光标位置显示）
-- 窄终端（<80列）通过 `ConditionalContainer` 隐藏右面板
+- 窄终端（<110列）通过 `ConditionalContainer` + `_view_mode` 实现单视图切换
 
 ## key_bindings.py
 
@@ -33,7 +33,7 @@
 - IDE 选择模式（最高优先级）
 - Review 分支选择模式
 - Ctrl+C 双击退出、Esc 取消链
-- 焦点切换（Tab/←→）
+- 焦点/视图切换（←→，窄模式下切换全屏视图）
 - 列表/详情导航（↑↓）
 - 搜索（/）、Shift+1~8（Terminal/IDE/Finder/Git/Commit/Pull/Task/Review）
 - 编辑态字符路由（可打印字符、Backspace、CJK 输入）

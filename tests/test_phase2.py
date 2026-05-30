@@ -40,12 +40,16 @@ def _make_app():
     app._detail_window = MagicMock()
     app._edit_status_window = MagicMock()
     app._focus_pane = "list"
+    app._view_mode = "list"
     app._search_active = False
     app._search_filtering = False
     app._footer_highlight_until = 0.0
     app._last_ctrl_c = 0.0
     app._ctrl_c_quit_hint = False
     app._app = MagicMock()
+    size_mock = MagicMock()
+    size_mock.columns = 120
+    app._app.output.get_size.return_value = size_mock
     app._ide_selecting = False
     app._ide_select_cursor = 0
     app._ide_scroll_offset = 0
@@ -92,7 +96,7 @@ def test_focus_starts_on_list():
     assert app._focus_pane == "list"
 
 
-def test_tab_switches_to_detail():
+def test_right_switches_to_detail():
     app, _, _ = _make_app()
     panel = MagicMock()
     panel.is_editing = False
@@ -101,16 +105,29 @@ def test_tab_switches_to_detail():
     app._focus_pane = "list"
     kb = app._build_key_bindings()
 
-    # Tab is registered as c-i in prompt_toolkit
     event = MagicMock()
     for reg in kb.bindings:
         for key in reg.keys:
             key_str = key.value if hasattr(key, 'value') else str(key)
-            if key_str == "c-i" and reg.filter is not None and reg.filter():
+            if key_str == "right" and reg.filter is not None and reg.filter():
                 reg.handler(event)
                 assert app._focus_pane == "detail"
                 return
-    assert False, "Tab (c-i) binding not found or filter not passing"
+    assert False, "right arrow binding not found or filter not passing"
+
+
+def test_tab_not_bound():
+    app, _, _ = _make_app()
+    panel = MagicMock()
+    panel.is_editing = False
+    app._detail_panel = panel
+    app._focus_pane = "list"
+    kb = app._build_key_bindings()
+    for reg in kb.bindings:
+        for key in reg.keys:
+            key_str = key.value if hasattr(key, 'value') else str(key)
+            if key_str == "c-i" and reg.filter is not None:
+                assert not reg.filter(), "Tab (c-i) should not be active"
 
 
 def test_escape_returns_to_list_from_detail():

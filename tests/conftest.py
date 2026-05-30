@@ -38,12 +38,16 @@ def app_with_store():
     app._detail_window = MagicMock()
     app._edit_status_window = MagicMock()
     app._focus_pane = "list"
+    app._view_mode = "list"
     app._search_active = False
     app._search_filtering = False
     app._footer_highlight_until = 0.0
     app._last_ctrl_c = 0.0
     app._ctrl_c_quit_hint = False
     app._app = MagicMock()
+    size_mock = MagicMock()
+    size_mock.columns = 120
+    app._app.output.get_size.return_value = size_mock
     app._ide_selecting = False
     app._ide_select_cursor = 0
     app._ide_scroll_offset = 0

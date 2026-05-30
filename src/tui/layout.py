@@ -45,7 +45,7 @@ class EditStatusControl(UIControl):
         )
 
 
-NARROW_THRESHOLD = 80
+NARROW_THRESHOLD = 110
 
 
 def build_layout(app: BlinkApp) -> Layout:
@@ -53,22 +53,35 @@ def build_layout(app: BlinkApp) -> Layout:
 
     left_border = Condition(lambda: app._focus_pane == "list")
     right_border = Condition(lambda: app._focus_pane in ("detail", "config"))
-    detail_visible = Condition(
-        lambda: (app._detail_panel is not None or app._focus_pane == "config") and _is_wide_enough(app)
-    )
+    def _detail_visible():
+        app._sync_view_mode_for_width()
+        return (app._detail_panel is not None or app._focus_pane == "config") \
+            and (_is_wide_enough(app) or app._view_mode == "detail")
+
+    def _list_visible():
+        app._sync_view_mode_for_width()
+        return _is_wide_enough(app) or app._view_mode == "list"
+
+    detail_visible = Condition(_detail_visible)
+    list_visible = Condition(_list_visible)
     edit_active = Condition(lambda: app._in_edit_mode())
     search_filtering = Condition(
         lambda: app._search_filtering and not app._search_active
     )
     search_active = Condition(lambda: app._search_active)
 
-    left_panel = HSplit([
+    def _left_max():
+        return 70 if _is_wide_enough(app) else None
+
+    left_inner = HSplit([
         Window(height=D.exact(1), char="─",
                style=Condition(lambda: "class:border-focus" if left_border() else "class:border")),
         app._repo_list_window,
         Window(height=D.exact(1), char="─",
                style=Condition(lambda: "class:border-focus" if left_border() else "class:border")),
-    ], width=D(min=25, preferred=48, max=70))
+    ], width=lambda: D(min=25, preferred=48, max=_left_max()))
+
+    left_panel = ConditionalContainer(left_inner, filter=list_visible)
 
     right_panel = ConditionalContainer(
         HSplit([
@@ -81,9 +94,10 @@ def build_layout(app: BlinkApp) -> Layout:
         filter=detail_visible,
     )
 
+    both_visible = Condition(lambda: detail_visible() and list_visible())
     v_sep = ConditionalContainer(
         Window(char="│", style="class:border", width=D.exact(1)),
-        filter=detail_visible,
+        filter=both_visible,
     )
 
     main_area = VSplit([left_panel, v_sep, right_panel])

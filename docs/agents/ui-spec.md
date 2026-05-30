@@ -98,8 +98,9 @@
 | `↑` / `↓` | 列表导航 / 详情行导航 / 配置面板导航 | list / detail / config |
 | `Enter` | 打开 IDE（列表）/ 执行操作（详情）/ 选择配置项（配置面板）| list / detail / config |
 | `/` | 进入搜索 | list, detail |
-| `Tab` / `→` | 焦点移至右侧详情面板 | list |
-| `Esc` / `←` | 焦点移回左侧列表 / 退出配置面板 | detail / config |
+| `→` | 焦点移至右侧详情面板（宽模式）/ 切换至详情视图（窄模式）| list |
+| `←` | 焦点移回左侧列表（宽模式）/ 切换至列表视图（窄模式）| detail |
+| `Esc` | 焦点移回左侧列表 / 退出配置面板 | detail / config |
 | `Shift+S` | 进入配置面板 | list, detail |
 | `e` | 用系统编辑器打开 config.json | config |
 | `Shift+1` | 打开终端 | list, detail |
@@ -119,5 +120,11 @@
 
 ## 窄终端降级
 
-- 终端宽度 < 80 列时右侧面板折叠
-- 通过 `ConditionalContainer` + `_is_wide_enough()` 实现
+- 终端宽度 ≥ 110 列：双栏并排布局，`→`/`←` 切换焦点
+- 终端宽度 < 110 列：单视图切换模式
+  - 列表视图：按 `→` 切换至详情全屏视图
+  - 详情视图：按 `←` 或 `Esc` 切换回列表全屏视图
+  - 列表视图撑满终端宽度
+  - `/` 搜索在详情视图时自动切回列表视图
+  - 页脚显示 `[LIST]`/`[DETAIL]` 视图模式标签
+- 通过 `ConditionalContainer` + `_is_wide_enough()` + `_view_mode` 实现
