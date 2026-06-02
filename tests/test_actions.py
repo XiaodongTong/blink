@@ -95,3 +95,17 @@ def test_find_editor_by_name_accepts_dict_no_detect() -> None:
         "a": EditorInfo(key="a", name="Antigravity IDE", command="open"),
     }
     assert find_editor_by_name("Antigravity IDE", editors) == "a"
+
+
+def test_find_editor_by_name_antigravity_alias() -> None:
+    editors = {
+        "a": EditorInfo(key="a", name="Antigravity IDE", command="open"),
+    }
+    assert find_editor_by_name("Antigravity", editors) == "a"
+
+
+def test_find_editor_by_name_antigravity_ide_alias() -> None:
+    editors = {
+        "a": EditorInfo(key="a", name="Antigravity", command="open"),
+    }
+    assert find_editor_by_name("Antigravity IDE", editors) == "a"

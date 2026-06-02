@@ -121,9 +121,14 @@ def open_in_editor(repo_path: str, editor_key: str, editors: Dict[str, EditorInf
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+_ANTIGRAVITY_NAMES = {"Antigravity", "Antigravity IDE"}
+
+
 def find_editor_by_name(name: str, editors: Dict[str, EditorInfo]) -> Optional[str]:
     for info in editors.values():
         if info.name == name:
+            return info.key
+        if name in _ANTIGRAVITY_NAMES and info.name in _ANTIGRAVITY_NAMES:
             return info.key
     return None
 

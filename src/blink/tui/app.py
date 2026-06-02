@@ -133,7 +133,11 @@ class BlinkApp(AppActionsMixin):
     # ── IDE helpers ─────────────────────────────────────────────────────
 
     def _ide_options(self) -> list[tuple[str, str]]:
-        return list(IDE_CHOICES)
+        result = []
+        for key, default_name in IDE_CHOICES:
+            editor = self._editors.get(key)
+            result.append((key, editor.name if editor else default_name))
+        return result
 
     def _open_with_ide(self, path: str) -> None:
         preferred = self._config.editor
