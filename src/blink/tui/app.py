@@ -81,6 +81,8 @@ class BlinkApp(AppActionsMixin):
         self._config_selecting: bool = False
         self._pre_config_focus: str = "list"
 
+        self._exit_cd_path: Optional[str] = None
+
         self._load_repos()
         self._init_detail_panel()
         logger.log("tui", "Blink TUI 启动")
@@ -435,6 +437,12 @@ class BlinkApp(AppActionsMixin):
         self._footer_highlight_until = time.monotonic() + 2.0
         self._app.invalidate()
         self._start_timer(2.0, self._reset_footer_highlight)
+
+    # ── exit and cd ─────────────────────────────────────────────────────
+
+    def _exit_and_cd(self, repo: Repo) -> None:
+        self._exit_cd_path = repo.path
+        self._app.exit()
 
     # ── run ─────────────────────────────────────────────────────────────
 

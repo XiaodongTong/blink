@@ -21,7 +21,7 @@ Blink 是面向开发者的终端工具集，提供两大核心能力：
 
 - **仓库发现**：扫描文件系统，自动发现 git 仓库并持久化到 SQLite
 - **实时状态**：并行获取分支、dirty 文件数、ahead/behind 等状态
-- **快捷工具**：IDE 打开、浏览器跳转远程仓库、路径复制、自动提交、AI Code Review
+- **快捷工具**：Enter 退出并 cd 到项目目录、IDE 打开、浏览器跳转远程仓库、路径复制、自动提交、AI Code Review
 - **全文搜索**：按名称/路径/远程 URL/标签/描述过滤仓库
 
 ### Loop — AI 任务引擎
@@ -66,7 +66,7 @@ uv build                   # 构建分发包
 
 | 模块 | 职责 |
 |------|------|
-| `cli.py` | 入口，click group，无子命令时启动 TUI |
+| `cli.py` | 入口，click group，无子命令时启动 TUI，Enter 退出写 cd 路径 |
 | `models.py` | `Repo`/`Remote`/`RepoStatus` 数据类 + `display_width()` |
 | `logger.py` | 按天轮转日志，线程安全 |
 | `config.py` | JSON 配置加载，缺失时回退默认值 |

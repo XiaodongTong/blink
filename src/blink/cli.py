@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import os
+import shlex
 import sys
+import termios
 
 import click
 from importlib.metadata import version as _pkg_version
@@ -11,6 +14,15 @@ from blink.config import Config, get_default_model
 from blink.scanner import Scanner, validate_git
 from blink.store import Store
 from blink.tui.app import BlinkApp
+
+
+def _inject_cd(path: str) -> None:
+    cmd = f"cd {shlex.quote(path)}\n"
+    try:
+        for ch in cmd:
+            fcntl.ioctl(0, termios.TIOCSTI, ch.encode())
+    except Exception:
+        print(cmd, end="")
 
 
 @click.group(invoke_without_command=True)
@@ -57,6 +69,8 @@ def main(ctx: click.Context, rescan: bool) -> None:
         app = BlinkApp(store=store, scanner=scanner, config=config, is_first_run=False)
 
     app.run()
+    if app._exit_cd_path:
+        _inject_cd(app._exit_cd_path)
     store.close()
 
 

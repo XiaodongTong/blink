@@ -58,4 +58,5 @@ def app_with_store():
     app._config_panel = None
     app._config_selecting = False
     app._pre_config_focus = "list"
+    app._exit_cd_path = None
     yield app, store, rid

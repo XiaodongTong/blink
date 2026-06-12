@@ -493,7 +493,7 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
         if app._focus_pane == "list":
             repo = app._repo_control.selected_repo()
             if repo:
-                app._trigger_open_ide(repo)
+                app._exit_and_cd(repo)
 
     # ── Tag removal 1-9 (detail panel tag edit mode) ────────────────────
 
