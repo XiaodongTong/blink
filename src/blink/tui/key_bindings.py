@@ -343,8 +343,7 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
 
     # ── Search (available from both panes) ───────────────────────────────
 
-    @kb.add("/", filter=Condition(lambda: not app._search_active and not app._in_edit_mode()))
-    def _(event):
+    def _start_search(event):
         app._search_active = True
         app._search_filtering = False
         app._search_bar.clear()
@@ -354,6 +353,18 @@ def build_key_bindings(app: BlinkApp) -> KeyBindings:
             app._focus(app._repo_list_window)
         app._search_bar.focus(event.app)
         app._app.invalidate()
+
+    def _search_slash(event):
+        if app._search_active and not app._search_bar.text:
+            app._cancel_search()
+        else:
+            _start_search(event)
+
+    _search_filter = Condition(lambda: not app._search_active and not app._in_edit_mode())
+    for _ch in ("/", "、", "／"):
+        kb.add(_ch, filter=Condition(
+            lambda: not app._in_edit_mode() and (not app._search_active or not app._search_bar.text)
+        ))(_search_slash)
 
     # ── Shift+1 (!) — open terminal ──────────────────────────────────
 
